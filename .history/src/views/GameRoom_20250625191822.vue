@@ -60,24 +60,24 @@
       <div
         class="flex items-start gap-8 bg-green-100 border-4 border-green-600 rounded-xl p-6 w-full shadow-lg"
       >
-    <!-- Zone d'échange (dépose de cartes) -->
-  <div class="flex-grow">
-    <h3 class="text-lg font-semibold text-green-800 mb-2 text-center">
-      Zone d'échange
-    </h3>
-    <div
-      class="battle-drop-zone h-32 border-2 border-dashed border-green-400 rounded bg-green-50 p-4 flex items-center justify-start gap-4"
-    >
-      <div
-        v-for="(card, index) in battleZoneCards"
-        :key="'battle-card-' + index"
-        class="card border px-3 py-2 rounded shadow text-xl"
-        :class="getCardColor(card)"
-      >
-        {{ card }}
-      </div>
-    </div>
-  </div>
+        <!-- Zone d'échange (dépose de cartes) -->
+        <div class="flex-grow">
+          <h3 class="text-lg font-semibold text-green-800 mb-2 text-center">
+            Zone d'échange
+          </h3>
+          <div
+            class="battle-drop-zone h-32 border-2 border-dashed border-green-400 rounded bg-green-50 p-4 flex items-center justify-start gap-4"
+          >
+            <div
+              v-for="(card, index) in battleZoneCards"
+              :key="'battle-card-' + index"
+              class="card border px-3 py-2 rounded shadow text-xl"
+              :class="getCardColor(card)"
+            >
+              {{ card }}
+            </div>
+          </div>
+        </div>
 
         <!-- Atout à droite -->
         <div class="flex flex-col items-center">
