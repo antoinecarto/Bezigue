@@ -1,11 +1,5 @@
 <template>
   <div class="game-room text-center p-4">
-        <div v-if="loading">Chargement de la partie...</div>
-
-    <div v-else-if="!roomData">
-      Partie introuvable ou supprimée.
-    </div>
-
 
     <!-- MAIN DE L’ADVERSAIRE (retournée) -->
     <div v-if="opponentHand.length" class="player-hand mt-6">
@@ -121,100 +115,86 @@
 
 
 
-<script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+<script setup lang="ts">  
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
 import { db } from '@/firebase'
+import { computed } from 'vue';
 
-const route = useRoute()
-const roomId = route.params.roomId as string
 
-const roomData = ref<any>(null)
-const loading = ref(true)
-const uid = ref<string | null>(null)
 
-// Scores et zones de jeu (initialisés vides, à compléter selon ta logique)
-const playerScore = ref(0)
-const opponentScore = ref(0)
-const playerPlayedCards = ref<string[]>([])
-const opponentPlayedCards = ref<string[]>([])
-const battleZoneCards = ref<string[]>([])
+/* -------------------------------------------------------------------------- */
+/* 1. Réactifs & route                                                        */
+/* -------------------------------------------------------------------------- */
+const route   = useRoute()
+const roomId  = route.params.id as string   // adapte 'id' au nom réel du param
 
-const auth = getAuth()
+const roomData = ref<any>(null)             // OK puisque lang="ts"
+/* si tu restes en JS :  const roomData = ref(null) */
 
-// Attente auth et subscription Firestore
+/* -------------------------------------------------------------------------- */
+/* 2. Auth                                                 */
+/* -------------------------------------------------------------------------- */
+
+const auth = getAuth();
+const uid = computed(() => auth.currentUser?.uid ?? null);
+
+/* -------------------------------------------------------------------------- */
+/* 3. Abonnement temps réel                                                   */
+/* -------------------------------------------------------------------------- */
 onMounted(() => {
+  const auth = getAuth();
+
+  // Attendre que l'utilisateur soit chargé
   auth.onAuthStateChanged((user) => {
     if (user) {
-      uid.value = user.uid
+      uid.value = user.uid;
 
-      // On lance l’écoute Firestore seulement après avoir l’UID
-      subscribeRoom(roomId)
+      // Activer l'abonnement Firestore ici seulement après avoir le uid
+      const roomRef = doc(db, 'rooms', roomId)
+      onSnapshot(roomRef, snap => (roomData.value = snap.data()))
     } else {
-      console.warn('Utilisateur non connecté')
-      loading.value = false
-      // ici tu peux rediriger vers login si besoin
+      console.warn("Aucun utilisateur connecté.");
+      // tu peux rediriger vers la page de login ici si besoin
     }
-  })
-})
+  });
+});
 
-// Abonnement Firestore
-function subscribeRoom(roomId: string) {
-  const roomRef = doc(db, 'rooms', roomId)
 
-  return onSnapshot(roomRef, (snap) => {
-    if (snap.exists()) {
-      roomData.value = snap.data()
-    } else {
-      roomData.value = null
-    }
-    loading.value = false
-  })
-}
-
-// Computed pour mains locales et adversaires
+/* -------------------------------------------------------------------------- */
+/* 4. Données dérivées                                                        */
+/* -------------------------------------------------------------------------- */
 const localHand = computed(() => {
-  if (!uid.value || !roomData.value?.hands) return []
-  return roomData.value.hands[uid.value] ?? []
+  const h = roomData.value?.hands ?? {}
+  return uid.value ? h[uid.value] ?? [] : []
 })
 
 const opponentHand = computed(() => {
-  if (!roomData.value?.hands || !uid.value) return []
-  const oppUid = Object.keys(roomData.value.hands).find(k => k !== uid.value)
-  return oppUid ? roomData.value.hands[oppUid] : []
+  const h = roomData.value?.hands ?? {}
+  const oppUid = uid.value
+    ? Object.keys(h).find(k => k !== uid.value)
+    : null
+  return oppUid ? h[oppUid] : []
 })
+
 
 const deckCards = computed(() => roomData.value?.deck ?? [])
 const trumpCard = computed(() => roomData.value?.trumpCard ?? null)
 
+
 function getCardColor(card: string | undefined) {
-  if (!card) return 'text-black'
+  if (!card) return 'text-black'           // carte indéfinie → couleur neutre
+
+  // On prend le dernier caractère (♠ ♥ ♦ ♣)
   const suit = card.slice(-1)
-  return suit === '♥' || suit === '♦' ? 'text-red-600' : 'text-black'
+
+  // Pique / Trèfle = noir  |  Cœur / Carreau = rouge
+  return suit === '♥' || suit === '♦'
+    ? 'text-red-600'
+    : 'text-black'
 }
-
-function playCard(card: string, player: 'player' | 'opponent') {
-  console.log(`Joueur ${player} joue la carte`, card)
-  // TODO : ta logique de jeu ici
-}
-
-watch([uid, roomData], ([newUid, newRoomData]) => {
-  console.log('uid:', newUid)
-  console.log('roomData:', newRoomData)
-  console.log('hands:', newRoomData?.hands)
-  console.log("Clés des mains :", Object.keys(newRoomData?.hands ?? {}));
-  console.log("players:", roomData.value?.players);
-console.log("UID connecté:", uid);
-console.log("Mains disponibles:", Object.keys(roomData.value?.hands || {}));
-console.log("Main locale:", roomData.value?.hands?.[uid]);
-
-
-  if (newUid && newRoomData?.hands) {
-    console.log('local hand:', newRoomData.hands[newUid])
-  }
-}, { immediate: true })
 
 </script>
 

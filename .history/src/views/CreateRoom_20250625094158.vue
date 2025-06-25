@@ -13,7 +13,6 @@
 </template>
 
 <script setup lang="ts">
-import { getAuth } from 'firebase/auth'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
@@ -28,70 +27,61 @@ import {
   distributeCards
 } from '@/game/BezigueGame'                   // logique “moteur”
 
-const emit = defineEmits<{ 'room-created': [string] }>()
+const emit   = defineEmits<{ 'room-created': [string] }>()
 const router = useRouter()
 
-const roomId = ref<string | null>(null)
+const roomId  = ref<string | null>(null)
 const loading = ref(false)
+// DEBUG
+// Console navigateur, après s'être authentifié
+await addDoc(collection(db, 'rooms'), {
+  players: [auth.currentUser.uid],
+  status:  'waiting',
+  nextTurnIndex: 0
+});
 
 /** Création d'une nouvelle salle et redirection */
 const createRoom = async () => {
   loading.value = true
   try {
-    const auth = getAuth()
-    const uid = auth.currentUser?.uid
-    if (!uid) {
-      throw new Error('Utilisateur non connecté')
-    }
-
-    // Demande du nom de la salle
-    const roomName = prompt("Entrez un nom pour la salle :")
-    if (!roomName || !roomName.trim()) {
-      alert("Le nom de la salle est obligatoire !")
-      loading.value = false
-      return
-    }
-
     /* --- 1. Infos joueur ---------------------------- */
-    const playerId = getPlayerId()
+    const playerId = getPlayerId()            // UID ou pseudo local
 
     /* --- 2. Génération + distribution --------------- */
-    const fullDeck = generateShuffledDeck()
-    const deckInfo = distributeCards(fullDeck)
+    const fullDeck = generateShuffledDeck()   // 32 cartes mélangées
+    const {
+      hands,
+      trumpCard,
+      drawPile
+    } = distributeCards(fullDeck)             // 8 - 8 - pioche
 
     /* --- 3. Données Firestore ----------------------- */
     const roomData = {
-      name: roomName.trim(),
-      createdAt: serverTimestamp(),
-      status: 'waiting',
-      players: [uid],           // seul le joueur créateur au début
-      nextTurnIndex: 0,
-      trumpCard: deckInfo.trumpCard,
-      deck: deckInfo.drawPile,
+      createdAt:      serverTimestamp(),
+      status:         'waiting',              // waiting → in_progress
+      players:        [playerId],             // seul le créateur pour l’instant
+      nextTurnIndex:  0,                      // premier coup attendu
+      trumpCard,                              // ex. "A♥"
+      deck:           drawPile,               // pioche restante
       hands: {
-        [uid]: deckInfo.hands.player1
+        [playerId]: hands.player1            // main du joueur 1
       },
+      /* on garde la main destinée au futur joueur 2
+         pour éviter de redistribuer ou de la stocker côté client */
       reservedHands: {
-        seat2: deckInfo.hands.player2
+        seat2: hands.player2
       }
     }
 
-    /* --- 4. Debug logs ----------------------------- */
-    console.log('auth uid   =', uid)
-    console.log('playerId   =', playerId)
-    console.log('player1Hand:', deckInfo.hands.player1)
-    console.log('player2Hand:', deckInfo.hands.player2)
-
-    /* --- 5. Écriture Firestore --------------------- */
+    /* --- 4. Écriture ------------------------------- */
     const roomRef = await addDoc(collection(db, 'rooms'), roomData)
 
-    /* --- 6. Mise à jour UI ------------------------- */
+    /* --- 5. Retour UI ------------------------------ */
     roomId.value = roomRef.id
     emit('room-created', roomRef.id)
     router.push(`/room/${roomRef.id}`)
-  } catch (err: any) {
+  } catch (err) {
     console.error('Erreur lors de la création de la salle :', err)
-    alert("Erreur lors de la création de la salle : " + err.message)
   } finally {
     loading.value = false
   }

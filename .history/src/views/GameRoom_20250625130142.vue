@@ -1,18 +1,12 @@
 <template>
   <div class="game-room text-center p-4">
-        <div v-if="loading">Chargement de la partie...</div>
-
-    <div v-else-if="!roomData">
-      Partie introuvable ou supprimée.
-    </div>
-
 
     <!-- MAIN DE L’ADVERSAIRE (retournée) -->
-    <div v-if="opponentHand.length" class="player-hand mt-6">
+    <div v-if="reservedHand.length" class="player-hand mt-6">
       <h3 class="text-xl font-semibold mb-2">Main de l’adversaire</h3>
       <div class="cards flex gap-2 justify-center flex-wrap">
         <div
-          v-for="(card, index) in opponentHand"
+          v-for="(card, index) in reservedHand"
           :key="index"
           class="card border px-3 py-2 rounded shadow text-xl bg-gray-200 text-gray-400"
         >
@@ -72,7 +66,7 @@
         {{ trumpCard }}
       </div>
       <div class="text-gray-700 text-sm italic text-center">
-          {{ deckCards.length }} carte<span v-if="deckCards.length > 1">s</span> restantes
+        {{ drawPile.length }} carte<span v-if="drawPile.length > 1">s</span> restantes
       </div>
     </div>
 
@@ -82,7 +76,7 @@
 
 
     <!-- MAIN DU JOUEUR ACTIF + Zone de dépôt intégrée -->
-    <div v-if="localHand.length" class="player-hand mt-8">
+    <div v-if="playerHand.length" class="player-hand mt-8">
 
       <!-- Zone de dépôt du joueur -->
       <div class="drop-zone mt-4 p-4 border-2 border-dashed border-gray-400 rounded bg-gray-50">
@@ -103,7 +97,7 @@
       <div class="mt-4">
         <div class="cards flex gap-2 justify-center flex-wrap">
           <div
-          v-for="card in localHand"
+          v-for="card in playerHand"
           :key="card"
           class="card border px-3 py-2 rounded shadow text-xl cursor-pointer"
           :class="getCardColor(card)"
@@ -117,105 +111,70 @@
 
     </div>
   </div>
+    <div v-if="room">
+    <h2>Room {{ room.id }} – Atout : {{ room.trump }}</h2>
+
+    <!-- Main du joueur 1 -->
+    <div class="hand">
+      <Card @click="onCardClick(card, 'main')"/>
+    </div>
+
+    <!-- Historique des mènes -->
+    <ul class="history">
+      <li v-for="m in menes" :key="m.id">
+        Mène {{ m.meneNumber }} – {{ m.scores?.player1 }} / {{ m.scores?.player2 }}
+      </li>
+    </ul>
+  </div>
 </template>
 
 
 
-<script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+<script setup lang="ts">   <!-- ajoute lang="ts" si tu veux taper en TS -->
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
 import { db } from '@/firebase'
 
-const route = useRoute()
-const roomId = route.params.roomId as string
+/* -------------------------------------------------------------------------- */
+/* 1. Réactifs & route                                                        */
+/* -------------------------------------------------------------------------- */
+const route   = useRoute()
+const roomId  = route.params.id as string   // adapte 'id' au nom réel du param
 
-const roomData = ref<any>(null)
-const loading = ref(true)
-const uid = ref<string | null>(null)
+const roomData = ref<any>(null)             // OK puisque lang="ts"
+/* si tu restes en JS :  const roomData = ref(null) */
 
-// Scores et zones de jeu (initialisés vides, à compléter selon ta logique)
-const playerScore = ref(0)
-const opponentScore = ref(0)
-const playerPlayedCards = ref<string[]>([])
-const opponentPlayedCards = ref<string[]>([])
-const battleZoneCards = ref<string[]>([])
-
-const auth = getAuth()
-
-// Attente auth et subscription Firestore
+/* -------------------------------------------------------------------------- */
+/* 2. Abonnement temps réel                                                   */
+/* -------------------------------------------------------------------------- */
 onMounted(() => {
-  auth.onAuthStateChanged((user) => {
-    if (user) {
-      uid.value = user.uid
-
-      // On lance l’écoute Firestore seulement après avoir l’UID
-      subscribeRoom(roomId)
-    } else {
-      console.warn('Utilisateur non connecté')
-      loading.value = false
-      // ici tu peux rediriger vers login si besoin
-    }
-  })
+  const roomRef = doc(db, 'rooms', roomId)
+  onSnapshot(roomRef, snap => (roomData.value = snap.data()))
 })
 
-// Abonnement Firestore
-function subscribeRoom(roomId: string) {
-  const roomRef = doc(db, 'rooms', roomId)
+/* -------------------------------------------------------------------------- */
+/* 3. Identité locale                                                         */
+/* -------------------------------------------------------------------------- */
+const uid = getAuth().currentUser!.uid
 
-  return onSnapshot(roomRef, (snap) => {
-    if (snap.exists()) {
-      roomData.value = snap.data()
-    } else {
-      roomData.value = null
-    }
-    loading.value = false
-  })
-}
-
-// Computed pour mains locales et adversaires
+/* -------------------------------------------------------------------------- */
+/* 4. Données dérivées                                                        */
+/* -------------------------------------------------------------------------- */
 const localHand = computed(() => {
-  if (!uid.value || !roomData.value?.hands) return []
-  return roomData.value.hands[uid.value] ?? []
+  const h = roomData.value?.hands ?? {}
+  return h[uid] ?? []
 })
 
 const opponentHand = computed(() => {
-  if (!roomData.value?.hands || !uid.value) return []
-  const oppUid = Object.keys(roomData.value.hands).find(k => k !== uid.value)
-  return oppUid ? roomData.value.hands[oppUid] : []
+  const h = roomData.value?.hands ?? {}
+  const oppUid = Object.keys(h).find(k => k !== uid)
+  return oppUid ? h[oppUid] : []
 })
 
 const deckCards = computed(() => roomData.value?.deck ?? [])
 const trumpCard = computed(() => roomData.value?.trumpCard ?? null)
-
-function getCardColor(card: string | undefined) {
-  if (!card) return 'text-black'
-  const suit = card.slice(-1)
-  return suit === '♥' || suit === '♦' ? 'text-red-600' : 'text-black'
-}
-
-function playCard(card: string, player: 'player' | 'opponent') {
-  console.log(`Joueur ${player} joue la carte`, card)
-  // TODO : ta logique de jeu ici
-}
-
-watch([uid, roomData], ([newUid, newRoomData]) => {
-  console.log('uid:', newUid)
-  console.log('roomData:', newRoomData)
-  console.log('hands:', newRoomData?.hands)
-  console.log("Clés des mains :", Object.keys(newRoomData?.hands ?? {}));
-  console.log("players:", roomData.value?.players);
-console.log("UID connecté:", uid);
-console.log("Mains disponibles:", Object.keys(roomData.value?.hands || {}));
-console.log("Main locale:", roomData.value?.hands?.[uid]);
-
-
-  if (newUid && newRoomData?.hands) {
-    console.log('local hand:', newRoomData.hands[newUid])
-  }
-}, { immediate: true })
-
 </script>
 
 

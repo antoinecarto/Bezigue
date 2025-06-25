@@ -34,10 +34,9 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
+import { getAuth } from 'firebase/auth'
 import { getPlayerId } from '../utils/playerId.js'
 import { defineEmits } from 'vue'
-import { getAuth, onAuthStateChanged } from 'firebase/auth'
-
 
 const rooms = ref<Array<any>>([])
 const loadingRooms = ref(false)

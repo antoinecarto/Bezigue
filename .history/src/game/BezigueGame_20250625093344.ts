@@ -1,7 +1,3 @@
-
-
-
-
 type Suit = '♠' | '♥' | '♦' | '♣';
 type Rank = '7' | '8' | '9' | 'J' | 'Q' | 'K' | '10' | 'A';
 
@@ -15,9 +11,6 @@ interface Combination {
   cards: Card[];
   points: number;
 }
-
-//
-
 
 // Fonction pour distribuer les deux jeux de 32 cartes et connaître l'atout
 export function distributeCards(deck: string[]) {

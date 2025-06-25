@@ -163,6 +163,7 @@ onMounted(() => {
 // Abonnement Firestore
 function subscribeRoom(roomId: string) {
   const roomRef = doc(db, 'rooms', roomId)
+  console.log("players:", roomData.value.players);
 
   return onSnapshot(roomRef, (snap) => {
     if (snap.exists()) {
@@ -205,11 +206,6 @@ watch([uid, roomData], ([newUid, newRoomData]) => {
   console.log('roomData:', newRoomData)
   console.log('hands:', newRoomData?.hands)
   console.log("Clés des mains :", Object.keys(newRoomData?.hands ?? {}));
-  console.log("players:", roomData.value?.players);
-console.log("UID connecté:", uid);
-console.log("Mains disponibles:", Object.keys(roomData.value?.hands || {}));
-console.log("Main locale:", roomData.value?.hands?.[uid]);
-
 
   if (newUid && newRoomData?.hands) {
     console.log('local hand:', newRoomData.hands[newUid])

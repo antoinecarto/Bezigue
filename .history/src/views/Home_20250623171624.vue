@@ -11,6 +11,14 @@
 
     <!-- Contenu principal -->
     <div>
+      <button 
+        @click="useAutoMatch = true" 
+        :disabled="useAutoMatch"
+        class="btn mb-4"
+      >
+        Recherche automatique d’adversaire
+      </button>
+
       <div v-if="useAutoMatch">
         <AutoMatch @room-joined="goToRoom" :playerName="playerName" />
         <button @click="useAutoMatch = false" class="btn mt-4">
@@ -29,6 +37,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import AutoMatch from '../components/AutoMatch.vue'
 import CreateRoom from '../views/CreateRoom.vue'
 import JoinRoom from '../views/JoinRoom.vue'
 import { useRouter } from 'vue-router'

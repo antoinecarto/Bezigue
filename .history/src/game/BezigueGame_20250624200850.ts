@@ -1,7 +1,3 @@
-
-
-
-
 type Suit = '♠' | '♥' | '♦' | '♣';
 type Rank = '7' | '8' | '9' | 'J' | 'Q' | 'K' | '10' | 'A';
 
@@ -16,26 +12,24 @@ interface Combination {
   points: number;
 }
 
-//
-
-
 // Fonction pour distribuer les deux jeux de 32 cartes et connaître l'atout
 export function distributeCards(deck: string[]) {
-  const player1Hand = deck.slice(0, 8);
-  const player2Hand = deck.slice(8, 16);
-  const drawPile    = deck.slice(16);
-  const trumpCard   = drawPile[0];          // ex. 21ᵉ carte
+  if (deck.length < 19) {
+    throw new Error('Deck trop petit pour la distribution')
+  }
+
+  const player1Hand = deck.slice(0, 9)       // 9 premières cartes au créateur
+  const player2Cards = deck.slice(9, 18)     // 9 suivantes réservées pour le joueur 2
+  const trumpCard = deck[18]                  // 19ème carte = atout
+  const drawPile = deck.slice(19)             // reste de la pioche
 
   return {
-    hands: {
-      player1: player1Hand,
-      player2: player2Hand,
-    },
+    player1Hand,
+    player2Cards,
     trumpCard,
-    drawPile,
-  };
+    drawPile
+  }
 }
-
 // Fonction pour générer un jeu mélangé
 export function generateShuffledDeck() {
   const suits = ['♠', '♥', '♦', '♣']

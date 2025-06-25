@@ -34,10 +34,9 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
+import { getAuth } from 'firebase/auth'
 import { getPlayerId } from '../utils/playerId.js'
 import { defineEmits } from 'vue'
-import { getAuth, onAuthStateChanged } from 'firebase/auth'
-
 
 const rooms = ref<Array<any>>([])
 const loadingRooms = ref(false)
@@ -68,28 +67,16 @@ let intervalId: number | null = null
 
 onMounted(() => {
   const auth = getAuth()
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      uid.value = user.uid
-      error.value = ''
-      fetchRooms()
-      if (!intervalId) {
-        intervalId = setInterval(() => {
-          if (uid.value) fetchRooms()
-        }, 5000)
-      }
-    } else {
-      uid.value = ''
-      error.value = 'Vous devez être connecté pour voir les salles.'
-      rooms.value = []
-      if (intervalId) {
-        clearInterval(intervalId)
-        intervalId = null
-      }
-    }
-  })
-})
+  if (auth.currentUser) {
+    uid.value = auth.currentUser.uid
+    console.log('Utilisateur connecté avec UID:', uid.value)
+  } else {
+    console.warn('Utilisateur non connecté')
+  }
 
+  fetchRooms()
+  intervalId = setInterval(fetchRooms, 5000)
+})
 
 onUnmounted(() => {
   if (intervalId) clearInterval(intervalId)

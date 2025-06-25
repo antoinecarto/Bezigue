@@ -29,6 +29,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import AutoMatch from '../components/AutoMatch.vue'
 import CreateRoom from '../views/CreateRoom.vue'
 import JoinRoom from '../views/JoinRoom.vue'
 import { useRouter } from 'vue-router'

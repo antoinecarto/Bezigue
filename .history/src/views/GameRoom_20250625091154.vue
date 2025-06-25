@@ -1,18 +1,12 @@
 <template>
   <div class="game-room text-center p-4">
-        <div v-if="loading">Chargement de la partie...</div>
-
-    <div v-else-if="!roomData">
-      Partie introuvable ou supprimée.
-    </div>
-
 
     <!-- MAIN DE L’ADVERSAIRE (retournée) -->
-    <div v-if="opponentHand.length" class="player-hand mt-6">
+    <div v-if="reservedHand.length" class="player-hand mt-6">
       <h3 class="text-xl font-semibold mb-2">Main de l’adversaire</h3>
       <div class="cards flex gap-2 justify-center flex-wrap">
         <div
-          v-for="(card, index) in opponentHand"
+          v-for="(card, index) in reservedHand"
           :key="index"
           class="card border px-3 py-2 rounded shadow text-xl bg-gray-200 text-gray-400"
         >
@@ -72,7 +66,7 @@
         {{ trumpCard }}
       </div>
       <div class="text-gray-700 text-sm italic text-center">
-          {{ deckCards.length }} carte<span v-if="deckCards.length > 1">s</span> restantes
+        {{ drawPile.length }} carte<span v-if="drawPile.length > 1">s</span> restantes
       </div>
     </div>
 
@@ -82,7 +76,7 @@
 
 
     <!-- MAIN DU JOUEUR ACTIF + Zone de dépôt intégrée -->
-    <div v-if="localHand.length" class="player-hand mt-8">
+    <div v-if="playerHand.length" class="player-hand mt-8">
 
       <!-- Zone de dépôt du joueur -->
       <div class="drop-zone mt-4 p-4 border-2 border-dashed border-gray-400 rounded bg-gray-50">
@@ -103,7 +97,7 @@
       <div class="mt-4">
         <div class="cards flex gap-2 justify-center flex-wrap">
           <div
-          v-for="card in localHand"
+          v-for="card in playerHand"
           :key="card"
           class="card border px-3 py-2 rounded shadow text-xl cursor-pointer"
           :class="getCardColor(card)"
@@ -117,107 +111,96 @@
 
     </div>
   </div>
+    <div v-if="room">
+    <h2>Room {{ room.id }} – Atout : {{ room.trump }}</h2>
+
+    <!-- Main du joueur 1 -->
+    <div class="hand">
+      <Card @click="onCardClick(card, 'main')" … />
+    </div>
+
+    <!-- Historique des mènes -->
+    <ul class="history">
+      <li v-for="m in menes" :key="m.id">
+        Mène {{ m.meneNumber }} – {{ m.scores?.player1 }} / {{ m.scores?.player2 }}
+      </li>
+    </ul>
+  </div>
 </template>
 
 
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useGameRoom } from '@/composables/useGameRoom';
 import { doc, onSnapshot } from 'firebase/firestore'
-import { getAuth } from 'firebase/auth'
-import { db } from '@/firebase'
+import { db } from '../firebase'
+import { getPlayerId } from '../utils/playerId'
 
 const route = useRoute()
-const roomId = route.params.roomId as string
+const roomId = route.params.roomId as string;
+const { room, game, playCard, menes } = useGameRoom(roomId);
+const playerId = getPlayerId()
 
-const roomData = ref<any>(null)
-const loading = ref(true)
-const uid = ref<string | null>(null)
+const playerHand = ref([])
+const reservedHand = ref([])
+const trumpCard = ref(null)
+const drawPile = ref([])
 
-// Scores et zones de jeu (initialisés vides, à compléter selon ta logique)
-const playerScore = ref(0)
-const opponentScore = ref(0)
-const playerPlayedCards = ref<string[]>([])
-const opponentPlayedCards = ref<string[]>([])
-const battleZoneCards = ref<string[]>([])
+// 🕹️ Gestion du clic sur une carte
+function onCardClick(card, from) {
+  console.log(`🃏 Carte jouée (${from}):`, card);
+  playCard(card);                // ← appelle celle du composable
+}
 
-const auth = getAuth()
+function getCardColor(card) {
+  if (card.includes('♥') || card.includes('♦')) {
+    return 'text-red-600'
+  }
+  return 'text-black'
+}
 
-// Attente auth et subscription Firestore
+// 🕹️ Gestion du clic sur une carte
+function playCardClic(card, from) {
+  console.log(`🃏 Carte jouée (${from}):`, card)
+  // Tu peux ici appeler une fonction qui met à jour Firestore,
+  // ou qui affiche la carte dans la TrickZone
+}
+
 onMounted(() => {
-  auth.onAuthStateChanged((user) => {
-    if (user) {
-      uid.value = user.uid
-
-      // On lance l’écoute Firestore seulement après avoir l’UID
-      subscribeRoom(roomId)
-    } else {
-      console.warn('Utilisateur non connecté')
-      loading.value = false
-      // ici tu peux rediriger vers login si besoin
-    }
-  })
-})
-
-// Abonnement Firestore
-function subscribeRoom(roomId: string) {
   const roomRef = doc(db, 'rooms', roomId)
 
-  return onSnapshot(roomRef, (snap) => {
-    if (snap.exists()) {
-      roomData.value = snap.data()
+  onSnapshot(roomRef, (docSnap) => {
+    const data = docSnap.data()
+    if (!data) return
+
+    const allHands = data.hands || {}
+    const allReserved = data.reservedHands || {}
+    const players = data.players || []
+
+    const isPlayer2 = playerId !== players[0]
+
+    // Distribution des mains selon qui est connecté
+    if (isPlayer2) {
+      playerHand.value = allReserved['reservedPlayer2'] || []
+      reservedHand.value = allHands[players[0]] || []
     } else {
-      roomData.value = null
+      playerHand.value = allHands[playerId] || []
+      reservedHand.value = allReserved['reservedPlayer2'] || []
     }
-    loading.value = false
+
+    trumpCard.value = data.trump || null
+    drawPile.value = data.deck || []
+ || []
+
+    console.log('👤 Joueur ID:', playerId)
+    console.log('🎴 Main:', playerHand.value)
+    console.log('🂠 Main adverse:', reservedHand.value)
+    console.log('🃏 Atout:', trumpCard.value)
   })
-}
-
-// Computed pour mains locales et adversaires
-const localHand = computed(() => {
-  if (!uid.value || !roomData.value?.hands) return []
-  return roomData.value.hands[uid.value] ?? []
 })
-
-const opponentHand = computed(() => {
-  if (!roomData.value?.hands || !uid.value) return []
-  const oppUid = Object.keys(roomData.value.hands).find(k => k !== uid.value)
-  return oppUid ? roomData.value.hands[oppUid] : []
-})
-
-const deckCards = computed(() => roomData.value?.deck ?? [])
-const trumpCard = computed(() => roomData.value?.trumpCard ?? null)
-
-function getCardColor(card: string | undefined) {
-  if (!card) return 'text-black'
-  const suit = card.slice(-1)
-  return suit === '♥' || suit === '♦' ? 'text-red-600' : 'text-black'
-}
-
-function playCard(card: string, player: 'player' | 'opponent') {
-  console.log(`Joueur ${player} joue la carte`, card)
-  // TODO : ta logique de jeu ici
-}
-
-watch([uid, roomData], ([newUid, newRoomData]) => {
-  console.log('uid:', newUid)
-  console.log('roomData:', newRoomData)
-  console.log('hands:', newRoomData?.hands)
-  console.log("Clés des mains :", Object.keys(newRoomData?.hands ?? {}));
-  console.log("players:", roomData.value?.players);
-console.log("UID connecté:", uid);
-console.log("Mains disponibles:", Object.keys(roomData.value?.hands || {}));
-console.log("Main locale:", roomData.value?.hands?.[uid]);
-
-
-  if (newUid && newRoomData?.hands) {
-    console.log('local hand:', newRoomData.hands[newUid])
-  }
-}, { immediate: true })
-
 </script>
-
 
 <style scoped>
 .game-room {
