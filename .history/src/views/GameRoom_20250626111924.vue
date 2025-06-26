@@ -76,7 +76,12 @@
       >
         {{ card }}
       </div>
-    </div>    
+      <!-- Compteur de brisques joueur -->
+    </div>
+    <div class="text-gray-700 text-sm italic text-center mt-1">
+      Plis du Joueur :
+      <span class="font-semibold">{{ playerBrisques }}</span>
+    </div>
   </div>
 
         <!-- Atout à droite -->

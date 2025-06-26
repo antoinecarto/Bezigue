@@ -62,6 +62,12 @@
       >
     <!-- Zone d'échange (dépose de cartes) -->
   <div class="flex-grow">
+    <!-- Compteur de brisques adversaire -->
+    <div class="text-gray-700 text-sm italic text-center mb-1">
+      Brisques de l’adversaire :
+      <span class="font-semibold">{{ opponentBrisques }}</span>
+    </div>
+
     <h3 class="text-lg font-semibold text-green-800 mb-2 text-center">
       Zone d'échange
     </h3>
@@ -76,7 +82,12 @@
       >
         {{ card }}
       </div>
-    </div>    
+      <!-- Compteur de brisques joueur -->
+      <div class="text-gray-700 text-sm italic text-center mt-1">
+        Brisques de Joueur :
+        <span class="font-semibold">{{ playerBrisques }}</span>
+      </div>
+    </div>
   </div>
 
         <!-- Atout à droite -->
@@ -369,22 +380,20 @@ async function playCard(card: string) {
       trick.players[1],
       data.trumpCard
     );
-    
+    isComplete = true; 
+
     /* Exemple de scoring : +10 par 10 ou As du pli */
     const containsPointCard = trick.cards.some(c =>
-    ["10", "A"].some(v => c.startsWith(v))
-  );
-  const scores = data.scores ?? {};
-  if (containsPointCard) {
-    scores[winnerUid] = (scores[winnerUid] ?? 0) + 10;
-  }
-  
-  /* on ne vide PAS encore le pli ici */
-    update.trick       = { cards: [], players: [] };   // <- clé manquante
+      ["10", "A"].some(v => c.startsWith(v))
+    );
+    const scores = data.scores ?? {};
+    if (containsPointCard) {
+      scores[winnerUid] = (scores[winnerUid] ?? 0) + 10;
+    }
 
-  update.currentTurn = winnerUid;
-  update.scores      = scores;
-  isComplete = true; 
+    /* on ne vide PAS encore le pli ici */
+    update.currentTurn = winnerUid;
+    update.scores      = scores;
   } else {
     /* 6. Sinon on passe juste le tour à l’adversaire */
     update.currentTurn = opponentUid.value;

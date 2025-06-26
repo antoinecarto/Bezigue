@@ -62,6 +62,12 @@
       >
     <!-- Zone d'échange (dépose de cartes) -->
   <div class="flex-grow">
+    <!-- Compteur de brisques adversaire -->
+    <div class="text-gray-700 text-sm italic text-center mb-1">
+      Plis de l’adversaire :
+      <span class="font-semibold">{{ opponentBrisques }}</span>
+    </div>
+
     <h3 class="text-lg font-semibold text-green-800 mb-2 text-center">
       Zone d'échange
     </h3>
@@ -76,7 +82,12 @@
       >
         {{ card }}
       </div>
-    </div>    
+      <!-- Compteur de brisques joueur -->
+    </div>
+    <div class="text-gray-700 text-sm italic text-center mt-1">
+      Plis du Joueur :
+      <span class="font-semibold">{{ playerBrisques }}</span>
+    </div>
   </div>
 
         <!-- Atout à droite -->

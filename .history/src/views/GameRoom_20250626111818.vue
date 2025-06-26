@@ -76,9 +76,8 @@
       >
         {{ card }}
       </div>
-    </div>    
-  </div>
-
+    </div>
+    
         <!-- Atout à droite -->
         <div class="flex flex-col items-center">
           <div class="text-sm text-gray-600 mb-1">Atout</div>
@@ -96,6 +95,7 @@
         </div>
       </div>
     </div>
+  </div>
 
     <!-- MAIN DU JOUEUR ACTIF + Zone de dépôt intégrée -->
     <div v-if="localHand.length" class="player-hand mt-8">
@@ -380,8 +380,7 @@ async function playCard(card: string) {
   }
   
   /* on ne vide PAS encore le pli ici */
-    update.trick       = { cards: [], players: [] };   // <- clé manquante
-
+  update.trick       = { cards: [], players: [] };   // <- clé manquante
   update.currentTurn = winnerUid;
   update.scores      = scores;
   isComplete = true; 

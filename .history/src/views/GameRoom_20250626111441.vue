@@ -76,9 +76,8 @@
       >
         {{ card }}
       </div>
-    </div>    
-  </div>
-
+    </div>
+    
         <!-- Atout à droite -->
         <div class="flex flex-col items-center">
           <div class="text-sm text-gray-600 mb-1">Atout</div>
@@ -380,8 +379,7 @@ async function playCard(card: string) {
   }
   
   /* on ne vide PAS encore le pli ici */
-    update.trick       = { cards: [], players: [] };   // <- clé manquante
-
+  update.trick       = { cards: [], players: [] };   // <- clé manquante
   update.currentTurn = winnerUid;
   update.scores      = scores;
   isComplete = true; 

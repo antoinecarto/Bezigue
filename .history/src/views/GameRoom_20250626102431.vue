@@ -76,7 +76,7 @@
       >
         {{ card }}
       </div>
-    </div>    
+    </div>
   </div>
 
         <!-- Atout à droite -->
@@ -369,22 +369,20 @@ async function playCard(card: string) {
       trick.players[1],
       data.trumpCard
     );
-    
+    isComplete = true; 
+
     /* Exemple de scoring : +10 par 10 ou As du pli */
     const containsPointCard = trick.cards.some(c =>
-    ["10", "A"].some(v => c.startsWith(v))
-  );
-  const scores = data.scores ?? {};
-  if (containsPointCard) {
-    scores[winnerUid] = (scores[winnerUid] ?? 0) + 10;
-  }
-  
-  /* on ne vide PAS encore le pli ici */
-    update.trick       = { cards: [], players: [] };   // <- clé manquante
+      ["10", "A"].some(v => c.startsWith(v))
+    );
+    const scores = data.scores ?? {};
+    if (containsPointCard) {
+      scores[winnerUid] = (scores[winnerUid] ?? 0) + 10;
+    }
 
-  update.currentTurn = winnerUid;
-  update.scores      = scores;
-  isComplete = true; 
+    /* on ne vide PAS encore le pli ici */
+    update.currentTurn = winnerUid;
+    update.scores      = scores;
   } else {
     /* 6. Sinon on passe juste le tour à l’adversaire */
     update.currentTurn = opponentUid.value;

@@ -76,7 +76,9 @@
       >
         {{ card }}
       </div>
-    </div>    
+      <!-- Compteur de brisques joueur -->
+    </div>
+    
   </div>
 
         <!-- Atout à droite -->
