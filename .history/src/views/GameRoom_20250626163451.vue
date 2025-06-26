@@ -213,6 +213,7 @@
   </div>
 </Transition>
 
+
 </template>
 
 <script setup lang="ts">
@@ -222,6 +223,9 @@ import {
   doc,
   onSnapshot,
   runTransaction,
+  arrayRemove,
+  arrayUnion,
+  increment,
   updateDoc,
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
@@ -381,24 +385,6 @@ onMounted(() => {
     },
     { immediate: true }
   )
-  watch(
-  () => canMeld.value,
-  (newVal, oldVal) => {
-    if (oldVal === uid.value && newVal == null) {
-      drawCardsAfterMeld().catch(console.error);
-    }
-  }
-  );
-  watch(
-  () => showComboPopup.value,
-  (newVal, oldVal) => {
-    if (oldVal && !newVal) {                 // vient d’être fermé
-      setTimeout(() => {
-        drawCardsAfterMeld().catch(console.error);
-      }, 1000);                              // 1 seconde
-    }
-  }
-  );
 
 });
 
@@ -579,45 +565,8 @@ async function acceptExchange() {
   }
   showTrumpExchangePopup.value = false;
 }
-///
-async function drawCardsAfterMeld() {
-  if (!uid.value) return;
 
-  await runTransaction(db, async tx => {
-    const snap = await tx.get(roomRef);
-    if (!snap.exists()) throw 'Room inexistante';
-    const d = snap.data()!;
 
-    /* autorisé uniquement si la phase meld est finie */
-    if (d.canMeld != null) throw 'Les combinaisons ne sont pas terminées';
-
-    const winnerUid = uid.value;                                   // moi, le gagnant
-    const loserUid  = Object.keys(d.hands).find(k => k !== winnerUid)!;
-
-    const deck  = [...(d.deck ?? [])];
-    const hands = { ...d.hands };
-
-    /* ---- limite 9 cartes (main + meld) ---- */
-    const meldSize = (melds: any[] | undefined) =>
-      melds?.reduce((n, m) => n + (m.cards?.length ?? 0), 0) ?? 0;
-
-    const winnerLimit = hands[winnerUid].length + meldSize(d.melds?.[winnerUid]);
-    const loserLimit  = hands[loserUid].length + meldSize(d.melds?.[loserUid]);
-
-    if (deck.length && winnerLimit < 9) hands[winnerUid].push(deck.shift()!);
-    if (deck.length && loserLimit  < 9) hands[loserUid] .push(deck.shift()!);
-
-    tx.update(roomRef, {
-      deck,
-      [`hands.${winnerUid}`]: hands[winnerUid],
-      [`hands.${loserUid}`] : hands[loserUid],
-      currentTurn: winnerUid,   // le gagnant joue aussitôt
-      canMeld: null
-    });
-  });
-}
-
-///
 async function playCombination(combo: Combination) {
   if (!uid.value) return
 

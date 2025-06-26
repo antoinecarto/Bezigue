@@ -21,9 +21,9 @@ export interface Combination {
 
 // Fonction pour distribuer les deux jeux de 32 cartes et connaître l'atout
 export function distributeCards(deck: string[]) {
-  const player1Hand = deck.slice(0, 9);
-  const player2Hand = deck.slice(9, 18);
-  const drawPile    = deck.slice(18);
+  const player1Hand = deck.slice(0, 8);
+  const player2Hand = deck.slice(8, 16);
+  const drawPile    = deck.slice(16);
   const trumpCard   = drawPile[0];          // ex. 21ᵉ carte
 
   return {

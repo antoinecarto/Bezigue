@@ -213,6 +213,7 @@
   </div>
 </Transition>
 
+
 </template>
 
 <script setup lang="ts">
@@ -222,6 +223,9 @@ import {
   doc,
   onSnapshot,
   runTransaction,
+  arrayRemove,
+  arrayUnion,
+  increment,
   updateDoc,
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
@@ -388,17 +392,7 @@ onMounted(() => {
       drawCardsAfterMeld().catch(console.error);
     }
   }
-  );
-  watch(
-  () => showComboPopup.value,
-  (newVal, oldVal) => {
-    if (oldVal && !newVal) {                 // vient d’être fermé
-      setTimeout(() => {
-        drawCardsAfterMeld().catch(console.error);
-      }, 1000);                              // 1 seconde
-    }
-  }
-  );
+);
 
 });
 
