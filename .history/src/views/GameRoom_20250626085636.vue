@@ -209,9 +209,8 @@ function resolveTrick(
 
 /* ── nouveau state ───────────────────────────── */
 const battleZoneCards = ref<string[]>([]);
-//
 
-//
+const currentMeneId = computed(() => roomData.value?.currentMeneId ?? 0);
 
 let unsubscribeMene: (() => void) | null = null;
 
@@ -226,8 +225,6 @@ function subscribeMene(roomId: string, meneId: number) {
   );
 }
 
-
-
 /* ──────────  état général  ────────── */
 const route = useRoute();
 const roomId = route.params.roomId as string;
@@ -237,35 +234,12 @@ const roomData = ref<any>(null);
 const loading = ref(true);
 const uid = ref<string | null>(null);
 
-const currentMeneId = computed(() => roomData.value?.currentMeneId ?? 0);
-
-
-
 onMounted(() => {
   onAuthStateChanged(getAuth(), (user) => {
     uid.value = user?.uid ?? null;
     if (uid.value) subscribeRoom();
     else loading.value = false;
-    });
-  watch(
-  () => currentMeneId.value,
-  (newMeneId) => {
-    // On coupe l’abonnement précédent, s’il existe
-    if (unsubscribeMene) {
-      unsubscribeMene();
-      unsubscribeMene = null;
-    }
-
-    // On s’abonne à la nouvelle mène (ou on vide l’affichage si meneId nul)
-    if (newMeneId !== null && newMeneId !== undefined) {
-      unsubscribeMene = subscribeMene(roomId, newMeneId);
-    } else {
-      battleZoneCards.value = [];
-    }
-  },
-  { immediate: true } // on déclenche dès le montage
-);
-
+  });
 });
 
 function subscribeRoom() {
@@ -274,13 +248,6 @@ function subscribeRoom() {
     loading.value = false;
   });
 }
-
-onUnmounted(() => {
-  if (unsubscribeMene) {
-    unsubscribeMene();
-    unsubscribeMene = null;
-  }
-});
 
 /* ──────────  aides  ────────── */
 const opponentUid = computed(() =>
@@ -314,84 +281,88 @@ const opponentScore = computed(() =>
 /* ──────────  clic sur une carte  ────────── */
 async function playCard(card: string) {
   if (!uid.value || !roomData.value) return;
-
-  /* 1. sécurité : bon tour + carte présente */
   if (currentTurn.value !== uid.value) {
     alert("Ce n'est pas votre tour.");
     return;
   }
-  if (!roomData.value.hands[uid.value].includes(card)) {
+
+  const hand = roomData.value.hands[uid.value];
+  if (!hand.includes(card)) {
     alert("Vous ne possédez pas cette carte.");
     return;
   }
 
   await runTransaction(db, async (tx) => {
-    /* 2. lecture instantanée */
     const snap = await tx.get(roomRef);
     if (!snap.exists()) throw "La partie n'existe plus";
+
     const data = snap.data();
 
-    if (data.currentTurn !== uid.value) throw "Tour obsolète";
+    if (data.currentTurn !== uid.value) throw "Ce n'est pas votre tour";
 
-    /* 3. MAJ main locale */
-    const newHand = data.hands[uid.value].filter((c: string) => c !== card);
+    const hands = data.hands;
+    if (!hands[uid.value].includes(card)) throw "Carte non trouvée";
 
+    // Retirer la carte jouée de la main
+    hands[uid.value] = hands[uid.value].filter((c: string) => c !== card);
 
+    // Mise à jour des cartes jouées
+    let playerPlayedCards = data.playerPlayedCards ?? [];
+    let opponentPlayedCards = data.opponentPlayedCards ?? [];
 
-    /* 4. MAJ du pli (trick) */
-    const trick = data.trick ?? { cards: [], players: [] };
-    trick.cards.push(card);
-    trick.players.push(uid.value);
+    // Ajouter la carte jouée dans la zone de dépôt du joueur
+    playerPlayedCards.push(card);
 
-    /* 5. MAJ du mène  */
-    const meneRef = doc(db, "rooms", roomId, "menes", String(currentMeneId.value));
-    const meneSnap = await tx.get(meneRef);
-    const meneData = meneSnap.exists() ? meneSnap.data() : {};
-    const currentPliCards = [...(meneData.currentPliCards ?? []), card];
-    tx.set(meneRef, { currentPliCards }, { merge: true });
+    // Mise à jour des cartes jouées dans la DB
+    tx.update(roomRef, {
+      [`hands.${uid.value}`]: hands[uid.value],
+      playerPlayedCards: playerPlayedCards,
+    });
 
+    // Changer le tour ou résoudre le pli s’il y a deux cartes jouées
+    const nextTurnUid = opponentUid.value;
 
-    /* Objet d’update Firestore */
-    const update: any = {
-      [`hands.${uid.value}`]: newHand,
-      trick
-    };
-
-    /* 5. Si 2 cartes dans le pli → résolution */
-    if (trick.cards.length === 2) {
+    // Si l'adversaire a aussi joué une carte, résoudre le pli
+    if (opponentPlayedCards.length > 0) {
       const winnerUid = resolveTrick(
-        trick.cards[0],
-        trick.cards[1],
-        trick.players[0],
-        trick.players[1],
-        data.trumpCard
+        playerPlayedCards[0],
+        opponentPlayedCards[0],
+        uid.value,
+        opponentUid.value!,
+        trumpCard.value
       );
 
-      /* Exemple de scoring : +10 par 10 ou As du pli */
-      const containsPointCard = trick.cards.some(c =>
-        ["10", "A"].some(v => c.startsWith(v))
+      // Mise à jour du score si les cartes contiennent un 10 ou un A
+      const cardsForScore = [...playerPlayedCards, ...opponentPlayedCards];
+      const containsPointCard = cardsForScore.some((c) =>
+        ["10", "A"].some((v) => c.startsWith(v))
       );
+
+      // Ajouter les cartes au pli remporté
+      const currentPliCards = data.currentPliCards ?? [];
+      const newPliCards = [...currentPliCards, ...cardsForScore];
+
+      // Mettre à jour la DB : vider les zones de dépôt, changer le tour, ajouter pli aux cartes capturées, mettre à jour le score
       const scores = data.scores ?? {};
       if (containsPointCard) {
-        scores[winnerUid] = (scores[winnerUid] ?? 0) + 10;
+        scores[winnerUid] = (scores[winnerUid] ?? 0) + cardsForScore.length;
       }
 
-      /* on vide le pli et passe la main au vainqueur */
-      update.trick       = { cards: [], players: [] };
-      update.currentTurn = winnerUid;
-      update.scores      = scores;
+      tx.update(roomRef, {
+        currentTurn: winnerUid,
+        playerPlayedCards: [],
+        opponentPlayedCards: [],
+        scores: scores,
+        currentPliCards: newPliCards,
+      });
     } else {
-      /* 6. Sinon on passe juste le tour à l’adversaire */
-      update.currentTurn = opponentUid.value;
+      // Sinon juste passer le tour à l’adversaire
+      tx.update(roomRef, {
+        currentTurn: nextTurnUid,
+      });
     }
-
-    tx.update(roomRef, update);
   });
-
-  /* 7. MAJ optimiste locale : on voit la carte tout de suite */
-  //battleZoneCards.value.push(card);
 }
-
 
 /* ──────────  style des cartes selon la couleur ────────── */
 function getCardColor(card: string): string {

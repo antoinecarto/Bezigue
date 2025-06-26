@@ -209,9 +209,8 @@ function resolveTrick(
 
 /* ── nouveau state ───────────────────────────── */
 const battleZoneCards = ref<string[]>([]);
-//
 
-//
+const currentMeneId = computed(() => roomData.value?.currentMeneId ?? 0);
 
 let unsubscribeMene: (() => void) | null = null;
 
@@ -226,8 +225,6 @@ function subscribeMene(roomId: string, meneId: number) {
   );
 }
 
-
-
 /* ──────────  état général  ────────── */
 const route = useRoute();
 const roomId = route.params.roomId as string;
@@ -237,35 +234,12 @@ const roomData = ref<any>(null);
 const loading = ref(true);
 const uid = ref<string | null>(null);
 
-const currentMeneId = computed(() => roomData.value?.currentMeneId ?? 0);
-
-
-
 onMounted(() => {
   onAuthStateChanged(getAuth(), (user) => {
     uid.value = user?.uid ?? null;
     if (uid.value) subscribeRoom();
     else loading.value = false;
-    });
-  watch(
-  () => currentMeneId.value,
-  (newMeneId) => {
-    // On coupe l’abonnement précédent, s’il existe
-    if (unsubscribeMene) {
-      unsubscribeMene();
-      unsubscribeMene = null;
-    }
-
-    // On s’abonne à la nouvelle mène (ou on vide l’affichage si meneId nul)
-    if (newMeneId !== null && newMeneId !== undefined) {
-      unsubscribeMene = subscribeMene(roomId, newMeneId);
-    } else {
-      battleZoneCards.value = [];
-    }
-  },
-  { immediate: true } // on déclenche dès le montage
-);
-
+  });
 });
 
 function subscribeRoom() {
@@ -274,13 +248,6 @@ function subscribeRoom() {
     loading.value = false;
   });
 }
-
-onUnmounted(() => {
-  if (unsubscribeMene) {
-    unsubscribeMene();
-    unsubscribeMene = null;
-  }
-});
 
 /* ──────────  aides  ────────── */
 const opponentUid = computed(() =>
@@ -336,20 +303,10 @@ async function playCard(card: string) {
     /* 3. MAJ main locale */
     const newHand = data.hands[uid.value].filter((c: string) => c !== card);
 
-
-
     /* 4. MAJ du pli (trick) */
     const trick = data.trick ?? { cards: [], players: [] };
     trick.cards.push(card);
     trick.players.push(uid.value);
-
-    /* 5. MAJ du mène  */
-    const meneRef = doc(db, "rooms", roomId, "menes", String(currentMeneId.value));
-    const meneSnap = await tx.get(meneRef);
-    const meneData = meneSnap.exists() ? meneSnap.data() : {};
-    const currentPliCards = [...(meneData.currentPliCards ?? []), card];
-    tx.set(meneRef, { currentPliCards }, { merge: true });
-
 
     /* Objet d’update Firestore */
     const update: any = {
@@ -389,7 +346,7 @@ async function playCard(card: string) {
   });
 
   /* 7. MAJ optimiste locale : on voit la carte tout de suite */
-  //battleZoneCards.value.push(card);
+  battleZoneCards.value.push(card);
 }
 
 

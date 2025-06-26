@@ -209,9 +209,8 @@ function resolveTrick(
 
 /* ── nouveau state ───────────────────────────── */
 const battleZoneCards = ref<string[]>([]);
-//
 
-//
+const currentMeneId = computed(() => roomData.value?.currentMeneId ?? 0);
 
 let unsubscribeMene: (() => void) | null = null;
 
@@ -236,10 +235,6 @@ const roomRef = doc(db, "rooms", roomId);
 const roomData = ref<any>(null);
 const loading = ref(true);
 const uid = ref<string | null>(null);
-
-const currentMeneId = computed(() => roomData.value?.currentMeneId ?? 0);
-
-
 
 onMounted(() => {
   onAuthStateChanged(getAuth(), (user) => {
@@ -336,20 +331,10 @@ async function playCard(card: string) {
     /* 3. MAJ main locale */
     const newHand = data.hands[uid.value].filter((c: string) => c !== card);
 
-
-
     /* 4. MAJ du pli (trick) */
     const trick = data.trick ?? { cards: [], players: [] };
     trick.cards.push(card);
     trick.players.push(uid.value);
-
-    /* 5. MAJ du mène  */
-    const meneRef = doc(db, "rooms", roomId, "menes", String(currentMeneId.value));
-    const meneSnap = await tx.get(meneRef);
-    const meneData = meneSnap.exists() ? meneSnap.data() : {};
-    const currentPliCards = [...(meneData.currentPliCards ?? []), card];
-    tx.set(meneRef, { currentPliCards }, { merge: true });
-
 
     /* Objet d’update Firestore */
     const update: any = {

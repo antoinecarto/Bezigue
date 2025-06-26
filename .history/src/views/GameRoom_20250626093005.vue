@@ -209,9 +209,8 @@ function resolveTrick(
 
 /* ── nouveau state ───────────────────────────── */
 const battleZoneCards = ref<string[]>([]);
-//
 
-//
+const currentMeneId = computed(() => roomData.value?.currentMeneId ?? 0);
 
 let unsubscribeMene: (() => void) | null = null;
 
@@ -226,28 +225,7 @@ function subscribeMene(roomId: string, meneId: number) {
   );
 }
 
-
-
-/* ──────────  état général  ────────── */
-const route = useRoute();
-const roomId = route.params.roomId as string;
-const roomRef = doc(db, "rooms", roomId);
-
-const roomData = ref<any>(null);
-const loading = ref(true);
-const uid = ref<string | null>(null);
-
-const currentMeneId = computed(() => roomData.value?.currentMeneId ?? 0);
-
-
-
-onMounted(() => {
-  onAuthStateChanged(getAuth(), (user) => {
-    uid.value = user?.uid ?? null;
-    if (uid.value) subscribeRoom();
-    else loading.value = false;
-    });
-  watch(
+watch(
   () => currentMeneId.value,
   (newMeneId) => {
     // On coupe l’abonnement précédent, s’il existe
@@ -266,6 +244,25 @@ onMounted(() => {
   { immediate: true } // on déclenche dès le montage
 );
 
+/* ──────────  état général  ────────── */
+const route = useRoute();
+const roomId = route.params.roomId as string;
+const roomRef = doc(db, "rooms", roomId);
+
+const roomData = ref<any>(null);
+const loading = ref(true);
+const uid = ref<string | null>(null);
+
+onMounted(() => {
+  onAuthStateChanged(getAuth(), (user) => {
+    uid.value = user?.uid ?? null;
+    if (uid.value) subscribeRoom();
+    else loading.value = false;
+    });
+  if (unsubscribeMene) {
+    unsubscribeMene();
+    unsubscribeMene = null;
+  }  
 });
 
 function subscribeRoom() {
@@ -274,13 +271,6 @@ function subscribeRoom() {
     loading.value = false;
   });
 }
-
-onUnmounted(() => {
-  if (unsubscribeMene) {
-    unsubscribeMene();
-    unsubscribeMene = null;
-  }
-});
 
 /* ──────────  aides  ────────── */
 const opponentUid = computed(() =>
@@ -336,20 +326,10 @@ async function playCard(card: string) {
     /* 3. MAJ main locale */
     const newHand = data.hands[uid.value].filter((c: string) => c !== card);
 
-
-
     /* 4. MAJ du pli (trick) */
     const trick = data.trick ?? { cards: [], players: [] };
     trick.cards.push(card);
     trick.players.push(uid.value);
-
-    /* 5. MAJ du mène  */
-    const meneRef = doc(db, "rooms", roomId, "menes", String(currentMeneId.value));
-    const meneSnap = await tx.get(meneRef);
-    const meneData = meneSnap.exists() ? meneSnap.data() : {};
-    const currentPliCards = [...(meneData.currentPliCards ?? []), card];
-    tx.set(meneRef, { currentPliCards }, { merge: true });
-
 
     /* Objet d’update Firestore */
     const update: any = {

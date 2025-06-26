@@ -20,16 +20,14 @@
           :key="index"
           class="card border px-3 py-2 rounded shadow text-xl bg-gray-200 text-gray-400"
         >
-          🂠
+          📀
         </div>
       </div>
 
-      <!-- Zone de dépôt adversaire dans le même bloc -->
-      <div
-        class="drop-zone mt-4 p-4 border-2 border-dashed border-gray-400 rounded bg-gray-50"
-      >
+      <!-- Zone de dépôt adversaire -->
+      <div class="drop-zone mt-4 p-4 border-2 border-dashed border-gray-400 rounded bg-gray-50">
         Zone de dépôt adversaire (visible par tous)
-        <!-- <div class="played-cards flex justify-center gap-2 mt-2">
+        <div class="played-cards flex justify-center gap-2 mt-2">
           <div
             v-for="(card, index) in opponentPlayedCards"
             :key="'opp-played-' + index"
@@ -38,73 +36,54 @@
           >
             {{ card }}
           </div>
-        </div> -->
+        </div>
       </div>
     </div>
 
-    <!-- Tapis de jeu : zone d’échange à gauche, atout à droite -->
+    <!-- Tapis de jeu : zone d’échange et atout -->
     <div class="mt-12 flex justify-center gap-8">
-      <!-- Compteur de score à gauche -->
-      <div
-        class="scoreboard flex flex-col items-center gap-8 p-4 border-2 border-gray-300 rounded-lg shadow-md w-48"
-      >
+      <!-- Scoreboard -->
+      <div class="scoreboard flex flex-col items-center gap-8 p-4 border-2 border-gray-300 rounded-lg shadow-md w-48">
         <h3 class="text-lg font-semibold mb-4">Score</h3>
-        <div class="text-xl font-bold text-green-700 mb-2">
-          Joueur : {{ playerScore }}
-        </div>
-        <div class="text-xl font-bold text-red-700">
-          Adversaire : {{ opponentScore }}
-        </div>
+        <div class="text-xl font-bold text-green-700 mb-2">Joueur : {{ playerScore }}</div>
+        <div class="text-xl font-bold text-red-700">Adversaire : {{ opponentScore }}</div>
       </div>
 
-      <div
-        class="flex items-start gap-8 bg-green-100 border-4 border-green-600 rounded-xl p-6 w-full shadow-lg"
-      >
-    <!-- Zone d'échange (dépose de cartes) -->
-  <div class="flex-grow">
-    <h3 class="text-lg font-semibold text-green-800 mb-2 text-center">
-      Zone d'échange
-    </h3>
-    <div
-      class="battle-drop-zone h-32 border-2 border-dashed border-green-400 rounded bg-green-50 p-4 flex items-center justify-start gap-4"
-    >
-      <div
-        v-for="(card, index) in battleZoneCards"
-        :key="'battle-card-' + index"
-        class="card border px-3 py-2 rounded shadow text-xl"
-        :class="getCardColor(card)"
-      >
-        {{ card }}
-      </div>
-    </div>
-  </div>
+      <div class="flex items-start gap-8 bg-green-100 border-4 border-green-600 rounded-xl p-6 w-full shadow-lg">
+        <!-- Zone d'échange -->
+        <div class="flex-grow">
+          <h3 class="text-lg font-semibold text-green-800 mb-2 text-center">Zone d'échange</h3>
+          <div class="battle-drop-zone h-32 border-2 border-dashed border-green-400 rounded bg-green-50 p-4 flex items-center justify-start gap-4">
+            <div
+              v-for="(card, index) in battleZoneCards"
+              :key="'battle-card-' + index"
+              class="card border px-3 py-2 rounded shadow text-xl"
+              :class="getCardColor(card)"
+            >
+              {{ card }}
+            </div>
+          </div>
+        </div>
 
-        <!-- Atout à droite -->
+        <!-- Atout -->
         <div class="flex flex-col items-center">
           <div class="text-sm text-gray-600 mb-1">Atout</div>
-          <div
-            class="card border-2 border-green-700 px-4 py-2 rounded shadow text-2xl bg-white mb-2"
-          >
+          <div class="card border-2 border-green-700 px-4 py-2 rounded shadow text-2xl bg-white mb-2">
             {{ trumpCard }}
           </div>
           <div class="text-gray-700 text-sm italic text-center">
-            {{ deckCards.length }} carte<span v-if="deckCards.length > 1"
-              >s</span
-            >
-            restantes
+            {{ deckCards.length }} carte<span v-if="deckCards.length > 1">s</span> restantes
           </div>
         </div>
       </div>
     </div>
 
-    <!-- MAIN DU JOUEUR ACTIF + Zone de dépôt intégrée -->
+    <!-- MAIN DU JOUEUR -->
     <div v-if="localHand.length" class="player-hand mt-8">
-      <!-- Zone de dépôt du joueur -->
-      <div
-        class="drop-zone mt-4 p-4 border-2 border-dashed border-gray-400 rounded bg-gray-50"
-      >
+      <!-- Zone de dépôt joueur -->
+      <div class="drop-zone mt-4 p-4 border-2 border-dashed border-gray-400 rounded bg-gray-50">
         Zone de dépôt joueur (visible par tous)
-        <!-- <div class="played-cards flex justify-center gap-2 mt-2">
+        <div class="played-cards flex justify-center gap-2 mt-2">
           <div
             v-for="(card, index) in playerPlayedCards"
             :key="'player-played-' + index"
@@ -113,10 +92,10 @@
           >
             {{ card }}
           </div>
-        </div> -->
+        </div>
       </div>
 
-      <!-- MAIN DU JOUEUR avec espacement -->
+      <!-- Main du joueur -->
       <div class="mt-4">
         <div class="cards flex gap-2 justify-center flex-wrap">
           <div
@@ -130,15 +109,14 @@
           </div>
         </div>
       </div>
-      <h3
-        class="text-xl font-semibold mb-2"
-        :class="{ 'text-green-600': currentTurn === uid }"
-      >
+
+      <h3 class="text-xl font-semibold mb-2" :class="{ 'text-green-600': currentTurn === uid }">
         Votre main
       </h3>
     </div>
   </div>
 </template>
+
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
@@ -209,9 +187,8 @@ function resolveTrick(
 
 /* ── nouveau state ───────────────────────────── */
 const battleZoneCards = ref<string[]>([]);
-//
 
-//
+const currentMeneId = computed(() => roomData.value?.currentMeneId ?? 0);
 
 let unsubscribeMene: (() => void) | null = null;
 
@@ -226,8 +203,6 @@ function subscribeMene(roomId: string, meneId: number) {
   );
 }
 
-
-
 /* ──────────  état général  ────────── */
 const route = useRoute();
 const roomId = route.params.roomId as string;
@@ -237,35 +212,12 @@ const roomData = ref<any>(null);
 const loading = ref(true);
 const uid = ref<string | null>(null);
 
-const currentMeneId = computed(() => roomData.value?.currentMeneId ?? 0);
-
-
-
 onMounted(() => {
   onAuthStateChanged(getAuth(), (user) => {
     uid.value = user?.uid ?? null;
     if (uid.value) subscribeRoom();
     else loading.value = false;
-    });
-  watch(
-  () => currentMeneId.value,
-  (newMeneId) => {
-    // On coupe l’abonnement précédent, s’il existe
-    if (unsubscribeMene) {
-      unsubscribeMene();
-      unsubscribeMene = null;
-    }
-
-    // On s’abonne à la nouvelle mène (ou on vide l’affichage si meneId nul)
-    if (newMeneId !== null && newMeneId !== undefined) {
-      unsubscribeMene = subscribeMene(roomId, newMeneId);
-    } else {
-      battleZoneCards.value = [];
-    }
-  },
-  { immediate: true } // on déclenche dès le montage
-);
-
+  });
 });
 
 function subscribeRoom() {
@@ -274,13 +226,6 @@ function subscribeRoom() {
     loading.value = false;
   });
 }
-
-onUnmounted(() => {
-  if (unsubscribeMene) {
-    unsubscribeMene();
-    unsubscribeMene = null;
-  }
-});
 
 /* ──────────  aides  ────────── */
 const opponentUid = computed(() =>
@@ -302,8 +247,8 @@ const deckCards = computed(() => roomData.value?.deck ?? []);
 const trumpCard = computed(() => roomData.value?.trumpCard ?? "—");
 
 // Cartes jouées visibles dans les zones de dépôt
-// const playerPlayedCards = computed<string[]>(() => roomData.value?.playerPlayedCards ?? []);
-// const opponentPlayedCards = computed<string[]>(() => roomData.value?.opponentPlayedCards ?? []);
+const playerPlayedCards = computed<string[]>(() => roomData.value?.playerPlayedCards ?? []);
+const opponentPlayedCards = computed<string[]>(() => roomData.value?.opponentPlayedCards ?? []);
 
 // Scores
 const playerScore = computed(() => roomData.value?.scores?.[uid.value ?? ""] ?? 0);
@@ -314,84 +259,88 @@ const opponentScore = computed(() =>
 /* ──────────  clic sur une carte  ────────── */
 async function playCard(card: string) {
   if (!uid.value || !roomData.value) return;
-
-  /* 1. sécurité : bon tour + carte présente */
   if (currentTurn.value !== uid.value) {
     alert("Ce n'est pas votre tour.");
     return;
   }
-  if (!roomData.value.hands[uid.value].includes(card)) {
+
+  const hand = roomData.value.hands[uid.value];
+  if (!hand.includes(card)) {
     alert("Vous ne possédez pas cette carte.");
     return;
   }
 
   await runTransaction(db, async (tx) => {
-    /* 2. lecture instantanée */
     const snap = await tx.get(roomRef);
     if (!snap.exists()) throw "La partie n'existe plus";
+
     const data = snap.data();
 
-    if (data.currentTurn !== uid.value) throw "Tour obsolète";
+    if (data.currentTurn !== uid.value) throw "Ce n'est pas votre tour";
 
-    /* 3. MAJ main locale */
-    const newHand = data.hands[uid.value].filter((c: string) => c !== card);
+    const hands = data.hands;
+    if (!hands[uid.value].includes(card)) throw "Carte non trouvée";
 
+    // Retirer la carte jouée de la main
+    hands[uid.value] = hands[uid.value].filter((c: string) => c !== card);
 
+    // Mise à jour des cartes jouées
+    let playerPlayedCards = data.playerPlayedCards ?? [];
+    let opponentPlayedCards = data.opponentPlayedCards ?? [];
 
-    /* 4. MAJ du pli (trick) */
-    const trick = data.trick ?? { cards: [], players: [] };
-    trick.cards.push(card);
-    trick.players.push(uid.value);
+    // Ajouter la carte jouée dans la zone de dépôt du joueur
+    playerPlayedCards.push(card);
 
-    /* 5. MAJ du mène  */
-    const meneRef = doc(db, "rooms", roomId, "menes", String(currentMeneId.value));
-    const meneSnap = await tx.get(meneRef);
-    const meneData = meneSnap.exists() ? meneSnap.data() : {};
-    const currentPliCards = [...(meneData.currentPliCards ?? []), card];
-    tx.set(meneRef, { currentPliCards }, { merge: true });
+    // Mise à jour des cartes jouées dans la DB
+    tx.update(roomRef, {
+      [`hands.${uid.value}`]: hands[uid.value],
+      playerPlayedCards: playerPlayedCards,
+    });
 
+    // Changer le tour ou résoudre le pli s’il y a deux cartes jouées
+    const nextTurnUid = opponentUid.value;
 
-    /* Objet d’update Firestore */
-    const update: any = {
-      [`hands.${uid.value}`]: newHand,
-      trick
-    };
-
-    /* 5. Si 2 cartes dans le pli → résolution */
-    if (trick.cards.length === 2) {
+    // Si l'adversaire a aussi joué une carte, résoudre le pli
+    if (opponentPlayedCards.length > 0) {
       const winnerUid = resolveTrick(
-        trick.cards[0],
-        trick.cards[1],
-        trick.players[0],
-        trick.players[1],
-        data.trumpCard
+        playerPlayedCards[0],
+        opponentPlayedCards[0],
+        uid.value,
+        opponentUid.value!,
+        trumpCard.value
       );
 
-      /* Exemple de scoring : +10 par 10 ou As du pli */
-      const containsPointCard = trick.cards.some(c =>
-        ["10", "A"].some(v => c.startsWith(v))
+      // Mise à jour du score si les cartes contiennent un 10 ou un A
+      const cardsForScore = [...playerPlayedCards, ...opponentPlayedCards];
+      const containsPointCard = cardsForScore.some((c) =>
+        ["10", "A"].some((v) => c.startsWith(v))
       );
+
+      // Ajouter les cartes au pli remporté
+      const currentPliCards = data.currentPliCards ?? [];
+      const newPliCards = [...currentPliCards, ...cardsForScore];
+
+      // Mettre à jour la DB : vider les zones de dépôt, changer le tour, ajouter pli aux cartes capturées, mettre à jour le score
       const scores = data.scores ?? {};
       if (containsPointCard) {
-        scores[winnerUid] = (scores[winnerUid] ?? 0) + 10;
+        scores[winnerUid] = (scores[winnerUid] ?? 0) + cardsForScore.length;
       }
 
-      /* on vide le pli et passe la main au vainqueur */
-      update.trick       = { cards: [], players: [] };
-      update.currentTurn = winnerUid;
-      update.scores      = scores;
+      tx.update(roomRef, {
+        currentTurn: winnerUid,
+        playerPlayedCards: [],
+        opponentPlayedCards: [],
+        scores: scores,
+        currentPliCards: newPliCards,
+      });
     } else {
-      /* 6. Sinon on passe juste le tour à l’adversaire */
-      update.currentTurn = opponentUid.value;
+      // Sinon juste passer le tour à l’adversaire
+      tx.update(roomRef, {
+        currentTurn: nextTurnUid,
+      });
     }
-
-    tx.update(roomRef, update);
   });
-
-  /* 7. MAJ optimiste locale : on voit la carte tout de suite */
-  //battleZoneCards.value.push(card);
 }
-
 
 /* ──────────  style des cartes selon la couleur ────────── */
 function getCardColor(card: string): string {
