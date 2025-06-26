@@ -83,7 +83,7 @@
         <div class="flex flex-col items-center">
           <div class="text-sm text-gray-600 mb-1">Atout</div>
           <div
-            class="card border-2 border-green-700 px-4 py-2 rounded shadow text-2xl bg-white mb-2":class="getCardColor(trumpCard)"
+            class="card border-2 border-green-700 px-4 py-2 rounded shadow text-2xl bg-white mb-2"
           >
             {{ trumpCard }}
           </div>

@@ -83,7 +83,7 @@
         <div class="flex flex-col items-center">
           <div class="text-sm text-gray-600 mb-1">Atout</div>
           <div
-            class="card border-2 border-green-700 px-4 py-2 rounded shadow text-2xl bg-white mb-2":class="getCardColor(trumpCard)"
+            class="card border-2 border-green-700 px-4 py-2 rounded shadow text-2xl bg-white mb-2"
           >
             {{ trumpCard }}
           </div>
@@ -371,8 +371,6 @@ async function playCard(card: string) {
     );
     // 2. PIOCHE automatique
     const deck = data.deck ??[]; 
-    const hands = data.hands;           // raccourci
-
      // carte pour le vainqueur
       if (deck.length > 0) {
    const firstDraw = deck.shift();                 // retire 1ʳᵉ carte
@@ -383,19 +381,10 @@ async function playCard(card: string) {
  const loserUid = winnerUid === uid.value ? opponentUid.value : uid.value;
  if (!loserUid) throw 'Adversaire introuvable'           // ← garde de sécurité
 
-/* --- Pioche pour le vainqueur --- */
-if (deck.length > 0 && hands[winnerUid].length < 9) {
-  const draw = deck.shift()!;       // retire la 1ʳᵉ carte
-  hands[winnerUid].push(draw);
-}
-
-
-/* Deuxième pioche pour le perdant (s’il en reste) */
-if (deck.length > 0 && hands[loserUid].length < 9) {
-  const draw = deck.shift()!;
-  hands[loserUid].push(draw);
-}                     // loserUid est string ici
-
+ if (deck.length > 0) {
+   const secondDraw = deck.shift();                // retire 2ᵉ carte
+   (data.hands[loserUid] = data.hands[loserUid] ?? []).push(secondDraw);
+ }
     
     /* Exemple de scoring : +10 par 10 ou As du pli */
     const containsPointCard = trick.cards.some(c =>
