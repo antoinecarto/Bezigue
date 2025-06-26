@@ -46,73 +46,75 @@
 
     </div>
 
-<div class="mt-12 flex justify-center gap-8">
-
-  <!-- Premier scoreboard -->
-  <div
-    class="scoreboard flex flex-col items-center gap-2 p-4 border-2 border-gray-300 rounded-lg shadow-md w-48"
-  >
-    <h3 class="text-lg font-semibold mb-4">Score</h3>
-    <div class="text-xl font-bold text-green-700 mb-2">
-      Vainqueur : {{ playerScore }}
-    </div>
-    <div class="text-xl font-bold text-red-700">
-      Partie en : {{ opponentScore }}
-    </div>
-  </div>
-
-  <!-- Deuxième scoreboard -->
-  <div
-    class="scoreboard flex flex-col items-center gap-2 p-4 border-2 border-gray-300 rounded-lg shadow-md w-48"
-  >
-    <h3 class="text-lg font-semibold mb-4">Score</h3>
-    <div class="text-xl font-bold text-green-700 mb-2">
-      Joueur : {{ playerScore }}
-    </div>
-    <div class="text-xl font-bold text-red-700">
-      Adversaire : {{ opponentScore }}
-    </div>
-  </div>
-
-  <!-- Conteneur vert qui encapsule zone d’échange + atout -->
-  <div
-    class="flex gap-8 bg-green-100 border-4 border-green-600 rounded-xl p-6 shadow-lg w-full max-w-4xl"
-  >
-    <!-- Zone d’échange -->
-    <div class="flex-grow">
-      <h3 class="text-lg font-semibold text-green-800 mb-2 text-center">
-        Zone d'échange
-      </h3>
+        <!-- Tapis de jeu : zone d’échange à gauche, atout à droite -->
+    <div class="mt-12 flex justify-center gap-8">
+      <!-- Compteur de score à gauche -->
       <div
-        class="battle-drop-zone h-32 border-2 border-dashed border-green-400 rounded bg-green-50 p-4 flex items-center gap-4"
+        class="scoreboard flex flex-col items-center gap-8 p-4 border-2 border-gray-300 rounded-lg shadow-md w-48"
       >
-        <div
-          v-for="(card, index) in battleZoneCards"
-          :key="'battle-card-' + index"
-          class="card border px-3 py-2 rounded shadow text-xl"
-          :class="getCardColor(card)"
-        >
-          {{ card }}
+        <h3 class="text-lg font-semibold mb-4">Score</h3>
+        <div class="text-xl font-bold text-green-700 mb-2">
+          Vainqueur : {{ playerScore }}
+        </div>
+        <div class="text-xl font-bold text-red-700">
+          Partie en : {{ opponentScore }}
         </div>
       </div>
     </div>
-
-    <!-- Carte d’atout et pioche -->
-    <div class="flex flex-col items-center">
-      <div class="text-sm text-gray-600 mb-1">Atout</div>
+    <!-- Tapis de jeu : zone d’échange à gauche, atout à droite -->
+    <div class="mt-12 flex justify-center gap-8">
+      <!-- Compteur de score à gauche -->
       <div
-        class="card border-2 border-green-700 px-4 py-2 rounded shadow text-2xl bg-white mb-2"
-        :class="getCardColor(trumpCard)"
+        class="scoreboard flex flex-col items-center gap-8 p-4 border-2 border-gray-300 rounded-lg shadow-md w-48"
       >
-        {{ trumpCard }}
+        <h3 class="text-lg font-semibold mb-4">Score</h3>
+        <div class="text-xl font-bold text-green-700 mb-2">
+          Joueur : {{ playerScore }}
+        </div>
+        <div class="text-xl font-bold text-red-700">
+          Adversaire : {{ opponentScore }}
+        </div>
       </div>
-      <div class="text-gray-700 text-sm italic text-center">
-        {{ deckCards.length }} carte<span v-if="deckCards.length > 1">s</span> restantes
+
+      <div
+        class="flex items-start gap-8 bg-green-100 border-4 border-green-600 rounded-xl p-6 w-full shadow-lg"
+      >
+    <!-- Zone d'échange (dépose de cartes) -->
+  <div class="flex-grow">
+    <h3 class="text-lg font-semibold text-green-800 mb-2 text-center">
+      Zone d'échange
+    </h3>
+    <div
+      class="battle-drop-zone h-32 border-2 border-dashed border-green-400 rounded bg-green-50 p-4 flex items-center justify-start gap-4"
+    >
+      <div
+        v-for="(card, index) in battleZoneCards"
+        :key="'battle-card-' + index"
+        class="card border px-3 py-2 rounded shadow text-xl"
+        :class="getCardColor(card)"
+      >
+        {{ card }}
+      </div>
+    </div>    
+  </div>
+
+        <!-- Atout à droite -->
+        <div class="flex flex-col items-center">
+          <div class="text-sm text-gray-600 mb-1">Atout</div>
+          <div
+            class="card border-2 border-green-700 px-4 py-2 rounded shadow text-2xl bg-white mb-2":class="getCardColor(trumpCard)"
+          >
+            {{ trumpCard }}
+          </div>
+          <div class="text-gray-700 text-sm italic text-center">
+            {{ deckCards.length }} carte<span v-if="deckCards.length > 1"
+              >s</span
+            >
+            restantes
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-</div>
-
 
 
     <!-- MAIN DU JOUEUR ACTIF + Zone de dépôt intégrée -->

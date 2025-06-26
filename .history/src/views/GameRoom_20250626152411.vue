@@ -74,43 +74,39 @@
     </div>
   </div>
 
-  <!-- Conteneur vert qui encapsule zone d’échange + atout -->
-  <div
-    class="flex gap-8 bg-green-100 border-4 border-green-600 rounded-xl p-6 shadow-lg w-full max-w-4xl"
-  >
-    <!-- Zone d’échange -->
-    <div class="flex-grow">
-      <h3 class="text-lg font-semibold text-green-800 mb-2 text-center">
-        Zone d'échange
-      </h3>
+  <!-- Zone d’échange -->
+  <div class="flex-grow">
+    <h3 class="text-lg font-semibold text-green-800 mb-2 text-center">
+      Zone d'échange
+    </h3>
+    <div
+      class="battle-drop-zone h-32 border-2 border-dashed border-green-400 rounded bg-green-50 p-4 flex items-center gap-4"
+    >
       <div
-        class="battle-drop-zone h-32 border-2 border-dashed border-green-400 rounded bg-green-50 p-4 flex items-center gap-4"
+        v-for="(card, index) in battleZoneCards"
+        :key="'battle-card-' + index"
+        class="card border px-3 py-2 rounded shadow text-xl"
+        :class="getCardColor(card)"
       >
-        <div
-          v-for="(card, index) in battleZoneCards"
-          :key="'battle-card-' + index"
-          class="card border px-3 py-2 rounded shadow text-xl"
-          :class="getCardColor(card)"
-        >
-          {{ card }}
-        </div>
-      </div>
-    </div>
-
-    <!-- Carte d’atout et pioche -->
-    <div class="flex flex-col items-center">
-      <div class="text-sm text-gray-600 mb-1">Atout</div>
-      <div
-        class="card border-2 border-green-700 px-4 py-2 rounded shadow text-2xl bg-white mb-2"
-        :class="getCardColor(trumpCard)"
-      >
-        {{ trumpCard }}
-      </div>
-      <div class="text-gray-700 text-sm italic text-center">
-        {{ deckCards.length }} carte<span v-if="deckCards.length > 1">s</span> restantes
+        {{ card }}
       </div>
     </div>
   </div>
+
+  <!-- Carte d’atout et pioche -->
+  <div class="flex flex-col items-center">
+    <div class="text-sm text-gray-600 mb-1">Atout</div>
+    <div
+      class="card border-2 border-green-700 px-4 py-2 rounded shadow text-2xl bg-white mb-2"
+      :class="getCardColor(trumpCard)"
+    >
+      {{ trumpCard }}
+    </div>
+    <div class="text-gray-700 text-sm italic text-center">
+      {{ deckCards.length }} carte<span v-if="deckCards.length > 1">s</span> restantes
+    </div>
+  </div>
+
 </div>
 
 
