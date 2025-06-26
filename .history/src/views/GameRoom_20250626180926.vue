@@ -141,7 +141,7 @@
 
       <!-- MAIN DU JOUEUR avec espacement -->
       <div class="mt-4">
-        <draggable v-model="localHand" @end="onHandReorder" class="cards flex gap-2 justify-center flex-wrap" item-key="element">
+        <draggable v-model="localHand" class="cards flex gap-2 justify-center flex-wrap" item-key="element">
           <template #item="{ element: card }">
            <div
           class="card border px-3 py-2 rounded shadow text-xl cursor-pointer"
@@ -400,7 +400,7 @@ onMounted(() => {
     }
   }
   );
- // Quand roomData change, on met à jour localHand
+  // Quand roomData change, on met à jour localHand
   watch(
   () => roomData.value?.hands?.[uid.value] ?? [],
   (newHand) => {
@@ -408,22 +408,7 @@ onMounted(() => {
   },
   { immediate: true }
 );
-
-// Quand drag/drop modifie localHand, on doit envoyer la nouvelle main dans Firestore
-function onHandReorder() {
-  if (!uid.value || !roomRef) return;
-
-  // MAJ Firestore avec le nouvel ordre de main
-  updateDoc(roomRef, {
-    [`hands.${uid.value}`]: localHand.value
-  });
-}
 });
-
-// Quand drag/drop modifie localHand, on doit envoyer la nouvelle main dans Firestore
-function onHandReorder() {
-  if (!uid.value || !roomRef) return;
-}
 
 function subscribeRoom() {
   onSnapshot(roomRef, (snap) => {

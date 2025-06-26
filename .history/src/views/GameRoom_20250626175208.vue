@@ -141,17 +141,19 @@
 
       <!-- MAIN DU JOUEUR avec espacement -->
       <div class="mt-4">
-        <draggable v-model="localHand" @end="onHandReorder" class="cards flex gap-2 justify-center flex-wrap" item-key="element">
-          <template #item="{ element: card }">
-           <div
-          class="card border px-3 py-2 rounded shadow text-xl cursor-pointer"
-          :class="getCardColor(card)"
-          @click="playCard(card)"
-        >
+        <draggable v-model="localHand" class="cards flex gap-2 justify-center flex-wrap" item-key="card">
+          <div class="cards flex gap-2 justify-center flex-wrap">
+          <div
+            v-for="card in localHand"
+            :key="card"
+            class="card border px-3 py-2 rounded shadow text-xl cursor-pointer"
+            :class="getCardColor(card)"
+            @click="playCard(card)"
+          >
             {{ card }}
           </div>
-      </template>
-    </draggable>
+        </div>
+        </draggable>
       </div>
       <h3
         class="text-xl font-semibold mb-2"
@@ -216,7 +218,6 @@
 </template>
 
 <script setup lang="ts">
-import draggable from 'vuedraggable';
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute } from "vue-router";
 import {
@@ -400,30 +401,8 @@ onMounted(() => {
     }
   }
   );
- // Quand roomData change, on met à jour localHand
-  watch(
-  () => roomData.value?.hands?.[uid.value] ?? [],
-  (newHand) => {
-    localHand.value = [...newHand]; // copie pour modifier localement
-  },
-  { immediate: true }
-);
 
-// Quand drag/drop modifie localHand, on doit envoyer la nouvelle main dans Firestore
-function onHandReorder() {
-  if (!uid.value || !roomRef) return;
-
-  // MAJ Firestore avec le nouvel ordre de main
-  updateDoc(roomRef, {
-    [`hands.${uid.value}`]: localHand.value
-  });
-}
 });
-
-// Quand drag/drop modifie localHand, on doit envoyer la nouvelle main dans Firestore
-function onHandReorder() {
-  if (!uid.value || !roomRef) return;
-}
 
 function subscribeRoom() {
   onSnapshot(roomRef, (snap) => {
@@ -446,12 +425,9 @@ const opponentUid = computed(() =>
     : null
 );
 
-// const localHand = computed<string[]>(() =>
-//   uid.value ? roomData.value?.hands?.[uid.value] ?? [] : []
-// );
-
-const localHand = ref<string[]>([]);
-
+const localHand = computed<string[]>(() =>
+  uid.value ? roomData.value?.hands?.[uid.value] ?? [] : []
+);
 
 const opponentHand = computed<string[]>(() =>
   opponentUid.value ? roomData.value?.hands?.[opponentUid.value] ?? [] : []
