@@ -5,6 +5,7 @@ export interface CardData {
   suit: Suit;
 }
 
+import type { Card } from '@/components/Card.vue'
 
 
 export interface Combination {

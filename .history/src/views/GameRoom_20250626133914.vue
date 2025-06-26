@@ -163,43 +163,6 @@
     <button class="mt-4 text-sm text-red-600" @click="showComboPopup=false">Fermer</button>
   </div>
 </div>
-<!-- GameRoom.vue <template> -->
-<Transition name="fade">
-  <div
-    v-if="showTrumpExchangePopup"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-  >
-    <div class="bg-white rounded-2xl shadow-xl p-6 w-[320px]">
-      <h2 class="text-xl font-semibold mb-4 text-center">
-        Échanger le 7 d’atout ?
-      </h2>
-
-      <p class="text-center mb-6">
-        Vous possédez le <strong>7{{ trump }}</strong> .<br>
-        Souhaitez-vous le poser et<br>
-        récupérer le
-        <strong>{{ trumpCard.rank }}{{ trump }}</strong> exposé&nbsp;?
-      </p>
-
-      <div class="flex justify-center gap-4">
-        <button
-          class="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
-          @click="acceptExchange"
-        >
-          Oui, échanger
-        </button>
-
-        <button
-          class="px-4 py-2 rounded-lg bg-gray-300 hover:bg-gray-400"
-          @click="showTrumpExchangePopup = false"
-        >
-          Plus tard
-        </button>
-      </div>
-    </div>
-  </div>
-</Transition>
-
 
 </template>
 
@@ -283,6 +246,9 @@ function resolveTrick(
 
 /* ── nouveau state ───────────────────────────── */
 const battleZoneCards = ref<string[]>([]);
+//
+
+//
 
 let unsubscribeMene: (() => void) | null = null;
 
@@ -420,140 +386,6 @@ const opponentScore = computed(() =>
   opponentUid.value ? roomData.value?.scores?.[opponentUid.value] ?? 0 : 0
 );
 
-/** Joue (depuis un meld) une carte déjà posée par le joueur */
-async function playCardFromMeld(card: Card) {
-  if (!uid.value || !roomData.value) return
-
-  /* sécurité : doit être votre tour */
-  if (currentTurn.value !== uid.value) return
-
-  /* conversion objet → chaîne (ex : {rank:'K',suit:'♣'} → 'K♣') */
-  const cardStr = cardToStr(card)
-
-  await runTransaction(db, async tx => {
-    /* ---------- lecture instantanée ---------- */
-    const snap = await tx.get(roomRef)
-    if (!snap.exists()) throw 'Room inexistante'
-    const d = snap.data()!
-
-    if (d.currentTurn !== uid.value) throw 'Pas votre tour'
-    if (d.canMeld === uid.value)      // on n’a pas encore pioché
-      throw 'Piochez avant de rejouer une carte'
-
-    /* ---------- retirer la carte du meld ---------- */
-    const melds    : Combination[] = d.melds?.[uid.value] ?? []
-    let   removed  = false
-
-    const newMelds = melds
-      .map(m => {
-        if (removed) return m
-        const i = m.cards.findIndex(cc => cc.rank === card.rank && cc.suit === card.suit)
-        if (i !== -1) {
-          removed = true
-          const cards = [...m.cards]
-          cards.splice(i, 1)                // enlève la carte
-          return { ...m, cards }
-        }
-        return m
-      })
-      .filter(m => m.cards.length)          // supprime un meld vide
-
-    if (!removed) throw 'Carte non trouvée dans vos combinaisons'
-
-    /* ---------- ajouter la carte au pli ---------- */
-    const trick = d.trick ?? { cards: [], players: [] }
-    if (trick.cards.length >= 2) throw 'Le pli courant n’est pas encore vidé'
-
-    trick.cards.push(cardStr)
-    trick.players.push(uid.value)
-
-    /* mise à jour pour l’affichage temps-réel (mene/{id}) */
-    const meneRef  = doc(db, 'rooms', roomId, 'menes', String(currentMeneId.value))
-    const meneSnap = await tx.get(meneRef)
-    const meneData = meneSnap.exists() ? meneSnap.data() : {}
-    const currentPliCards = [...(meneData.currentPliCards ?? []), cardStr]
-    tx.set(meneRef, { currentPliCards }, { merge: true })
-
-    /* ---------- objet d’update principal ---------- */
-    const update: any = {
-      [`melds.${uid.value}`] : newMelds,
-      trick
-    }
-
-    /* ---------- si 2 cartes → résolution du pli ---------- */
-    if (trick.cards.length === 2) {
-      const winnerUid = resolveTrick(
-        trick.cards[0], trick.cards[1],
-        trick.players[0], trick.players[1],
-        d.trumpCard
-      )
-
-      /* --- pioche automatique --- */
-      const deck  = d.deck  ?? []
-      const hands = d.hands
-
-       // carte pour l'autre joueur (s'il en reste)
- 
-      if (deck.length && hands[winnerUid].length < 9) {
-        hands[winnerUid].push(deck.shift()!)
-      }
-       const loserUid = winnerUid === uid.value ? opponentUid.value! : uid.value
-      if (!loserUid) throw 'Adversaire introuvable'      
-      if (deck.length && hands[loserUid].length < 9) {
-        hands[loserUid].push(deck.shift()!)
-      }
-
-      /* --- scoring 10 / As --- */
-      const scores = d.scores ?? {}
-      if (trick.cards.some(c => c.startsWith('10') || c.startsWith('A'))) {
-        scores[winnerUid] = (scores[winnerUid] ?? 0) + 10
-      }
-
-      /* --- nettoyage pli + passage de main --- */
-      update.trick                 = { cards: [], players: [] }
-      update.currentTurn           = winnerUid
-      update.canMeld               = winnerUid              // vainqueur pourra poser un meld
-      update.deck                  = deck
-      update[`hands.${winnerUid}`] = hands[winnerUid]
-      update[`hands.${loserUid}`]  = hands[loserUid]
-      update.scores                = scores
-    } else {
-      /* 1 seule carte → tour à l’adversaire */
-      update.currentTurn = opponentUid.value
-    }
-
-    /* ---------- commit Firestore ---------- */
-    tx.update(roomRef, update)
-  })
-}
-
-const hand         = ref<string[]>([])  
-const trump = ref<Suit | undefined>(undefined)
-const showTrumpExchangePopup = ref(false)
-
-/* détection – seulement dans la main */
-const canExchangeTrump = computed(() => {
-  const seven = `7${trump.value}`
-  const eligibleRanks = ['J', 'Q', 'K', '10', 'A']
-  return hand.value.includes(seven) &&
-         eligibleRanks.includes(trumpCard.value.rank)
-})
-
-/* ouverture automatique : dès que les conditions deviennent vraies */
-watch(canExchangeTrump, ok => {
-  if (ok) showTrumpExchangePopup.value = true
-})
-
-async function acceptExchange() {
-  try {
-    await tryExchangeSeven(uid.value); // déclenche la transaction
-  } catch (e) {
-    console.error(e); // à remplacer par un toast d'erreur éventuel
-  }
-  showTrumpExchangePopup.value = false;
-}
-
-
 async function playCombination(combo: Combination) {
   if (!uid.value) return
 
@@ -562,12 +394,12 @@ async function playCombination(combo: Combination) {
     const d = snap.data()
     if (!d) throw new Error('Room introuvable')
 
-    /* 1️⃣  vérifs habituelles */
+    /* 1️⃣  vérifs */
     if (d.canMeld !== uid.value) throw 'Vous ne pouvez plus poser de combinaison'
     if (!combo.cards.every(c =>
-          d.hands[uid.value].some((cc: string) => cc === `${c.rank}${c.suit}`)
-          || (d.melds?.[uid.value] ?? []).flatMap((m: any)=>m.cards).includes(c)
-        )) throw 'Cartes manquantes'
+      d.hands[uid.value].some((cc: string) => cc === `${c.rank}${c.suit}`)
+      || (d.melds?.[uid.value] ?? []).flatMap((m: any)=>m.cards).includes(c)
+    )) throw 'Cartes manquantes'
 
     /* 2️⃣  retirer de la main */
     const newHand = d.hands[uid.value].filter(
@@ -575,17 +407,17 @@ async function playCombination(combo: Combination) {
     )
 
     /* 3️⃣  ajouter dans melds */
-    const melds = { ...(d.melds ?? {}) }
+    const melds = d.melds ?? {}
     melds[uid.value] = [...(melds[uid.value] ?? []), combo]
 
     /* 4️⃣  scorer */
-    const scores = { ...(d.scores ?? {}) }
+    const scores = d.scores ?? {}
     scores[uid.value] = (scores[uid.value] ?? 0) + combo.points
 
     /* 5️⃣  canMeld = null pour bloquer d’autres poses ce pli */
     tx.update(roomRef, {
-      [`hands.${uid.value}`]: newHand,
-      [`melds.${uid.value}`]: melds[uid.value],
+      [`hands.${uid.value}`] : newHand,
+      [`melds.${uid.value}`] : melds[uid.value],
       scores,
       canMeld: null
     })
@@ -593,8 +425,6 @@ async function playCombination(combo: Combination) {
 
   showComboPopup.value = false
 }
-
-
 
 
 /* ──────────  clic sur une carte  ────────── */
@@ -721,30 +551,11 @@ if (pliComplet) {
   }, 2000);
 }
 
-  
+  /* 7. MAJ optimiste locale : on voit la carte tout de suite */
+  //battleZoneCards.value.push(card);
 }
-// Echange du 7 transaction Firestore.
-async function tryExchangeSeven(uid: string) {
-  await runTransaction(db, async tx => {
-    const snap = await tx.get(roomRef);
-    const d = snap.data();
-    if (!d) throw new Error('Room introuvable');
 
-    const handArr   = d.hands[uid] as string[]; // ["A♣", "7♥", …]
-    const trumpSuit = d.trump as Suit;
-    const trumpCard = d.trumpCard as Card | string;
 
-    const { newHand, newTrumpCard, exchanged } =
-      exchangeSevenTrump(handArr, trumpSuit, trumpCard);
-
-    if (!exchanged) return;      // rien à faire, on sort de la transaction
-
-    tx.update(roomRef, {
-      [`hands.${uid}`] : newHand,
-      trumpCard        : newTrumpCard   // stocké sous forme d’objet {rank,suit}
-    });
-  });
-}
 
 
 /* ──────────  style des cartes selon la couleur ────────── */
@@ -775,26 +586,16 @@ const order: Rank[] = ['7','8','9','J','Q','K','10','A'];
 const isTrump = (card: Card, trump: Suit) => card.suit === trump;
 
 /* -------- détection -------- */
-function detectCombinations(
-  all: Card[],
-  trump: Suit,
-  existing: Combination[] = []
-): Combination[] {
+function detectCombinations(all: Card[], trump: Suit): Combination[] {
   const combos: Combination[] = [];
   const byRank: Record<Rank, Card[]> =
     { '7':[], '8':[], '9':[], '10':[], 'J':[], 'Q':[], 'K':[], 'A':[] };
   all.forEach(c => byRank[c.rank].push(c));
 
-  const toKey = (cs: Card[]) =>
-    cs.map(c => `${c.rank}${c.suit}`).sort().join('-');
-  const already = new Set(existing.map(c => toKey(c.cards)));
-  const pushIfNew = (c: Combination) => { if (!already.has(toKey(c.cards))) combos.push(c); };
-
-  /* 4-as / 4-rois / … */
+  /* 4-As, 4-Rois, 4-Dames, 4-Valets */
   const fourMap = { A:100, K:80, Q:60, J:40 } as const;
   (['A','K','Q','J'] as Rank[]).forEach(r => {
-    if (byRank[r].length >= 4)
-      pushIfNew({ name:`4 ${r}`, points: fourMap[r], cards: byRank[r].slice(0,4) });
+    if (byRank[r].length >= 4) combos.push({ name:`4 ${r}`, points: fourMap[r], cards: byRank[r].slice(0,4) });
   });
 
   /* mariages */
@@ -803,83 +604,50 @@ function detectCombinations(
     const queen= all.find(c => c.rank==='Q' && c.suit===s);
     if (king && queen) {
       const atout = s === trump ? ' d’atout' : '';
-      pushIfNew({
-        name:`Mariage ${s}${atout}`,
-        points: s===trump ? 40 : 20,
-        cards:[king,queen]
-      });
+      combos.push({ name:`Mariage ${s}${atout}`, points: s===trump?40:20, cards:[king,queen]});
     }
   });
 
-  /* suites */
+  /* suite J-Q-K-10-A */
   ['♠','♥','♦','♣'].forEach(s => {
     const suite = ['J','Q','K','10','A'].map(r => all.find(c => c.rank===r && c.suit===s));
     if (suite.every(Boolean)) {
       const atout = s === trump ? ' d’atout' : '';
-      pushIfNew({
-        name:`Suite ${s}${atout}`,
-        points: s===trump ? 250 : 150,
-        cards: suite as Card[]
-      });
+      combos.push({ name:`Suite ${s}${atout}`, points: s===trump?250:150, cards: suite as Card[]});
     }
   });
 
-  /* Dame♠ + Valet♦ */
+  /* Dame ♠ + Valet ♦ (et doublon) */
   const qs = all.filter(c => c.rank==='Q' && c.suit==='♠');
   const jd = all.filter(c => c.rank==='J' && c.suit==='♦');
   const pairs = Math.min(qs.length, jd.length);
-  if (pairs >= 1)
-    pushIfNew({ name:'Dame♠+Valet♦', points:40, cards:[qs[0],jd[0]] });
-  if (pairs >= 2)
-    pushIfNew({ name:'2×(Dame♠+Valet♦)', points:500, cards:[qs[0],jd[0],qs[1],jd[1]] });
+  if (pairs>=1) combos.push({ name:'Dame♠+Valet♦', points:40, cards:[qs[0],jd[0]]});
+  if (pairs>=2) combos.push({ name:'2×(Dame♠+Valet♦)', points:500, cards:[qs[0],jd[0],qs[1],jd[1]]});
+
+// 7 d'atout
+  const exposedTrumpCard = trumpCard; // ComputedRef
+
+  const sevenTrump = all.find(c => c.rank === '7' && c.suit === trump);
+
+  if (sevenTrump && exposedTrumpCard && exposedTrumpCard.value.suit === trump) {
+    const eligibleRanks = ['J', 'Q', 'K', '10', 'A'];
+    if (eligibleRanks.includes(exposedTrumpCard.value.rank)) {
+      combos.push({
+        name: `Échange 7 d’atout contre ${exposedTrumpCard.value.rank} d’atout`,
+        points: 10,
+        cards: [sevenTrump, exposedTrumpCard.value]
+      });
+      // gérer l’échange réel ici
+    } else {
+      combos.push({ name: '7 d’atout', points: 10, cards: [sevenTrump] });
+    }
+  } else if (sevenTrump) {
+    combos.push({ name: '7 d’atout', points: 10, cards: [sevenTrump] });
+  }
+
 
   return combos;
 }
-
-/**
- * Échange éventuel du 7 d’atout avec la trumpCard.
- *
- * @param hand        main du joueur (array de STRING, ex. "7♥")
- * @param trump       couleur d’atout
- * @param trumpCard   carte exposée (Card OU string)
- *
- * @returns { newHand, newTrumpCard, exchanged }
- */
-function exchangeSevenTrump(
-  hand: string[],
-  trump: Suit,
-  trumpCard: Card | string
-): { newHand: string[]; newTrumpCard: Card; exchanged: boolean } {
-  /* 1️⃣ normaliser trumpCard en objet Card */
-  const tcObj = typeof trumpCard === 'string' ? strToCard(trumpCard) : trumpCard;
-
-  /* 2️⃣ le 7 d’atout est-il dans la main ? */
-  const sevenStr = `7${trump}` as const;
-  const sevenIdx  = hand.indexOf(sevenStr);
-
-  /* 3️⃣ la trumpCard est-elle un J/Q/K/10/A ? */
-  const eligible = ['J','Q','K','10','A'] as const;
-  const canExchange = sevenIdx !== -1 && eligible.includes(tcObj.rank);
-
-  if (!canExchange) {
-    /* aucun échange possible → on renvoie des copies inchangées */
-    return {
-      newHand: [...hand],
-      newTrumpCard: { ...tcObj },
-      exchanged: false,
-    };
-  }
-
-  /* 4️⃣ construire la nouvelle main et la nouvelle trumpCard */
-  const newHand = [...hand];
-  newHand.splice(sevenIdx, 1);               // retire le 7 d’atout
-  newHand.push(cardToStr(tcObj));            // ajoute l’ancienne trumpCard
-
-  const newTrumpCard: Card = { rank: '7', suit: trump };
-
-  return { newHand, newTrumpCard, exchanged: true };
-}
-
 
 </script>
 

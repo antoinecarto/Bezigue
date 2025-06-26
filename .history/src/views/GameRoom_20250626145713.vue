@@ -527,30 +527,14 @@ async function playCardFromMeld(card: Card) {
   })
 }
 
-const hand         = ref<string[]>([])  
-const trump = ref<Suit | undefined>(undefined)
-const showTrumpExchangePopup = ref(false)
-
-/* détection – seulement dans la main */
-const canExchangeTrump = computed(() => {
-  const seven = `7${trump.value}`
-  const eligibleRanks = ['J', 'Q', 'K', '10', 'A']
-  return hand.value.includes(seven) &&
-         eligibleRanks.includes(trumpCard.value.rank)
-})
-
-/* ouverture automatique : dès que les conditions deviennent vraies */
-watch(canExchangeTrump, ok => {
-  if (ok) showTrumpExchangePopup.value = true
-})
-
-async function acceptExchange() {
+async function acceptExchange () {
+  showTrumpExchangePopup.value = false
   try {
-    await tryExchangeSeven(uid.value); // déclenche la transaction
-  } catch (e) {
-    console.error(e); // à remplacer par un toast d'erreur éventuel
+    await exchangeSevenTrumpInDB(uid.value)   // ↙ transaction Firestore
+  } catch (err) {
+    console.error(err)
+    // (facultatif) affiche un toast / snackbar d’erreur
   }
-  showTrumpExchangePopup.value = false;
 }
 
 

@@ -163,42 +163,6 @@
     <button class="mt-4 text-sm text-red-600" @click="showComboPopup=false">Fermer</button>
   </div>
 </div>
-<!-- GameRoom.vue <template> -->
-<Transition name="fade">
-  <div
-    v-if="showTrumpExchangePopup"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-  >
-    <div class="bg-white rounded-2xl shadow-xl p-6 w-[320px]">
-      <h2 class="text-xl font-semibold mb-4 text-center">
-        Échanger le 7 d’atout ?
-      </h2>
-
-      <p class="text-center mb-6">
-        Vous possédez le <strong>7{{ trump }}</strong> .<br>
-        Souhaitez-vous le poser et<br>
-        récupérer le
-        <strong>{{ trumpCard.rank }}{{ trump }}</strong> exposé&nbsp;?
-      </p>
-
-      <div class="flex justify-center gap-4">
-        <button
-          class="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
-          @click="acceptExchange"
-        >
-          Oui, échanger
-        </button>
-
-        <button
-          class="px-4 py-2 rounded-lg bg-gray-300 hover:bg-gray-400"
-          @click="showTrumpExchangePopup = false"
-        >
-          Plus tard
-        </button>
-      </div>
-    </div>
-  </div>
-</Transition>
 
 
 </template>
@@ -527,31 +491,7 @@ async function playCardFromMeld(card: Card) {
   })
 }
 
-const hand         = ref<string[]>([])  
-const trump = ref<Suit | undefined>(undefined)
-const showTrumpExchangePopup = ref(false)
 
-/* détection – seulement dans la main */
-const canExchangeTrump = computed(() => {
-  const seven = `7${trump.value}`
-  const eligibleRanks = ['J', 'Q', 'K', '10', 'A']
-  return hand.value.includes(seven) &&
-         eligibleRanks.includes(trumpCard.value.rank)
-})
-
-/* ouverture automatique : dès que les conditions deviennent vraies */
-watch(canExchangeTrump, ok => {
-  if (ok) showTrumpExchangePopup.value = true
-})
-
-async function acceptExchange() {
-  try {
-    await tryExchangeSeven(uid.value); // déclenche la transaction
-  } catch (e) {
-    console.error(e); // à remplacer par un toast d'erreur éventuel
-  }
-  showTrumpExchangePopup.value = false;
-}
 
 
 async function playCombination(combo: Combination) {

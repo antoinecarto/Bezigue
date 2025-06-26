@@ -527,8 +527,8 @@ async function playCardFromMeld(card: Card) {
   })
 }
 
-const hand         = ref<string[]>([])  
-const trump = ref<Suit | undefined>(undefined)
+                            
+
 const showTrumpExchangePopup = ref(false)
 
 /* détection – seulement dans la main */

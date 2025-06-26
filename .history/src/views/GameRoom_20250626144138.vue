@@ -163,42 +163,6 @@
     <button class="mt-4 text-sm text-red-600" @click="showComboPopup=false">Fermer</button>
   </div>
 </div>
-<!-- GameRoom.vue <template> -->
-<Transition name="fade">
-  <div
-    v-if="showTrumpExchangePopup"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-  >
-    <div class="bg-white rounded-2xl shadow-xl p-6 w-[320px]">
-      <h2 class="text-xl font-semibold mb-4 text-center">
-        Échanger le 7 d’atout ?
-      </h2>
-
-      <p class="text-center mb-6">
-        Vous possédez le <strong>7{{ trump }}</strong> .<br>
-        Souhaitez-vous le poser et<br>
-        récupérer le
-        <strong>{{ trumpCard.rank }}{{ trump }}</strong> exposé&nbsp;?
-      </p>
-
-      <div class="flex justify-center gap-4">
-        <button
-          class="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
-          @click="acceptExchange"
-        >
-          Oui, échanger
-        </button>
-
-        <button
-          class="px-4 py-2 rounded-lg bg-gray-300 hover:bg-gray-400"
-          @click="showTrumpExchangePopup = false"
-        >
-          Plus tard
-        </button>
-      </div>
-    </div>
-  </div>
-</Transition>
 
 
 </template>
@@ -527,31 +491,7 @@ async function playCardFromMeld(card: Card) {
   })
 }
 
-const hand         = ref<string[]>([])  
-const trump = ref<Suit | undefined>(undefined)
-const showTrumpExchangePopup = ref(false)
 
-/* détection – seulement dans la main */
-const canExchangeTrump = computed(() => {
-  const seven = `7${trump.value}`
-  const eligibleRanks = ['J', 'Q', 'K', '10', 'A']
-  return hand.value.includes(seven) &&
-         eligibleRanks.includes(trumpCard.value.rank)
-})
-
-/* ouverture automatique : dès que les conditions deviennent vraies */
-watch(canExchangeTrump, ok => {
-  if (ok) showTrumpExchangePopup.value = true
-})
-
-async function acceptExchange() {
-  try {
-    await tryExchangeSeven(uid.value); // déclenche la transaction
-  } catch (e) {
-    console.error(e); // à remplacer par un toast d'erreur éventuel
-  }
-  showTrumpExchangePopup.value = false;
-}
 
 
 async function playCombination(combo: Combination) {
@@ -593,6 +533,7 @@ async function playCombination(combo: Combination) {
 
   showComboPopup.value = false
 }
+
 
 
 
@@ -721,30 +662,11 @@ if (pliComplet) {
   }, 2000);
 }
 
-  
+  /* 7. MAJ optimiste locale : on voit la carte tout de suite */
+  //battleZoneCards.value.push(card);
 }
-// Echange du 7 transaction Firestore.
-async function tryExchangeSeven(uid: string) {
-  await runTransaction(db, async tx => {
-    const snap = await tx.get(roomRef);
-    const d = snap.data();
-    if (!d) throw new Error('Room introuvable');
 
-    const handArr   = d.hands[uid] as string[]; // ["A♣", "7♥", …]
-    const trumpSuit = d.trump as Suit;
-    const trumpCard = d.trumpCard as Card | string;
 
-    const { newHand, newTrumpCard, exchanged } =
-      exchangeSevenTrump(handArr, trumpSuit, trumpCard);
-
-    if (!exchanged) return;      // rien à faire, on sort de la transaction
-
-    tx.update(roomRef, {
-      [`hands.${uid}`] : newHand,
-      trumpCard        : newTrumpCard   // stocké sous forme d’objet {rank,suit}
-    });
-  });
-}
 
 
 /* ──────────  style des cartes selon la couleur ────────── */
@@ -774,7 +696,6 @@ interface Combination { name: string; points: number; cards: Card[] }
 const order: Rank[] = ['7','8','9','J','Q','K','10','A'];
 const isTrump = (card: Card, trump: Suit) => card.suit === trump;
 
-/* -------- détection -------- */
 function detectCombinations(
   all: Card[],
   trump: Suit,
@@ -836,52 +757,6 @@ function detectCombinations(
   return combos;
 }
 
-/**
- * Échange éventuel du 7 d’atout avec la trumpCard.
- *
- * @param hand        main du joueur (array de STRING, ex. "7♥")
- * @param trump       couleur d’atout
- * @param trumpCard   carte exposée (Card OU string)
- *
- * @returns { newHand, newTrumpCard, exchanged }
- */
-function exchangeSevenTrump(
-  hand: string[],
-  trump: Suit,
-  trumpCard: Card | string
-): { newHand: string[]; newTrumpCard: Card; exchanged: boolean } {
-  /* 1️⃣ normaliser trumpCard en objet Card */
-  const tcObj = typeof trumpCard === 'string' ? strToCard(trumpCard) : trumpCard;
-
-  /* 2️⃣ le 7 d’atout est-il dans la main ? */
-  const sevenStr = `7${trump}` as const;
-  const sevenIdx  = hand.indexOf(sevenStr);
-
-  /* 3️⃣ la trumpCard est-elle un J/Q/K/10/A ? */
-  const eligible = ['J','Q','K','10','A'] as const;
-  const canExchange = sevenIdx !== -1 && eligible.includes(tcObj.rank);
-
-  if (!canExchange) {
-    /* aucun échange possible → on renvoie des copies inchangées */
-    return {
-      newHand: [...hand],
-      newTrumpCard: { ...tcObj },
-      exchanged: false,
-    };
-  }
-
-  /* 4️⃣ construire la nouvelle main et la nouvelle trumpCard */
-  const newHand = [...hand];
-  newHand.splice(sevenIdx, 1);               // retire le 7 d’atout
-  newHand.push(cardToStr(tcObj));            // ajoute l’ancienne trumpCard
-
-  const newTrumpCard: Card = { rank: '7', suit: trump };
-
-  return { newHand, newTrumpCard, exchanged: true };
-}
-
-
-</script>
 
 
 <style scoped>

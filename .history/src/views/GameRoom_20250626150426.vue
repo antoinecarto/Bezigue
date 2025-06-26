@@ -528,12 +528,13 @@ async function playCardFromMeld(card: Card) {
 }
 
 const hand         = ref<string[]>([])  
-const trump = ref<Suit | undefined>(undefined)
+const trump        = ref<Suit> 
+
 const showTrumpExchangePopup = ref(false)
 
 /* détection – seulement dans la main */
 const canExchangeTrump = computed(() => {
-  const seven = `7${trump.value}`
+  const seven = `7${isTrump}`
   const eligibleRanks = ['J', 'Q', 'K', '10', 'A']
   return hand.value.includes(seven) &&
          eligibleRanks.includes(trumpCard.value.rank)

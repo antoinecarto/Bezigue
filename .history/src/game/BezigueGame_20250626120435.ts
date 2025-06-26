@@ -5,12 +5,12 @@
 type Suit = '♠' | '♥' | '♦' | '♣';
 type Rank = '7' | '8' | '9' | 'J' | 'Q' | 'K' | '10' | 'A';
 
-export interface Card {
+interface Card {
   suit: Suit;
   rank: Rank;
 }
 
-export interface Combination {
+interface Combination {
   name: string;
   cards: Card[];
   points: number;
