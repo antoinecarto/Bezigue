@@ -408,27 +408,11 @@ async function playCard(card: string) {
 
     /* 5. Pli complet ? */
     if (trick.cards.length === 2) {
-      const deck  = d.deck ?? [];
-      const hands = d.hands;
       const winnerUid = resolveTrick(
         trick.cards[0], trick.cards[1],
         trick.players[0], trick.players[1],
         d.trumpCard
       );
-/* compte main + meld du gagnant et du perdant */
-const winnerTot = hands[winnerUid].length + meldSize(d.melds?.[winnerUid]);
-const loserUid  = winnerUid === uid.value ? opponentUid.value! : uid.value;
-const loserTot  = hands[loserUid].length  + meldSize(d.melds?.[loserUid]);
-
-/* — 1ʳᵉ carte pour le gagnant — */
-if (deck.length && winnerTot < 9) hands[winnerUid].push(deck.shift()!);
-
-/* — 2ᵉ carte pour le perdant — */
-if (deck.length && loserTot  < 9) hands[loserUid ].push(deck.shift()!);
-
-update.deck                  = deck;
-update[`hands.${winnerUid}`] = hands[winnerUid];
-update[`hands.${loserUid}`]  = hands[loserUid];
 
       /* +10 pts si 10 ou As */
       const scores = d.scores ?? {};
@@ -530,24 +514,13 @@ async function playCardFromMeld(card: Card) {
         d.trumpCard
       );
 
-      /* compte main + meld du gagnant et du perdant */
-
+      /* pioche immédiate (hors phase meld) */
       const deck  = d.deck ?? [];
       const hands = d.hands;
-      const winnerTot = hands[winnerUid].length + meldSize(d.melds?.[winnerUid]);
-      const loserUid  = winnerUid === uid.value ? opponentUid.value! : uid.value;
-      const loserTot  = hands[loserUid].length  + meldSize(d.melds?.[loserUid]);
+      if (deck.length && hands[winnerUid].length < 9) hands[winnerUid].push(deck.shift()!);
 
-      /* — 1ʳᵉ carte pour le gagnant — */
-      if (deck.length && winnerTot < 9) hands[winnerUid].push(deck.shift()!);
-
-      /* — 2ᵉ carte pour le perdant — */
-      if (deck.length && loserTot  < 9) hands[loserUid ].push(deck.shift()!);
-
-      update.deck                  = deck;
-      update[`hands.${winnerUid}`] = hands[winnerUid];
-      update[`hands.${loserUid}`]  = hands[loserUid];
-
+      const loserUid = winnerUid === uid.value ? opponentUid.value! : uid.value;
+      if (deck.length && hands[loserUid].length  < 9) hands[loserUid].push(deck.shift()!);
 
       /* scoring 10 / As */
       const scores = d.scores ?? {};
@@ -629,7 +602,91 @@ async function playCombination(combo: Combination) {
     });
   });
 
+  /* — fermeture popup + pioche immédiate — */
+  showComboPopup.value = false;
+  await endMeldPhaseAndDraw();       // ← ICI on déclenche la pioche
 }
+
+/* endMeldPhaseAndDraw : vidage immédiat */
+
+async function endMeldPhaseAndDraw() {
+  if (!uid.value) return;
+
+  await runTransaction(db, async tx => {
+    const snap = await tx.get(roomRef);
+    if (!snap.exists()) throw 'Room inexistante';
+    const d = snap.data() as any;
+
+    /* 1️⃣ Vérif : suis-je bien celui qui doit terminer la phase ? */
+    if (d.canMeld !== uid.value) return;          // rien à faire
+
+    /* 2️⃣ Pioche : winner = currentTurn */
+    const winnerUid = d.currentTurn as string;
+    const loserUid  = Object.keys(d.hands).find(k => k !== winnerUid)!;
+
+    const deck  = [...(d.deck ?? [])];
+    const hands = { ...d.hands };
+
+    const meldSize = (ms:any[]|undefined)=>
+      ms?.reduce((n,m)=>n+(m.cards?.length??0),0) ?? 0;
+
+    const winTot = hands[winnerUid].length + meldSize(d.melds?.[winnerUid]);
+    const losTot = hands[loserUid ].length + meldSize(d.melds?.[loserUid ]);
+
+    /* ► 1ʳᵉ carte pour le vainqueur si possible */
+    if (deck.length && winTot < 9) hands[winnerUid].push(deck.shift()!);
+    /* ► 2ᵉ carte pour le perdant si possible */
+    if (deck.length && losTot  < 9) hands[loserUid ].push(deck.shift()!);
+
+    /* 3️⃣ On vide canMeld pour clore la phase */
+    tx.update(roomRef, {
+      deck,
+      [`hands.${winnerUid}`]: hands[winnerUid],
+      [`hands.${loserUid}`] : hands[loserUid],
+      canMeld: null
+    });
+  });
+}
+
+
+/* drawCardsAfterMeld : même vidage + pioche 2-cartes garantie */
+async function drawCardsAfterMeld() {
+  await runTransaction(db, async tx => {
+    const snap = await tx.get(roomRef);
+    if (!snap.exists()) throw 'Room inexistante';
+    const d = snap.data() as any;
+
+    const winnerUid = d.currentTurn as string;
+    const loserUid  = Object.keys(d.hands).find(k => k !== winnerUid)!;
+
+    const deck  = [...(d.deck ?? [])];
+    const hands = { ...d.hands };
+
+    const meldSize = (ms:any[]|undefined)=>
+      ms?.reduce((n,m)=>n+(m.cards?.length??0),0) ?? 0;
+
+    const winTot = hands[winnerUid].length + meldSize(d.melds?.[winnerUid]);
+    const losTot = hands[loserUid ].length + meldSize(d.melds?.[loserUid ]);
+
+    /* priorité : 1ʳᵉ carte gagnant ; 2ᵉ perdant */
+    if (deck.length >= 2) {
+      if (winTot < 9) hands[winnerUid].push(deck.shift()!);
+      if (losTot < 9) hands[loserUid ].push(deck.shift()!);
+    } else if (deck.length === 1) {              // une seule carte restante
+      if (losTot < 9)      hands[loserUid ].push(deck.shift()!);
+      else if (winTot < 9) hands[winnerUid].push(deck.shift()!);
+    }
+
+    tx.update(roomRef, {
+      deck,
+      [`hands.${winnerUid}`]: hands[winnerUid],
+      [`hands.${loserUid}`] : hands[loserUid]
+    });
+  });
+}
+
+
+
 
 /*────────────────────────────────────────────────────────────────────*/
 

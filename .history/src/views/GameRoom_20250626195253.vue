@@ -168,7 +168,7 @@
     <ul class="space-y-2 max-h-56 overflow-y-auto">
         <li v-for="(combo,i) in validCombosFiltered" :key="combo.name">
           <button class="w-full px-3 py-1 border rounded hover:bg-slate-100"
-                @click="playCombination(combo).then(closeComboPopup)">
+                @click="playCombination(combo)">
           {{ combo.name }} ({{ combo.points }} pts)
         </button>
       </li>
@@ -337,6 +337,13 @@ onMounted(() => {
         );
         showComboPopup.value = validCombosFiltered.value.length > 0;
       }
+
+      /* 3. Pioche : seulement si  (a) canMeld vient de passer à null
+        ET (b) c’est encore mon tour dans Firestore (== vainqueur)   */
+      const justFinished = prev?.right === uid.value && right == null;
+      if (justFinished && roomData.value?.currentTurn === uid.value) {
+        setTimeout(() => drawCardsAfterMeld().catch(console.error), 1000);
+      }
     },
     { immediate: true }
   );
@@ -408,27 +415,11 @@ async function playCard(card: string) {
 
     /* 5. Pli complet ? */
     if (trick.cards.length === 2) {
-      const deck  = d.deck ?? [];
-      const hands = d.hands;
       const winnerUid = resolveTrick(
         trick.cards[0], trick.cards[1],
         trick.players[0], trick.players[1],
         d.trumpCard
       );
-/* compte main + meld du gagnant et du perdant */
-const winnerTot = hands[winnerUid].length + meldSize(d.melds?.[winnerUid]);
-const loserUid  = winnerUid === uid.value ? opponentUid.value! : uid.value;
-const loserTot  = hands[loserUid].length  + meldSize(d.melds?.[loserUid]);
-
-/* — 1ʳᵉ carte pour le gagnant — */
-if (deck.length && winnerTot < 9) hands[winnerUid].push(deck.shift()!);
-
-/* — 2ᵉ carte pour le perdant — */
-if (deck.length && loserTot  < 9) hands[loserUid ].push(deck.shift()!);
-
-update.deck                  = deck;
-update[`hands.${winnerUid}`] = hands[winnerUid];
-update[`hands.${loserUid}`]  = hands[loserUid];
 
       /* +10 pts si 10 ou As */
       const scores = d.scores ?? {};
@@ -471,58 +462,52 @@ update[`hands.${loserUid}`]  = hands[loserUid];
  * on pioche immédiatement (car on n’est plus en phase de meld).
  * → pas de changement par rapport à ton code initial.
  */
-/** Joue (depuis un meld) une carte déjà posée par le joueur */
 async function playCardFromMeld(card: Card) {
   if (!uid.value || !roomData.value) return;
-  if (currentTurn.value !== uid.value) return;     // sécurité tour
+  if (currentTurn.value !== uid.value) return;
 
   const cardStr = cardToStr(card);
 
-  /* ───── transaction Firestore ───── */
-  const pliComplet = await runTransaction(db, async tx => {
-    let isComplete = false;                        // ← flag local
-
+  await runTransaction(db, async tx => {
     const snap = await tx.get(roomRef);
     if (!snap.exists()) throw 'Room inexistante';
     const d = snap.data() as any;
 
     if (d.currentTurn !== uid.value) throw 'Pas votre tour';
-    if (d.canMeld === uid.value)       throw 'Piochez avant de rejouer';
+    if (d.canMeld === uid.value) throw 'Piochez avant de rejouer';
 
-    /* 1. retirer la carte du meld */
+    /* retire la carte du meld */
     const melds: Combination[] = d.melds?.[uid.value] ?? [];
     let   removed = false;
     const newMelds = melds
       .map(m => {
         if (removed) return m;
-        const i = m.cards.findIndex(c => c.rank===card.rank && c.suit===card.suit);
-        if (i !== -1) { const cs=[...m.cards]; cs.splice(i,1); removed=true; return { ...m, cards: cs }; }
+        const i = m.cards.findIndex(c => c.rank === card.rank && c.suit === card.suit);
+        if (i !== -1) { removed = true; const cs=[...m.cards]; cs.splice(i,1); return { ...m, cards: cs }; }
         return m;
       })
       .filter(m => m.cards.length);
+
     if (!removed) throw 'Carte non trouvée dans vos melds';
 
-    /* 2. ajouter la carte au pli */
+    /* ajoute la carte au pli */
     const trick = d.trick ?? { cards: [], players: [] };
     if (trick.cards.length >= 2) throw 'Le pli n’est pas vidé';
     trick.cards.push(cardStr);
     trick.players.push(uid.value);
 
-    /* 3. MAJ mene (affichage) */
-    const meneRef  = doc(db,'rooms',roomId,'menes',String(currentMeneId.value));
+    /* update visuel mene */
+    const meneRef  = doc(db, 'rooms', roomId, 'menes', String(currentMeneId.value));
     const meneSnap = await tx.get(meneRef);
     const meneData = meneSnap.exists() ? meneSnap.data() : {};
-    tx.set(meneRef,
-      { currentPliCards: [...(meneData.currentPliCards ?? []), cardStr] },
-      { merge: true });
+    tx.set(meneRef, { currentPliCards: [...(meneData.currentPliCards ?? []), cardStr] }, { merge: true });
 
-    /* 4. préparation update */
+    /* update Firestore principal */
     const update: any = {
       [`melds.${uid.value}`]: newMelds,
       trick
     };
 
-    /* 5. pli complet ? */
     if (trick.cards.length === 2) {
       const winnerUid = resolveTrick(
         trick.cards[0], trick.cards[1],
@@ -530,56 +515,33 @@ async function playCardFromMeld(card: Card) {
         d.trumpCard
       );
 
-      /* compte main + meld du gagnant et du perdant */
-
+      /* pioche immédiate (phase hors-meld) */
       const deck  = d.deck ?? [];
       const hands = d.hands;
-      const winnerTot = hands[winnerUid].length + meldSize(d.melds?.[winnerUid]);
-      const loserUid  = winnerUid === uid.value ? opponentUid.value! : uid.value;
-      const loserTot  = hands[loserUid].length  + meldSize(d.melds?.[loserUid]);
+      if (deck.length && hands[winnerUid].length < 9) hands[winnerUid].push(deck.shift()!);
 
-      /* — 1ʳᵉ carte pour le gagnant — */
-      if (deck.length && winnerTot < 9) hands[winnerUid].push(deck.shift()!);
+      const loserUid = winnerUid === uid.value ? opponentUid.value! : uid.value;
+      if (deck.length && hands[loserUid].length  < 9) hands[loserUid].push(deck.shift()!);
 
-      /* — 2ᵉ carte pour le perdant — */
-      if (deck.length && loserTot  < 9) hands[loserUid ].push(deck.shift()!);
-
-      update.deck                  = deck;
-      update[`hands.${winnerUid}`] = hands[winnerUid];
-      update[`hands.${loserUid}`]  = hands[loserUid];
-
-
-      /* scoring 10 / As */
+      /* scoring pli */
       const scores = d.scores ?? {};
       if (trick.cards.some(c => c.startsWith('10') || c.startsWith('A')))
         scores[winnerUid] = (scores[winnerUid] ?? 0) + 10;
 
       update.trick                 = { cards: [], players: [] };
       update.currentTurn           = winnerUid;
-      update.canMeld               = winnerUid;          // droit de meld
+      update.canMeld               = winnerUid;
       update.deck                  = deck;
       update[`hands.${winnerUid}`] = hands[winnerUid];
       update[`hands.${loserUid}`]  = hands[loserUid];
       update.scores                = scores;
-
-      isComplete = true;            // ← on signale que c’était la 2ᵉ carte
     } else {
       update.currentTurn = opponentUid.value;
     }
 
     tx.update(roomRef, update);
-    return isComplete;              // ← valeur transmise hors transaction
+   
   });
-
-  /* ── vider la zone d’échange 2 s après, si pli terminé ── */
-  if (pliComplet) {
-    setTimeout(async () => {
-      const meneRef = doc(
-        db, 'rooms', roomId, 'menes', String(currentMeneId.value)
-      );
-      await updateDoc(meneRef, { currentPliCards: [] });
-    }, 2000);
-  }
 }
 
 /*────────────────────────────────────────────────────────────────────*/
@@ -592,44 +554,83 @@ async function playCardFromMeld(card: Card) {
 async function playCombination(combo: Combination) {
   if (!uid.value) return;
 
-  await runTransaction(db, async tx => {
+  const pliComplet = await runTransaction(db, async tx => {
     const snap = await tx.get(roomRef);
     const d    = snap.data() as any;
     if (!d) throw 'Room introuvable';
 
-    /* 1️⃣ vérifs habituelles */
-    if (d.canMeld !== uid.value) throw 'Vous ne pouvez plus poser de combinaison';
+    if (d.canMeld !== uid.value) throw 'Phase meld terminée';
     const okCards = combo.cards.every(c =>
       d.hands[uid.value].includes(cardToStr(c)) ||
-      (d.melds?.[uid.value] ?? [])
-        .flatMap((m:any)=>m.cards)
-        .some((cc:Card)=>cc.rank===c.rank && cc.suit===c.suit)
+      (d.melds?.[uid.value] ?? []).flatMap((m:any)=>m.cards).some((cc:Card)=>cc.rank===c.rank&&cc.suit===c.suit)
     );
     if (!okCards) throw 'Cartes manquantes';
 
-    /* 2️⃣ retirer de la main */
-    const newHand = d.hands[uid.value].filter(
-      (s:string) => !combo.cards.some(c => s === cardToStr(c))
-    );
+    const newHand = d.hands[uid.value].filter((s:string) =>
+      !combo.cards.some(c => s === cardToStr(c)));
 
-    /* 3️⃣ ajouter dans melds */
     const melds = { ...(d.melds ?? {}) };
     melds[uid.value] = [...(melds[uid.value] ?? []), combo];
 
-    /* 4️⃣ scorer */
     const scores = { ...(d.scores ?? {}) };
     scores[uid.value] = (scores[uid.value] ?? 0) + combo.points;
 
-    /* 5️⃣ canMeld = null pour bloquer d’autres poses */
     tx.update(roomRef, {
       [`hands.${uid.value}`] : newHand,
-      [`melds.${uid.value}`] : melds[uid.value],
+      [`melds.${uid.value}`]: melds[uid.value],
       scores,
-      canMeld: null                 // ← fin de la phase meld
+      canMeld: null               // → débloquera drawCardsAfterMeld
     });
   });
-
+  
+  showComboPopup.value = false;
 }
+
+
+
+/* drawCardsAfterMeld : même vidage + pioche 2-cartes garantie */
+async function drawCardsAfterMeld() {
+  await runTransaction(db, async tx => {
+    const snap = await tx.get(roomRef);
+    const d = snap.data()!;
+
+    const winnerUid = d.currentTurn as string;
+    const loserUid  = Object.keys(d.hands).find(k => k !== winnerUid)!;
+
+    const deck  = [...(d.deck ?? [])];
+    const hands = { ...d.hands };
+
+    const meldSize = (ms:any[]|undefined)=>
+      ms?.reduce((n,m)=>n+(m.cards?.length??0),0) ?? 0;
+
+    const winTot = hands[winnerUid].length + meldSize(d.melds?.[winnerUid]);
+    const losTot = hands[loserUid ].length + meldSize(d.melds?.[loserUid ]);
+
+    /* ►► règle : on veut deux tirages si possible */
+    if (deck.length >= 2) {
+      if (winTot < 9) hands[winnerUid].push(deck.shift()!);
+      if (losTot < 9) hands[loserUid ].push(deck.shift()!);
+    } else if (deck.length === 1) {
+      /* une seule carte : priorité au perdant si lui est <9 */
+      if (losTot < 9) hands[loserUid].push(deck.shift()!);
+      else if (winTot < 9) hands[winnerUid].push(deck.shift()!);
+    }
+
+    /* vider la zone d’échange pour tout le monde */
+    const meneRef = doc(db, 'rooms', roomId, 'menes', String(d.currentMeneId));
+    tx.set(meneRef, { currentPliCards: [] }, { merge: true });
+
+    tx.update(roomRef, {
+      deck,
+      [`hands.${winnerUid}`]: hands[winnerUid],
+      [`hands.${loserUid}`] : hands[loserUid],
+      currentTurn: winnerUid,
+      canMeld: null
+    });
+  });
+}
+
+
 
 /*────────────────────────────────────────────────────────────────────*/
 
