@@ -382,36 +382,33 @@ const isMyTurn = computed(() => {
 function subscribeRoom() {
   return onSnapshot(roomRef, (snap) => {
     loading.value = false;
+
     if (!snap.exists()) {
       room.value = null;
       return;
     }
 
+    // 1. État complet de la room
     room.value = snap.data() as RoomDoc;
-    if (myUid.value) localHand.value = room.value.hands?.[myUid.value] ?? [];
 
-    /* Popup nom (inchangé) */
-    showNameModal.value =
-      !!myUid.value && !room.value.playerNames?.[myUid.value];
+    // 2. Mise à jour de la main locale
+    if (myUid.value) {
+      localHand.value = room.value.hands?.[myUid.value] ?? [];
+    }
 
-    /* ─── Pli complet ? ─── */
-    if (room.value.phase === "play" && room.value.trick.cards.length === 2) {
-      // Si on n’a pas déjà programmé la résolution, on lance un timer
-      if (!trickResolutionTimeout) {
-        trickResolutionTimeout = setTimeout(async () => {
-          try {
-            await endTrick();
-          } finally {
-            trickResolutionTimeout = null;
-          }
-        }, 1000); // 1000 ms ≈ 1 seconde de pause visuelle
-      }
+    // 3. Afficher la popup NOM si nécessaire
+    if (
+      myUid.value &&
+      !(room.value.playerNames && room.value.playerNames[myUid.value])
+    ) {
+      showNameModal.value = true;
     } else {
-      // Le pli est redevenu incomplet avant la fin du timer ─> on annule
-      if (trickResolutionTimeout) {
-        clearTimeout(trickResolutionTimeout);
-        trickResolutionTimeout = null;
-      }
+      showNameModal.value = false;
+    }
+
+    // 4. Pli complet ? → on résout immédiatement
+    if (room.value.phase === "play" && room.value.trick.cards.length === 2) {
+      endTrick().catch(console.error); // ne bloque pas le listener
     }
   });
 }

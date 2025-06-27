@@ -364,54 +364,41 @@ const opponentName = computed(() =>
     : "Adversaire"
 );
 
-const isMyTurn = computed(() => {
-  if (!room.value || !myUid.value) return false;
-  switch (room.value.phase) {
-    case "play":
-      return room.value.currentTurn === myUid.value;
-    case "draw":
-      return room.value.drawQueue?.[0] === myUid.value;
-    case "meld":
-      return room.value.canMeld === myUid.value;
-    default:
-      return false;
-  }
-});
+const isMyTurn = computed(
+  () => room.value?.phase === "play" && room.value.currentTurn === myUid.value
+);
 
 /* ────────────── Firestore subscription ─────────────── */
 function subscribeRoom() {
   return onSnapshot(roomRef, (snap) => {
     loading.value = false;
+
     if (!snap.exists()) {
       room.value = null;
       return;
     }
 
+    // 1. État complet de la room
     room.value = snap.data() as RoomDoc;
-    if (myUid.value) localHand.value = room.value.hands?.[myUid.value] ?? [];
 
-    /* Popup nom (inchangé) */
-    showNameModal.value =
-      !!myUid.value && !room.value.playerNames?.[myUid.value];
+    // 2. Mise à jour de la main locale
+    if (myUid.value) {
+      localHand.value = room.value.hands?.[myUid.value] ?? [];
+    }
 
-    /* ─── Pli complet ? ─── */
-    if (room.value.phase === "play" && room.value.trick.cards.length === 2) {
-      // Si on n’a pas déjà programmé la résolution, on lance un timer
-      if (!trickResolutionTimeout) {
-        trickResolutionTimeout = setTimeout(async () => {
-          try {
-            await endTrick();
-          } finally {
-            trickResolutionTimeout = null;
-          }
-        }, 1000); // 1000 ms ≈ 1 seconde de pause visuelle
-      }
+    // 3. Afficher la popup NOM si nécessaire
+    if (
+      myUid.value &&
+      !(room.value.playerNames && room.value.playerNames[myUid.value])
+    ) {
+      showNameModal.value = true;
     } else {
-      // Le pli est redevenu incomplet avant la fin du timer ─> on annule
-      if (trickResolutionTimeout) {
-        clearTimeout(trickResolutionTimeout);
-        trickResolutionTimeout = null;
-      }
+      showNameModal.value = false;
+    }
+
+    // 4. Pli complet ? → on résout immédiatement
+    if (room.value.phase === "play" && room.value.trick.cards.length === 2) {
+      endTrick().catch(console.error); // ne bloque pas le listener
     }
   });
 }
@@ -498,44 +485,33 @@ async function tryPlayCard(card: string) {
   }
 }
 
-//* ────────────── Game Actions (simplifiées) ─────────── */
+/* ────────────── Game Actions (simplifiées) ─────────── */
 async function playCard(card: string) {
   if (!myUid.value) return;
-
   await runTransaction(db, async (tx) => {
-    /* 0. Lecture du snapshot */
     const snap = await tx.get(roomRef);
     const d = snap.data() as RoomDoc;
-
-    /* 1. Vérifications */
+    console.log("currentTurn:", d.currentTurn, "myUid:", myUid.value);
     if (d.phase !== "play") throw "Phase play requise";
-    if (d.currentTurn !== myUid.value) throw "Pas votre tour";
-    if (d.trick.cards.length >= 2) throw "Pli déjà complet";
+    if ((d.currentTurn?.trim() ?? "") !== (myUid.value?.trim() ?? ""))
+      throw "Pas votre tour";
 
-    /* 2. Retirer la carte de la main */
-    const hand = [...d.hands[myUid.value]];
-    const idx = hand.indexOf(card);
-    if (idx === -1) throw "Carte absente";
-    hand.splice(idx, 1);
+    // if (d.currentTurn !== myUid.value) throw "Pas votre tour";
 
-    /* 3. Ajouter la carte au pli */
+    // 1. Retirer carte
+    const hand = d.hands[myUid.value].filter((c) => c !== card);
+
+    // 2. Ajouter au pli
     const trick = { ...d.trick };
+    if (trick.cards.length >= 2) throw "Pli non vidé";
     trick.cards.push(card);
     trick.players.push(myUid.value);
 
-    /* 4. Préparer la mise à jour Firestore */
+    // 3. Préparer update
     const update: Partial<RoomDoc> & Record<string, any> = {
       [`hands.${myUid.value}`]: hand,
       trick,
     };
-
-    /* 5. S'il n'y a qu'UNE seule carte, on passe le tour à l'adversaire */
-    if (trick.cards.length === 1) {
-      const next = d.players.find((u) => u !== myUid.value);
-      if (next) update.currentTurn = next;
-    }
-
-    /* 6. Écriture atomique */
     tx.update(roomRef, update);
   });
 }
@@ -684,10 +660,10 @@ async function playCombo(combo: Combination) {
     if (!snap.exists()) throw "Room inexistante";
     const d = snap.data() as any;
 
-    if (d.canMeld !== myUid.value) throw "Pas votre tour de meld";
+    if (d.canMeld !== uid.value) throw "Pas votre tour de meld";
 
     /* 1. Retirer cartes de la main */
-    const hand = [...d.hands[myUid.value]];
+    const hand = [...d.hands[uid.value]];
     for (const c of combo.cards) {
       const i = hand.indexOf(cardToStr(c));
       if (i === -1) throw "Carte manquante";
@@ -695,7 +671,7 @@ async function playCombo(combo: Combination) {
     }
 
     /* 2. Ajouter la combinaison */
-    const melds = [...(d.melds?.[myUid.value] ?? []), combo];
+    const melds = [...(d.melds?.[uid.value] ?? []), combo];
 
     /* 3. Mise à jour du score, etc. (optionnel) */
 
@@ -709,9 +685,9 @@ async function playCombo(combo: Combination) {
 
     /* 5. Préparer update */
     const update: any = {
-      [`hands.${myUid.value}`]: hand,
-      [`melds.${myUid.value}`]: melds,
-      canMeld: stillCombos ? myUid.value : null, // 👈 clé !
+      [`hands.${uid.value}`]: hand,
+      [`melds.${uid.value}`]: melds,
+      canMeld: stillCombos ? uid.value : null, // 👈 clé !
     };
     /* 6. Si plus de combos possibles → retour en phase play */
     if (!stillCombos) {
