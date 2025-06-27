@@ -304,9 +304,9 @@ const localHand = ref<string[]>([]);
 const keyForCard = (card: string, index: number) => `${card}-${index}`;
 
 // UI & modal helpers
-const showNameModal = ref(false);
+const showNameModal = ref(true);
 const nameInput = ref("");
-const roomData = ref<any>(null);
+
 const showComboPopup = ref(false);
 const validCombosFiltered = ref<Combination[]>([]); // TODO: alimenter avec vraie détection
 
@@ -371,29 +371,6 @@ function subscribeRoom() {
   });
 }
 
-// Supposons que tu as déjà une fonction pour écouter la room
-onSnapshot(roomRef, (docSnap) => {
-  loading.value = false;
-  if (docSnap.exists()) {
-    room.value = docSnap.data() as RoomDoc;
-
-    // Si mon uid est connu et que mon nom n'existe pas encore dans playerNames, afficher la popup
-    if (
-      myUid.value &&
-      !(room.value.playerNames && room.value.playerNames[myUid.value])
-    ) {
-      showNameModal.value = true;
-    }
-
-    // Mettre à jour la main locale
-    if (myUid.value) {
-      localHand.value = room.value.hands?.[myUid.value] ?? [];
-    }
-  } else {
-    room.value = null;
-  }
-});
-
 /* ────────────── Lifecycle ───────────────────────────── */
 let unsubscribeRoom: () => void;
 //
@@ -408,22 +385,6 @@ onMounted(() => {
   });
 });
 
-/*ouvre la popup de demande de nom si vide */
-watch(
-  () => roomData.value?.playerNames,
-  () => {
-    if (myUid.value && roomData.value) {
-      const current = roomData.value.playerNames?.[myUid.value] ?? "";
-      if (!current) {
-        // nom encore vide
-        nameInput.value = "";
-        showNameModal.value = true;
-      }
-    }
-  },
-  { immediate: true }
-);
-
 //
 // onMounted(() => {
 //   onAuthStateChanged(getAuth(), (user) => {
@@ -436,23 +397,6 @@ watch(
 // onUnmounted(() => unsubscribeRoom?.());
 
 /* ────────────── Watchers ─────────────────────────────── */
-/* Ouvre la popup de demande de nom si vide */
-watch(
-  () => roomData.value?.playerNames,
-  () => {
-    if (myUid.value && roomData.value) {
-      const current = roomData.value.playerNames?.[myUid.value] ?? "";
-      if (!current.trim()) {
-        // nom encore vide
-        nameInput.value = "";
-        showNameModal.value = true;
-      } else {
-        showNameModal.value = false;
-      }
-    }
-  },
-  { immediate: true }
-);
 
 /* ────────────── UI helpers ───────────────────────────── */
 function deOuD(name: string): string {
@@ -537,18 +481,13 @@ async function onHandReorder() {
   await updateDoc(roomRef, { [`hands.${myUid.value}`]: localHand.value });
 }
 
-const saveName = async () => {
-  const trimmedName = nameInput.value.trim();
-  if (!trimmedName) return;
-
-  if (!myUid.value || !room.value) return;
-
-  // Met à jour dans Firestore
-  const playerNames = { ...room.value.playerNames, [myUid.value]: trimmedName };
-  await updateDoc(roomRef, { playerNames });
-
+async function saveName() {
+  if (!myUid.value || !nameInput.value.trim()) return;
+  await updateDoc(roomRef, {
+    [`playerNames.${myUid.value}`]: nameInput.value.trim(),
+  });
   showNameModal.value = false;
-};
+}
 
 function choose(combo: Combination) {
   // Placeholder : fermer la popup pour l'instant

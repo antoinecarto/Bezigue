@@ -371,29 +371,6 @@ function subscribeRoom() {
   });
 }
 
-// Supposons que tu as déjà une fonction pour écouter la room
-onSnapshot(roomRef, (docSnap) => {
-  loading.value = false;
-  if (docSnap.exists()) {
-    room.value = docSnap.data() as RoomDoc;
-
-    // Si mon uid est connu et que mon nom n'existe pas encore dans playerNames, afficher la popup
-    if (
-      myUid.value &&
-      !(room.value.playerNames && room.value.playerNames[myUid.value])
-    ) {
-      showNameModal.value = true;
-    }
-
-    // Mettre à jour la main locale
-    if (myUid.value) {
-      localHand.value = room.value.hands?.[myUid.value] ?? [];
-    }
-  } else {
-    room.value = null;
-  }
-});
-
 /* ────────────── Lifecycle ───────────────────────────── */
 let unsubscribeRoom: () => void;
 //

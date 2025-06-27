@@ -58,32 +58,20 @@ const createRoom = async () => {
 
     /* --- 2. Doc room ---------------------------------------- */
     const roomData = {
-      /* --- méta --- */
       name: roomName,
       createdAt: serverTimestamp(),
       status: "waiting",
-
-      /* --- joueurs --- */
       players: [uid],
-      playerNames: { [uid]: "" },
+      playerNames: { [uid]: "" }, // ← nom vide pour le créateur
 
-      /* --- état de la partie --- */
       currentMeneIndex: 0,
       nextTurnIndex: 0,
       currentTurn: uid,
-      nextTurnUid: uid,
-
-      /* --- cartes --- */
+      nextTurnUid: uid, // ← utilisé dans les règles
       trumpCard: deckInfo.trumpCard,
       deck: deckInfo.drawPile,
       hands: { [uid]: deckInfo.hands.player1 },
       reservedHands: { seat2: deckInfo.hands.player2 },
-      /* --- Pioche, pli --- */
-      phase: "play",
-      drawQueue: [],
-      trick: { cards: [], players: [] },
-      canMeld: null,
-      melds: {},
     };
 
     const roomRef = await addDoc(collection(db, "rooms"), roomData);

@@ -39,6 +39,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { db } from "../firebase";
+import { getPlayerId } from "../utils/playerId.js";
 import { defineEmits } from "vue";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 
@@ -148,7 +149,10 @@ const joinRoom = async (roomCode: string) => {
     }
 
     // récupère éventuellement les noms déjà présents
-    const newNames = { ...(room.playerNames ?? {}), [uid.value]: "" };
+    const newNames = {
+      ...(roomData.value?.names ?? {}), // noms existants (créateur)
+      [playerId]: "", // nouveau joueur = nom vide
+    };
 
     const newHands = {
       ...(room.hands || {}),

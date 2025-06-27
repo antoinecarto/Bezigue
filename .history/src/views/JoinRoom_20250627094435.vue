@@ -39,6 +39,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { db } from "../firebase";
+import { getPlayerId } from "../utils/playerId.js";
 import { defineEmits } from "vue";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 

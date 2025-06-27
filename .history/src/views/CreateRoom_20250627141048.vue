@@ -78,12 +78,12 @@ const createRoom = async () => {
       deck: deckInfo.drawPile,
       hands: { [uid]: deckInfo.hands.player1 },
       reservedHands: { seat2: deckInfo.hands.player2 },
-      /* --- Pioche, pli --- */
-      phase: "play",
-      drawQueue: [],
+      /* --- ***nouveaux champs pour la machine d’état*** --- */
+      phase: "play", // on commence directement par jouer
+      drawQueue: [], // sera rempli à la fin du 1er pli
       trick: { cards: [], players: [] },
-      canMeld: null,
-      melds: {},
+      canMeld: null, // personne ne peut encore poser de combo
+      melds: {}, // à remplir plus tard
     };
 
     const roomRef = await addDoc(collection(db, "rooms"), roomData);
