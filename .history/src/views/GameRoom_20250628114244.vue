@@ -552,6 +552,7 @@ watchEffect(() => {
 /* reset automatique à chaque début de pli (phase "play") */
 watchEffect(() => {
   if (room.value?.phase === "play") {
+    hasCombosPrompted.value = false; // popup combos
     hasPromptedForThisTrick.value = false; // popup échange 7
   }
 });

@@ -473,7 +473,9 @@ watch(
   },
   { immediate: true }
 );
-const asked7ThisTrick = ref(false);
+
+const showComboPopup = ref(false);
+const validCombosFiltered = ref<Combination[]>([]);
 const askedCombiThisTrick = ref(false);
 
 watchEffect(() => {
@@ -517,8 +519,39 @@ watchEffect(() => {
   }
 });
 
+/* ─── Popup des combinaisons ─────────────────────────── */
+const hasCombosPrompted = ref(false);
 const exchangeDone = ref(false); // déclenché quand la transac réussit
+const asked7ThisTrick = ref(false);
 
+watchEffect(() => {
+  const r = room.value;
+  if (!r || !myUid.value) return;
+
+  /* reset début de pli */
+  if (r.phase === "play") {
+    asked7ThisTrick.value = false;
+    exchangeDone.value = false;
+    showExchange.value = false;
+    return;
+  }
+
+  /* affiché ou déjà proposé : on ne refait rien */
+  if (showExchange.value || asked7ThisTrick.value) return;
+
+  /* conditions : phase meld, à moi, talon non vide… */
+  const deckOk = (r.deck?.length ?? 0) > 0;
+  const rankCur = r.trumpCard.slice(0, -1);
+  const suit = r.trumpCard.slice(-1);
+  const cardOk = ["A", "K", "Q", "J", "10"].includes(rankCur);
+  const have7 = r.hands[myUid.value].includes("7" + suit);
+  const myMeld = r.phase === "meld" && r.canMeld === myUid.value;
+
+  if (deckOk && cardOk && have7 && myMeld) {
+    showExchange.value = true;
+    asked7ThisTrick.value = true;
+  }
+});
 /* ─── 7 ────────────────────────────────────────── */
 
 async function confirmExchange() {
@@ -552,6 +585,7 @@ watchEffect(() => {
 /* reset automatique à chaque début de pli (phase "play") */
 watchEffect(() => {
   if (room.value?.phase === "play") {
+    hasCombosPrompted.value = false; // popup combos
     hasPromptedForThisTrick.value = false; // popup échange 7
   }
 });

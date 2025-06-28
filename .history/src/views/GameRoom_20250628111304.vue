@@ -473,59 +473,41 @@ watch(
   },
   { immediate: true }
 );
-const asked7ThisTrick = ref(false);
-const askedCombiThisTrick = ref(false);
+
+/* ─── Popup des combinaisons ─────────────────────────── */
+const hasCombosPrompted = ref(false);
 
 watchEffect(() => {
   const r = room.value;
   if (!r || !myUid.value) return;
 
-  /* reset début de pli */
+  /* reset au début de chaque nouveau pli */
   if (r.phase === "play") {
-    askedCombiThisTrick.value = false;
+    hasCombosPrompted.value = false;
     showComboPopup.value = false;
     return;
   }
 
-  if (showComboPopup.value || askedCombiThisTrick.value) return;
+  /* si déjà affiché ou déjà demandé : on sort */
+  if (showComboPopup.value || hasCombosPrompted.value) return;
 
-  /* attendre que l’échange éventuel soit terminé (ou impossible) */
-  const ready =
-    (asked7ThisTrick.value && exchangeDone.value) || // échange fait
-    (asked7ThisTrick.value && !exchangeDone.value && !showExchange.value) || // refusé
-    !asked7ThisTrick.value; // pas de 7 d’atout
-
-  if (!ready) return;
-
-  /* phase meld et c’est à moi */
+  /* uniquement quand c'est mon tour de meld */
   if (r.phase === "meld" && r.canMeld === myUid.value) {
     const handCards = r.hands[myUid.value].map(strToCard);
-    const myMelds = r.melds?.[myUid.value] ?? [];
-    const combosFound = detectCombinations(
-      handCards.concat(myMelds.flatMap((m) => m.cards)),
+    const currentMelds = r.melds?.[myUid.value] ?? [];
+    const combos = detectCombinations(
+      handCards.concat(currentMelds.flatMap((m) => m.cards)),
       r.trumpCard.slice(-1) as Suit,
-      myMelds
+      currentMelds
     );
-    if (combosFound.length) {
-      validCombosFiltered.value = combosFound;
+
+    if (combos.length) {
+      validCombosFiltered.value = combos;
       showComboPopup.value = true;
-      askedCombiThisTrick.value = true;
-    } else {
-      /* pas de combo → on passe direct à la pioche */
-      forceEndMeldPhase();
+      hasCombosPrompted.value = true;
     }
   }
 });
-
-const exchangeDone = ref(false); // déclenché quand la transac réussit
-
-/* ─── 7 ────────────────────────────────────────── */
-
-async function confirmExchange() {
-  showExchange.value = false;
-  const ok = await tryExchangeSeven(myUid.value!);
-  if (ok) exchangeDone.value = true; // signale la réussite
-}
 
 /* ─── Auto‑pioche ────────────────────────────────────────── */
 const drawingNow = ref(false); // évite les appels concurrents
@@ -546,13 +528,6 @@ watchEffect(() => {
         .catch(console.error)
         .finally(() => (drawingNow.value = false));
     }, 80);
-  }
-});
-
-/* reset automatique à chaque début de pli (phase "play") */
-watchEffect(() => {
-  if (room.value?.phase === "play") {
-    hasPromptedForThisTrick.value = false; // popup échange 7
   }
 });
 
@@ -609,6 +584,17 @@ function getCardColor(card: string) {
       return "text-red-500";
     default:
       return "";
+  }
+}
+
+/*─────────────────────────échange du 7 ───────────────────────────────────────────*/
+
+async function confirmExchange() {
+  showExchange.value = false; // ferme la fenêtre
+  const ok = await tryExchangeSeven(myUid.value!);
+  if (!ok) {
+    // changement d'état entre-temps : rien de grave
+    console.warn("Échange impossible (état modifié)");
   }
 }
 
@@ -760,33 +746,24 @@ async function endTrick() {
 
     const [c1, c2] = d.trick.cards;
     const [p1, p2] = d.trick.players;
-    const winnerUid = resolveTrick(c1, c2, p1, p2, d.trumpCard);
-    const loserUid = winnerUid === p1 ? p2 : p1;
+    const winner = resolveTrick(c1, c2, p1, p2, d.trumpCard);
+    const loser = winner === p1 ? p2 : p1;
 
-    /* ─── 1.  SCORING 10 / As ────────────────────────── */
-    const scores = { ...(d.scores ?? {}) };
-    const trickHas10orA = d.trick.cards.some(
-      (c) => c.startsWith("10") || c.startsWith("A")
-    );
-
-    if (trickHas10orA) {
-      scores[winnerUid] = (scores[winnerUid] ?? 0) + 10;
-    }
-
-    /* ─── 2.  Préparer l’update Firestore ─────────────── */
+    // PAS direct à draw, mais à meld pour que vainqueur pose ses combinaisons
     const update: Partial<RoomDoc> & Record<string, any> = {
-      phase: "meld", // vainqueur peut poser ses combos
-      canMeld: winnerUid,
-      currentTurn: winnerUid,
-      drawQueue: [winnerUid, loserUid],
+      phase: "meld",
+      canMeld: winner,
+      currentTurn: winner,
       trick: { cards: [], players: [] },
-      scores, // ⬅️  nouveau total écrit ici
+      // conserve le drawQueue pour la suite, ou initialiser si besoin
+      drawQueue: [winner, loser],
     };
 
     tx.update(roomRef, update);
   });
 
-  startMeldTimeout(); // timer client (inchangé)
+  // Démarre un timeout côté client qui forcera la fin de la phase meld
+  startMeldTimeout();
 }
 
 let meldTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -873,41 +850,25 @@ async function drawCard() {
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(roomRef);
     const d = snap.data() as RoomDoc;
-
     if (d.phase !== "draw" || d.drawQueue[0] !== myUid.value)
       throw "Pas votre tour de piocher";
 
-    /* ----- 1. pioche normale ----- */
     const deck = [...d.deck];
-    if (!deck.length) return; // sécurité (déjà vide)
-    const card = deck.shift()!; // retire la 1ʳᵉ carte
+    if (!deck.length) return;
+    const card = deck.shift()!;
 
-    /* main et file d’attente */
     const hand = [...d.hands[myUid.value], card];
     const queue = d.drawQueue.slice(1);
 
-    /* ----- 2. fin de talon ? ----- */
-    if (deck.length === 0 && d.trumpCard) {
-      hand.push(d.trumpCard); // on ramasse l’atout
-    }
-
-    /* ----- 3. mise à jour Firestore ----- */
     const update: Partial<RoomDoc> & Record<string, any> = {
       deck,
       [`hands.${myUid.value}`]: hand,
       drawQueue: queue,
     };
 
-    /* si le talon est vide, on efface trumpCard */
-    if (deck.length === 0) {
-      update.trumpCard = ""; // ou null, au choix
-    }
-
-    /* queue vide → retour à play */
     if (queue.length === 0) {
       update.phase = "play";
-      update.currentTurn = d.drawQueue[0]; // vainqueur rejoue
-      update.canMeld = null;
+      update.canMeld = d.drawQueue[0]; // le vainqueur reprend la main
       update.trick = { cards: [], players: [] };
     }
 
@@ -942,9 +903,7 @@ async function playCombo(combo: Combination) {
     /* 2. Ajouter la combinaison */
     const melds = [...(d.melds?.[myUid.value] ?? []), combo];
 
-    /* 3. Mise à jour du score */
-    const points = combo.points;
-    const newScore = (d.scores?.[myUid.value] ?? 0) + points;
+    /* 3. Mise à jour du score, etc. (optionnel) */
 
     /* 4. Reste-t-il des combinaisons après ce meld ? */
     const stillCombos =
@@ -958,7 +917,6 @@ async function playCombo(combo: Combination) {
     const update: any = {
       [`hands.${myUid.value}`]: hand,
       [`melds.${myUid.value}`]: melds,
-      [`scores.${myUid.value}`]: newScore,
       canMeld: stillCombos ? myUid.value : null, // 👈 clé !
     };
     /* 6. Si plus de combos possibles → retour en phase play */
