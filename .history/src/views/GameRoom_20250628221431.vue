@@ -306,7 +306,6 @@ interface RoomDoc {
   currentTurn: string;
   drawQueue: string[];
   trumpCard: string;
-  trumpTaken: boolean;
   deck: string[];
   hands: Record<string, string[]>;
   melds: Record<string, Combination[]>;
@@ -808,41 +807,20 @@ async function endTrick() {
 /* ────────────── forceEndMeldPhase ───────────── */
 
 async function forceEndMeldPhase() {
-  if (!myUid.value) return;
+  if (!room.value) return;
 
-  await runTransaction(db, async (tx) => {
-    const snap = await tx.get(roomRef);
-    if (!snap.exists()) return;
-    const d = snap.data() as RoomDoc;
-
-    // 1. On ne fait rien si on n’est plus en phase meld
-    if (d.phase !== "meld") return;
-
-    /* ------------------------------------------------------------------
-       On détermine un vainqueur FIABLE : soit drawQueue[0], soit le
-       currentTurn déjà présent dans le document (cas où drawQueue serait
-       vide ou mal rempli).
-    ------------------------------------------------------------------ */
-    const queue = (d.drawQueue?.length ? d.drawQueue : []) as string[];
-    const safeWinner = queue[0] ?? d.currentTurn;
-    const safeLoser = d.players.find((u) => u !== safeWinner)!;
-
-    /* ------------------------------------------------------------------
-       Si la queue est vide, on la reconstitue ⇒ [vainqueur, perdant]
-    ------------------------------------------------------------------ */
-    const newQueue = queue.length ? queue : [safeWinner, safeLoser];
-
-    /* ------------------------------------------------------------------
-       Passage en phase draw + remise à zéro de la zone d’échange
-    ------------------------------------------------------------------ */
-    tx.update(roomRef, {
+  try {
+    await updateDoc(doc(db, "rooms", roomId), {
       phase: "draw",
-      currentTurn: safeWinner, // ← la main reste au vainqueur
-      drawQueue: newQueue,
-      canMeld: null,
       trick: { cards: [], players: [] },
+      currentTurn: myUid.value,
+      canMeld: null,
     });
-  });
+
+    showComboPopup.value = false;
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour de la phase :", error);
+  }
 }
 
 /* ────────────── resolveTrick (identique) ───────────── */
@@ -889,6 +867,7 @@ async function handleComboPlayed(combo: Combination) {
   }
 }
 /* appelé quand on pioche */
+
 async function drawCard() {
   if (!myUid.value) return;
 
@@ -899,33 +878,38 @@ async function drawCard() {
     if (d.phase !== "draw" || d.drawQueue[0] !== myUid.value)
       throw "Pas votre tour de piocher";
 
-    /* --- 1. Pioche normale --- */
+    /* ----- 1. pioche normale ----- */
     const deck = [...d.deck];
-    const card = deck.shift()!;
+    if (!deck.length) return; // sécurité (déjà vide)
+    const card = deck.shift()!; // retire la 1ʳᵉ carte
+
+    /* main et file d’attente */
     const hand = [...d.hands[myUid.value], card];
     const queue = d.drawQueue.slice(1);
 
-    /* --- 2. Ramassage éventuel de la carte exposée --- */
-    if (deck.length === 0 && d.trumpCard && !d.trumpTaken) {
-      hand.push(d.trumpCard);
+    /* ----- 2. fin de talon ? ----- */
+    if (deck.length === 0 && d.trumpCard) {
+      hand.push(d.trumpCard); // on ramasse l’atout
     }
 
-    /* --- 3. Construction update --- */
-    const update: Record<string, any> = {
+    /* ----- 3. mise à jour Firestore ----- */
+    const update: Partial<RoomDoc> & Record<string, any> = {
       deck,
       [`hands.${myUid.value}`]: hand,
       drawQueue: queue,
     };
-    if (deck.length === 0 && !d.trumpTaken) {
-      update.trumpTaken = true;
-      update.trumpCard = "";
+
+    /* si le talon est vide, on efface trumpCard */
+    if (deck.length === 0) {
+      update.trumpCard = ""; // ou null, au choix
     }
 
-    /* --- 4. Fin de file ⇒ retour play --- */
+    /* queue vide → retour à play */
     if (queue.length === 0) {
       update.phase = "play";
+      update.currentTurn = d.drawQueue[0]; // vainqueur rejoue
+      update.canMeld = null;
       update.trick = { cards: [], players: [] };
-      // currentTurn n’est PAS modifié (reste au vainqueur)
     }
 
     tx.update(roomRef, update);

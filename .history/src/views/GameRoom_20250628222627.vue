@@ -306,7 +306,6 @@ interface RoomDoc {
   currentTurn: string;
   drawQueue: string[];
   trumpCard: string;
-  trumpTaken: boolean;
   deck: string[];
   hands: Record<string, string[]>;
   melds: Record<string, Combination[]>;
