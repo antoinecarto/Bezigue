@@ -504,27 +504,25 @@ watchEffect(() => {
   const r = room.value;
   if (!r || !myUid.value) return;
 
-  /* reset en début de pli seulement */
+  /* remise à zéro au début de chaque nouveau pli */
   if (r.phase === "play") {
     hasPromptedForThisTrick.value = false;
     showExchange.value = false;
     return;
   }
 
-  /* si déjà affichée, on ne touche plus */
-  if (showExchange.value || hasPromptedForThisTrick.value) return;
+  if (hasPromptedForThisTrick.value) return; // déjà proposé
 
-  /* conditions d’ouverture */
+  /* --- conditions --- */
   const deckOk = (r.deck?.length ?? 0) > 0;
   const rankCur = r.trumpCard.slice(0, -1);
   const suit = r.trumpCard.slice(-1);
   const cardOk = ["A", "K", "Q", "J", "10"].includes(rankCur);
   const have7 = r.hands[myUid.value].includes("7" + suit);
-  const iWin =
-    (r.phase === "meld" && r.canMeld === myUid.value) ||
-    (r.phase === "draw" && r.drawQueue?.[0] === myUid.value);
+  const iWinMeld = r.phase === "meld" && r.canMeld === myUid.value;
+  const iWinDraw = r.phase === "draw" && r.drawQueue?.[0] === myUid.value;
 
-  if (deckOk && cardOk && have7 && iWin) {
+  if (deckOk && cardOk && have7 && (iWinMeld || iWinDraw)) {
     showExchange.value = true;
     hasPromptedForThisTrick.value = true;
   }
