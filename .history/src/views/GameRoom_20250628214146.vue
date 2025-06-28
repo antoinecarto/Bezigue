@@ -799,12 +799,12 @@ function forceEndMeldPhase() {
 
   // Mise à jour Firestore pour passer en phase draw
   db.collection("rooms")
-    .doc(roomId)
+    .doc(room.value.id)
     .update({
       phase: "draw",
-      trick: { cards: [], players: [] },
-      currentTurn: myUid.value,
-      canMeld: null,
+      trick: { cards: [], players: [] }, // vider pli en cours
+      currentTurn: myUid.value, // tour du joueur qui a fini la pose
+      canMeld: null, // plus de pose possible
     });
 
   // On cache la popup combo

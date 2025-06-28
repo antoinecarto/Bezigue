@@ -471,32 +471,37 @@ watchEffect(() => {
   }
 });
 
-/* WATCHER popup Combinaisons */
+/* WATCHER combo */
 watchEffect(() => {
   const r = room.value;
   if (!r || !myUid.value) return;
 
+  /* déjà traitée */
   if (showComboPopup.value || askedCombiThisTrick.value) return;
-  if (showExchange.value) return; // popup 7 encore visible
+
+  /* on attend la fin (ou le refus) de l'échange 7 */
+  if (showExchange.value) return;
   if (asked7ThisTrick.value && !exchangeDone.value) return;
 
+  /* phase meld + c'est mon tour */
   if (r.phase !== "meld" || r.canMeld !== myUid.value) return;
 
+  /* détection combo */
   const hand = r.hands[myUid.value].map(strToCard);
-  const melds = r.melds?.[myUid.value] ?? [];
+  const myMelds = r.melds?.[myUid.value] ?? [];
   const combos = detectCombinations(
-    [...hand, ...melds.flatMap((m) => m.cards)],
+    [...hand, ...myMelds.flatMap((m) => m.cards)],
     r.trumpCard.slice(-1) as Suit,
-    melds
+    myMelds
   );
 
   if (combos.length) {
     validCombosFiltered.value = combos;
-    showComboPopup.value = true; // on attend le clic
+    showComboPopup.value = true; // ← reste ouverte jusqu’au clic
   } else {
-    forceEndMeldPhase(); // rien à poser → draw
+    forceEndMeldPhase(); // pas de combo → on vide zone + draw
   }
-  askedCombiThisTrick.value = true;
+  askedCombiThisTrick.value = true; // on ne reproposera pas
 });
 
 /* ─── 7 ────────────────────────────────────────── */
@@ -794,21 +799,27 @@ async function endTrick() {
 
 /* ────────────── forceEndMeldPhase ───────────── */
 
-function forceEndMeldPhase() {
-  if (!room.value) return;
+async function forceEndMeldPhase() {
+  if (!myUid.value) return;
 
-  // Mise à jour Firestore pour passer en phase draw
-  db.collection("rooms")
-    .doc(roomId)
-    .update({
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(roomRef);
+    const d = snap.data() as RoomDoc;
+
+    if (d.phase !== "meld") return; // plus en phase meld, on fait rien
+
+    // On passe à la phase draw
+    const [winner, loser] = d.drawQueue;
+    const update: Partial<RoomDoc> = {
       phase: "draw",
-      trick: { cards: [], players: [] },
-      currentTurn: myUid.value,
+      currentTurn: winner,
       canMeld: null,
-    });
+      trick: { cards: [], players: [] }, // vide si le joueur a passé
+      // drawQueue pourrait rester identique ou être réinitialisée après la pioche
+    };
 
-  // On cache la popup combo
-  showComboPopup.value = false;
+    tx.update(roomRef, update);
+  });
 }
 
 /* ────────────── resolveTrick (identique) ───────────── */

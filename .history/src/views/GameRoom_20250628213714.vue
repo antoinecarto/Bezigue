@@ -794,21 +794,27 @@ async function endTrick() {
 
 /* ────────────── forceEndMeldPhase ───────────── */
 
-function forceEndMeldPhase() {
-  if (!room.value) return;
+async function forceEndMeldPhase() {
+  if (!myUid.value) return;
 
-  // Mise à jour Firestore pour passer en phase draw
-  db.collection("rooms")
-    .doc(roomId)
-    .update({
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(roomRef);
+    const d = snap.data() as RoomDoc;
+
+    if (d.phase !== "meld") return; // plus en phase meld, on fait rien
+
+    // On passe à la phase draw
+    const [winner, loser] = d.drawQueue;
+    const update: Partial<RoomDoc> = {
       phase: "draw",
-      trick: { cards: [], players: [] },
-      currentTurn: myUid.value,
+      currentTurn: winner,
       canMeld: null,
-    });
+      trick: { cards: [], players: [] }, // vide si le joueur a passé
+      // drawQueue pourrait rester identique ou être réinitialisée après la pioche
+    };
 
-  // On cache la popup combo
-  showComboPopup.value = false;
+    tx.update(roomRef, update);
+  });
 }
 
 /* ────────────── resolveTrick (identique) ───────────── */

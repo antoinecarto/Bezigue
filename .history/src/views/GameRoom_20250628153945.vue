@@ -200,6 +200,12 @@
           </button>
         </li>
       </ul>
+      <button
+        class="mt-4 w-full px-3 py-2 border rounded hover:bg-slate-100"
+        @click="closeCombosWithoutPlaying"
+      >
+        Pas de combinaison
+      </button>
       <button class="mt-4 text-sm text-red-600" @click="showComboPopup = false">
         Fermer
       </button>
@@ -328,18 +334,21 @@ const showNameModal = ref(false);
 const nameInput = ref("");
 const roomData = ref<any>(null);
 const showTurnAlert = ref(false);
-const combosDecisionTaken = ref(false);
+/* ─── ID du timer qui déclenchera la résolution du pli ─── */
+let trickResolutionTimeout: ReturnType<typeof setTimeout> | null = null;
+const hasPromptedForThisTrick = ref(false); // évite de rouvrir 2×
 
-/* ─── FLAGS réactifs ─────────────────────────── */
+/* --------------------------------------------------------- */
+/*  FLAGS ET ÉTAT PARTAGÉS                                   */
+/* --------------------------------------------------------- */
 const showExchange = ref(false); // popup 7
+const asked7ThisTrick = ref(false); // déjà proposée ?
 const exchangeDone = ref(false); // transaction 7 réussie
 const showComboPopup = ref(false); // popup combinaisons
+const askedCombiThisTrick = ref(false); // déjà proposée ?
 const validCombosFiltered = ref<Combination[]>([]);
-const asked7ThisTrick = ref(false); // popup 7 déjà proposée
-const askedCombiThisTrick = ref(false); // popup combo déjà proposée
+const combosDecisionTaken = ref(false); // devient true quand l’utilisateur choisit OU ferme la fenêtre
 
-/* ─── ID du timer qui déclenchera la résolution du pli ─── */
-/* protège contre les appels multiples */
 /* ────────────── Computed Shortcuts ───────────────────── */
 const opponentUid = computed(
   () => room.value?.players.find((u) => u !== myUid.value) ?? null
@@ -411,7 +420,22 @@ function subscribeRoom() {
 
     /* ─── Pli complet ? ─── */
     if (room.value.phase === "play" && room.value.trick.cards.length === 2) {
-      tryEndTrick();
+      // Si on n’a pas déjà programmé la résolution, on lance un timer
+      if (!trickResolutionTimeout) {
+        trickResolutionTimeout = setTimeout(async () => {
+          try {
+            await endTrick();
+          } finally {
+            trickResolutionTimeout = null;
+          }
+        }, 1000); // 1000 ms ≈ 1 seconde de pause visuelle
+      }
+    } else {
+      // Le pli est redevenu incomplet avant la fin du timer ─> on annule
+      if (trickResolutionTimeout) {
+        clearTimeout(trickResolutionTimeout);
+        trickResolutionTimeout = null;
+      }
     }
   });
 }
@@ -441,62 +465,106 @@ onMounted(() => {
   onUnmounted(() => {
     unsubscribeRoom?.();
     unsubscribeAuth(); // ⬅️ important si tu veux éviter une fuite mémoire
+    if (trickResolutionTimeout) {
+      clearTimeout(trickResolutionTimeout);
+      trickResolutionTimeout = null;
+    }
   });
 });
 
-/* ────────────── Watchers ─────────────────────────────── */
-/* Ouvre la popup de demande de nom si vide */
-watch(
-  () => roomData.value?.playerNames,
-  () => {
-    if (myUid.value && roomData.value) {
-      const current = roomData.value.playerNames?.[myUid.value] ?? "";
-      if (!current.trim()) {
-        // nom encore vide
-        nameInput.value = "";
-        showNameModal.value = true;
-      } else {
-        showNameModal.value = false;
-      }
-    }
-  },
-  { immediate: true }
-);
-
-/* RESET en début de tour */
-watchEffect(() => {
-  if (room.value?.phase === "play") {
-    askedCombiThisTrick.value = false;
-    showComboPopup.value = false;
-  }
-});
-
-/* WATCHER popup Combinaisons */
+/* ────────────── 1. Saisie du nom  (simplifié) ─────────────── */
 watchEffect(() => {
   const r = room.value;
   if (!r || !myUid.value) return;
 
-  if (showComboPopup.value || askedCombiThisTrick.value) return;
-  if (showExchange.value) return; // popup 7 encore visible
-  if (asked7ThisTrick.value && !exchangeDone.value) return;
+  const current = r.playerNames?.[myUid.value] ?? "";
+  showNameModal.value = current.trim() === "";
+  if (showNameModal.value) nameInput.value = "";
+});
 
-  if (r.phase !== "meld" || r.canMeld !== myUid.value) return;
+/* ────────────── 2. Réinitialisation début de pli ───────────── */
+watchEffect(() => {
+  if (room.value?.phase === "play") {
+    setTimeout(() => {
+      if (
+        !showComboPopup.value &&
+        !showExchange.value &&
+        !combosDecisionTaken.value
+      ) {
+        showExchange.value = false;
+        asked7ThisTrick.value = false;
+        exchangeDone.value = false;
+        showComboPopup.value = false;
+        askedCombiThisTrick.value = false;
+        combosDecisionTaken.value = false;
+      }
+    }, 200); // délai de 200ms
+  }
+});
 
-  const hand = r.hands[myUid.value].map(strToCard);
-  const melds = r.melds?.[myUid.value] ?? [];
+/* ------------------------------------------------------------- */
+/*  WATCHER « 7 d’atout »  (popup échange)                       */
+/* ------------------------------------------------------------- */
+watchEffect(() => {
+  const r = room.value;
+  if (!r || !myUid.value) return;
+  if (showExchange.value || asked7ThisTrick.value) return; // déjà traité
+
+  /* --- conditions --- */
+  const deckLen = r.deck?.length ?? 0;
+  const rankCur = r.trumpCard.slice(0, -1);
+  const suit = r.trumpCard.slice(-1);
+  const cardOk = ["A", "K", "Q", "J", "10"].includes(rankCur);
+  const have7 = r.hands[myUid.value].includes("7" + suit);
+  const myMeld = r.phase === "meld" && r.canMeld === myUid.value;
+
+  if (deckLen > 0 && cardOk && have7 && myMeld) {
+    showExchange.value = true;
+    asked7ThisTrick.value = true;
+  }
+});
+
+/* ------------------------------------------------------------- */
+/*  WATCHER « Combinaisons » (popup meld)                         */
+/* ------------------------------------------------------------- */
+watchEffect(() => {
+  const r = room.value;
+  if (!r || !myUid.value) return;
+
+  /* déjà décidé → ne rien faire */
+  if (combosDecisionTaken.value) return;
+
+  /* pas mon tour de meld → on sort */
+  if (!(r.phase === "meld" && r.canMeld === myUid.value)) return;
+
+  /* popup 7 encore ouverte / échange pas fini → attendre */
+  if (showExchange.value || (asked7ThisTrick.value && !exchangeDone.value))
+    return;
+
+  /* talon vide → rien à proposer, décision prise */
+  if ((r.deck?.length ?? 0) === 0) {
+    combosDecisionTaken.value = true;
+    return;
+  }
+
+  /* détection */
+  const handCards = r.hands[myUid.value].map(strToCard);
+  const myMelds = r.melds?.[myUid.value] ?? [];
   const combos = detectCombinations(
-    [...hand, ...melds.flatMap((m) => m.cards)],
+    [...handCards, ...myMelds.flatMap((m) => m.cards)],
     r.trumpCard.slice(-1) as Suit,
-    melds
+    myMelds
   );
 
   if (combos.length) {
     validCombosFiltered.value = combos;
-    showComboPopup.value = true; // on attend le clic
+    showComboPopup.value = true; // on laisse ouvert jusqu’à clic
   } else {
-    forceEndMeldPhase(); // rien à poser → draw
+    /* aucune combo → passer en draw */
+    forceEndMeldPhase();
+    combosDecisionTaken.value = true;
   }
-  askedCombiThisTrick.value = true;
+  console.log("Melds for me:", room.value?.melds?.[myUid.value]);
 });
 
 /* ─── 7 ────────────────────────────────────────── */
@@ -518,9 +586,15 @@ watchEffect(() => {
     r.drawQueue?.[0] === myUid.value &&
     !showExchange.value && // ⬅️  NE RIEN FAIRE quand la popup est ouverte
     !drawingNow.value &&
+    !showComboPopup.value && // ⬅️  ajoute cette condition
     !loading.value
   ) {
     drawingNow.value = true;
+    setTimeout(() => {
+      drawCard()
+        .catch(console.error)
+        .finally(() => (drawingNow.value = false));
+    }, 80);
   }
 });
 
@@ -532,7 +606,6 @@ watchEffect(() => {
 });
 
 /* ─── Popup échange du 7 d'atout ───────────────────────── */
-const hasPromptedForThisTrick = ref(false); // évite de rouvrir 2×
 
 watchEffect(() => {
   const r = room.value;
@@ -557,8 +630,11 @@ watchEffect(() => {
   const iWin =
     (r.phase === "meld" && r.canMeld === myUid.value) ||
     (r.phase === "draw" && r.drawQueue?.[0] === myUid.value);
+  const myMeld = r.phase === "meld" && r.canMeld === myUid.value;
 
-  if (deckOk && cardOk && have7 && iWin) {
+  console.log({ deckOk, cardOk, have7, myMeld });
+
+  if (deckOk && cardOk && have7 && iWin && !exchangeDone.value) {
     showExchange.value = true;
     hasPromptedForThisTrick.value = true;
   }
@@ -584,6 +660,17 @@ function getCardColor(card: string) {
     default:
       return "";
   }
+}
+function choose(combo: Combination) {
+  showComboPopup.value = false;
+  combosDecisionTaken.value = true; // décision prise
+  playCombo(combo); // transaction meld
+}
+
+function closeCombosWithoutPlaying() {
+  showComboPopup.value = false;
+  combosDecisionTaken.value = true; // l’utilisateur renonce
+  forceEndMeldPhase(); // passe à la pioche
 }
 
 /*────────────────────────────────────────────────────────────────────*/
@@ -653,9 +740,8 @@ async function handleCardClick(card: string) {
 
 //* ────────────── Game Actions (simplifiées) ─────────── */
 async function playCard(card: string) {
-  const uid = myUid.value; // fige la valeur
-  if (!uid) return;
-  if (!isMyTurn.value || room.value!.phase !== "play") return; // garde‑fou UI
+  if (!myUid.value) return;
+
   await runTransaction(db, async (tx) => {
     /* 0. Lecture du snapshot */
     const snap = await tx.get(roomRef);
@@ -691,15 +777,6 @@ async function playCard(card: string) {
 
     /* 6. Écriture atomique */
     tx.update(roomRef, update);
-
-    console.log(
-      "snapshot phase",
-      d.phase,
-      "currentTurn",
-      d.currentTurn,
-      "myUid",
-      myUid.value
-    );
   });
 }
 
@@ -725,34 +802,7 @@ const saveName = async () => {
   showNameModal.value = false;
 };
 
-async function choose(combo: Combination) {
-  try {
-    await playCombo(combo); // ← on attend
-    combosDecisionTaken.value = true; // ← seulement si succès
-    showComboPopup.value = false;
-  } catch (e) {
-    console.error("Échec playCombo :", e);
-    alert(e); // ou toast
-  }
-}
-
-let endTrickInProgress = false;
-async function tryEndTrick() {
-  if (endTrickInProgress) return;
-  if (room.value?.phase !== "play") return;
-  if ((room.value.trick?.cards.length ?? 0) !== 2) return;
-
-  endTrickInProgress = true;
-  try {
-    await endTrick();
-  } catch (e) {
-    if (e !== "Phase play requise") console.error(e);
-  } finally {
-    endTrickInProgress = false;
-  }
-}
-
-/* ────────────── endTrick ───────────── */
+/* ────────────── startMeldTimeout ───────────── */
 
 async function endTrick() {
   if (!myUid.value) return;
@@ -785,30 +835,47 @@ async function endTrick() {
       canMeld: winnerUid,
       currentTurn: winnerUid,
       drawQueue: [winnerUid, loserUid],
+      trick: { cards: [], players: [] },
       scores, // ⬅️  nouveau total écrit ici
     };
 
     tx.update(roomRef, update);
   });
+
+  startMeldTimeout(); // timer client (inchangé)
 }
 
-/* ────────────── forceEndMeldPhase ───────────── */
+let meldTimeout: ReturnType<typeof setTimeout> | null = null;
 
-function forceEndMeldPhase() {
-  if (!room.value) return;
+/* ────────────── startMeldTimeout ───────────── */
 
-  // Mise à jour Firestore pour passer en phase draw
-  db.collection("rooms")
-    .doc(roomId)
-    .update({
+function startMeldTimeout() {
+  if (meldTimeout) clearTimeout(meldTimeout);
+  meldTimeout = setTimeout(() => {
+    forceEndMeldPhase();
+  }, 2000); // 10 secondes par exemple
+}
+
+async function forceEndMeldPhase() {
+  if (!myUid.value) return;
+
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(roomRef);
+    const d = snap.data() as RoomDoc;
+
+    if (d.phase !== "meld") return; // plus en phase meld, on fait rien
+
+    // On passe à la phase draw
+    const [winner, loser] = d.drawQueue;
+    const update: Partial<RoomDoc> = {
       phase: "draw",
-      trick: { cards: [], players: [] },
-      currentTurn: myUid.value,
+      currentTurn: winner,
       canMeld: null,
-    });
+      // drawQueue pourrait rester identique ou être réinitialisée après la pioche
+    };
 
-  // On cache la popup combo
-  showComboPopup.value = false;
+    tx.update(roomRef, update);
+  });
 }
 
 /* ────────────── resolveTrick (identique) ───────────── */
@@ -863,41 +930,35 @@ async function drawCard() {
     const snap = await tx.get(roomRef);
     const d = snap.data() as RoomDoc;
 
+    /* 1. Vérifications */
     if (d.phase !== "draw" || d.drawQueue[0] !== myUid.value)
       throw "Pas votre tour de piocher";
 
-    /* ----- 1. pioche normale ----- */
+    /* 2. Pioche */
     const deck = [...d.deck];
-    if (!deck.length) return; // sécurité (déjà vide)
-    const card = deck.shift()!; // retire la 1ʳᵉ carte
-
-    /* main et file d’attente */
+    const card = deck.shift()!;
     const hand = [...d.hands[myUid.value], card];
-    const queue = d.drawQueue.slice(1);
+    const queue = d.drawQueue.slice(1); // retire mon UID
 
-    /* ----- 2. fin de talon ? ----- */
+    /* 3. Ramasse la trumpCard si c’était la dernière carte du talon */
     if (deck.length === 0 && d.trumpCard) {
-      hand.push(d.trumpCard); // on ramasse l’atout
+      hand.push(d.trumpCard);
     }
 
-    /* ----- 3. mise à jour Firestore ----- */
+    /* 4. Construction de l’update */
     const update: Partial<RoomDoc> & Record<string, any> = {
       deck,
       [`hands.${myUid.value}`]: hand,
       drawQueue: queue,
     };
+    if (deck.length === 0) update.trumpCard = ""; // retire l’atout retourné
 
-    /* si le talon est vide, on efface trumpCard */
-    if (deck.length === 0) {
-      update.trumpCard = ""; // ou null, au choix
-    }
-
-    /* queue vide → retour à play */
+    /* 5. Fin de file ⇒ retour à la phase play */
     if (queue.length === 0) {
       update.phase = "play";
-      update.currentTurn = d.drawQueue[0]; // vainqueur rejoue
       update.canMeld = null;
       update.trick = { cards: [], players: [] };
+      /* NE PAS toucher à currentTurn : il reste au vainqueur du pli */
     }
 
     tx.update(roomRef, update);
@@ -912,47 +973,54 @@ async function drawCard() {
  * - Maintient canMeld tant qu’il reste ≥ 1 combo possible
  */
 async function playCombo(combo: Combination) {
-  const uid = myUid.value;
-  if (!uid) return;
-
+  if (!myUid.value) return;
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(roomRef);
     if (!snap.exists()) throw "Room inexistante";
-    const d = snap.data() as RoomDoc;
+    const d = snap.data() as any;
 
-    if (d.canMeld !== uid) throw "Pas votre tour de meld";
+    if (d.canMeld !== myUid.value) throw "Pas votre tour de meld";
 
-    /* 1. Retirer les cartes de la main */
-    const hand = [...d.hands[uid]];
+    /* 1. Retirer cartes de la main */
+    const hand = [...d.hands[myUid.value]];
     for (const c of combo.cards) {
       const i = hand.indexOf(cardToStr(c));
       if (i === -1) throw "Carte manquante";
       hand.splice(i, 1);
     }
 
-    /* 2. Ajouter le meld */
-    const melds = [...(d.melds?.[uid] ?? []), combo];
+    /* 2. Ajouter la combinaison */
+    const melds = [...(d.melds?.[myUid.value] ?? []), combo];
 
     /* 3. Mise à jour du score */
-    const newScore = (d.scores?.[uid] ?? 0) + combo.points;
+    const points = combo.points;
+    const newScore = (d.scores?.[myUid.value] ?? 0) + points;
 
-    /* 4. On autorise **une seule** combinaison → on passe direct à draw */
-    const opponentId = d.players.find((u) => u !== uid);
+    /* 4. Reste-t-il des combinaisons après ce meld ? */
+    const stillCombos =
+      detectCombinations(
+        [...hand.map(strToCard), ...melds.flatMap((m) => m.cards)],
+        d.trump.slice(-1) as Suit,
+        melds
+      ).length > 0;
 
-    const update: Record<string, any> = {
-      [`hands.${uid}`]: hand,
-      [`melds.${uid}`]: melds,
-      [`scores.${uid}`]: newScore,
-
-      /* transition de phase */
-      phase: "draw",
-      drawQueue: [uid, opponentId],
-      currentTurn: uid,
-      canMeld: null,
-
-      /* on vide la zone d’échange seulement maintenant */
-      trick: { cards: [], players: [] },
+    /* 5. Préparer update */
+    const update: any = {
+      [`hands.${myUid.value}`]: hand,
+      [`melds.${myUid.value}`]: melds,
+      [`scores.${myUid.value}`]: newScore,
+      canMeld: stillCombos ? myUid.value : null, // 👈 clé !
     };
+    /* 6. Si plus de combos possibles → retour en phase play */
+    if (!stillCombos) {
+      if (!stillCombos) {
+        update.phase = "draw";
+        update.drawQueue = [myUid.value, opponentUid.value];
+        update.currentTurn = myUid.value;
+      }
+
+      // le vainqueur du pli garde la main (déjà dans currentTurn)
+    }
 
     tx.update(roomRef, update);
   });
