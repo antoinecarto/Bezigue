@@ -967,9 +967,6 @@ async function playCombo(combo: Combination) {
     /* 4. On autorise **une seule** combinaison → on passe direct à draw */
     const opponentId = d.players.find((u) => u !== uid);
 
-
-    const stillCombos = detectCombinations().length > 0;
-
     const update: Record<string, any> = {
       [`hands.${uid}`]: hand,
       [`melds.${uid}`]: melds,
@@ -985,19 +982,13 @@ async function playCombo(combo: Combination) {
       trick: { cards: [], players: [] },
     };
 
-      /* 6. Plus de combos → on termine **TOUJOURS** de la même façon */
-  if (!stillCombos) {
-       // 1) on vide la zone d’échange
-   update.trick       = { cards: [], players: [] };
-   // 2) le vainqueur reste maître
-   update.currentTurn = myUid.value;
-   // 3) prochaine étape = pioche
-   update.phase       = "draw";
-   update.drawQueue   = [myUid.value, opponentUid.value];
-   // 4) on ferme vraiment le meld
-   update.canMeld     = null;
-
-
+     /* 5. Préparer update */
+  const update: Record<string, any> = {
+    [`hands.${myUid.value}`]: hand,
+    [`melds.${myUid.value}`]: melds,
+    [`scores.${myUid.value}`]: newScore,
+   canMeld: stillCombos ? myUid.value : null,
+   canMeld: stillCombos ? myUid.value : null,
 
     tx.update(roomRef, update);
   });
