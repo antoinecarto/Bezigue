@@ -469,31 +469,6 @@ watch(
   { immediate: true }
 );
 
-/* ─── Auto‑pioche ────────────────────────────────────────── */
-const drawingNow = ref(false); // évite les appels concurrents
-
-watchEffect(() => {
-  const r = room.value;
-  if (
-    r &&
-    r.phase === "draw" && // on est bien en phase pioche
-    r.drawQueue?.[0] === myUid.value // c'est MON tour de piocher
-  ) {
-    // On attend un mini‑délai pour laisser l’UI respirer
-    if (!drawingNow.value) {
-      drawingNow.value = true;
-      setTimeout(() => {
-        drawCard()
-          .catch(console.error)
-          .finally(() => {
-            drawingNow.value = false;
-          });
-      }, 80); // 80 ms ≈ le temps d’un tick de rendu
-    }
-  }
-  loading.value === false;
-});
-
 /* ────────────── UI helpers ───────────────────────────── */
 function deOuD(name: string): string {
   if (!name) return "de";
@@ -599,9 +574,6 @@ function choose(combo: Combination) {
   // Placeholder : fermer la popup pour l'instant
   showComboPopup.value = false;
 }
-
-/* ────────────── startMeldTimeout ───────────── */
-
 async function endTrick() {
   if (!myUid.value) return;
 
@@ -617,50 +589,12 @@ async function endTrick() {
     const winner = resolveTrick(c1, c2, p1, p2, d.trumpCard);
     const loser = winner === p1 ? p2 : p1;
 
-    // PAS direct à draw, mais à meld pour que vainqueur pose ses combinaisons
     const update: Partial<RoomDoc> & Record<string, any> = {
-      phase: "meld",
-      canMeld: winner,
-      currentTurn: winner,
-      trick: { cards: [], players: [] },
-      // conserve le drawQueue pour la suite, ou initialiser si besoin
-      drawQueue: [winner, loser],
-    };
-
-    tx.update(roomRef, update);
-  });
-
-  // Démarre un timeout côté client qui forcera la fin de la phase meld
-  startMeldTimeout();
-}
-
-let meldTimeout: ReturnType<typeof setTimeout> | null = null;
-
-/* ────────────── startMeldTimeout ───────────── */
-
-function startMeldTimeout() {
-  if (meldTimeout) clearTimeout(meldTimeout);
-  meldTimeout = setTimeout(() => {
-    forceEndMeldPhase();
-  }, 2000); // 10 secondes par exemple
-}
-
-async function forceEndMeldPhase() {
-  if (!myUid.value) return;
-
-  await runTransaction(db, async (tx) => {
-    const snap = await tx.get(roomRef);
-    const d = snap.data() as RoomDoc;
-
-    if (d.phase !== "meld") return; // plus en phase meld, on fait rien
-
-    // On passe à la phase draw
-    const [winner, loser] = d.drawQueue;
-    const update: Partial<RoomDoc> = {
       phase: "draw",
+      drawQueue: [winner, loser],
       currentTurn: winner,
       canMeld: null,
-      // drawQueue pourrait rester identique ou être réinitialisée après la pioche
+      trick: { cards: [], players: [] }, // vide la zone d’échange
     };
 
     tx.update(roomRef, update);
@@ -710,7 +644,7 @@ async function handleComboPlayed(combo: Combination) {
     alert(e);
   }
 }
-/* appelé quand on pioche */
+/* appelé quand  */
 
 async function drawCard() {
   if (!myUid.value) return;
@@ -735,7 +669,7 @@ async function drawCard() {
     };
 
     if (queue.length === 0) {
-      update.phase = "play";
+      update.phase = "meld";
       update.canMeld = d.drawQueue[0]; // le vainqueur reprend la main
       update.trick = { cards: [], players: [] };
     }
@@ -789,12 +723,7 @@ async function playCombo(combo: Combination) {
     };
     /* 6. Si plus de combos possibles → retour en phase play */
     if (!stillCombos) {
-      if (!stillCombos) {
-        update.phase = "draw";
-        update.drawQueue = [myUid.value, opponentUid.value];
-        update.currentTurn = myUid.value;
-      }
-
+      update.phase = "play";
       // le vainqueur du pli garde la main (déjà dans currentTurn)
     }
 

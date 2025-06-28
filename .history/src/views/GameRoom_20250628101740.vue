@@ -491,7 +491,6 @@ watchEffect(() => {
       }, 80); // 80 ms ≈ le temps d’un tick de rendu
     }
   }
-  loading.value === false;
 });
 
 /* ────────────── UI helpers ───────────────────────────── */
@@ -642,7 +641,7 @@ function startMeldTimeout() {
   if (meldTimeout) clearTimeout(meldTimeout);
   meldTimeout = setTimeout(() => {
     forceEndMeldPhase();
-  }, 2000); // 10 secondes par exemple
+  }, 10000); // 10 secondes par exemple
 }
 
 async function forceEndMeldPhase() {

@@ -491,7 +491,6 @@ watchEffect(() => {
       }, 80); // 80 ms ≈ le temps d’un tick de rendu
     }
   }
-  loading.value === false;
 });
 
 /* ────────────── UI helpers ───────────────────────────── */
@@ -642,7 +641,7 @@ function startMeldTimeout() {
   if (meldTimeout) clearTimeout(meldTimeout);
   meldTimeout = setTimeout(() => {
     forceEndMeldPhase();
-  }, 2000); // 10 secondes par exemple
+  }, 10000); // 10 secondes par exemple
 }
 
 async function forceEndMeldPhase() {
@@ -735,7 +734,7 @@ async function drawCard() {
     };
 
     if (queue.length === 0) {
-      update.phase = "play";
+      update.phase = "meld";
       update.canMeld = d.drawQueue[0]; // le vainqueur reprend la main
       update.trick = { cards: [], players: [] };
     }
@@ -789,12 +788,7 @@ async function playCombo(combo: Combination) {
     };
     /* 6. Si plus de combos possibles → retour en phase play */
     if (!stillCombos) {
-      if (!stillCombos) {
-        update.phase = "draw";
-        update.drawQueue = [myUid.value, opponentUid.value];
-        update.currentTurn = myUid.value;
-      }
-
+      update.phase = "play";
       // le vainqueur du pli garde la main (déjà dans currentTurn)
     }
 

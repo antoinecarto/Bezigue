@@ -642,7 +642,7 @@ function startMeldTimeout() {
   if (meldTimeout) clearTimeout(meldTimeout);
   meldTimeout = setTimeout(() => {
     forceEndMeldPhase();
-  }, 2000); // 10 secondes par exemple
+  }, 10000); // 10 secondes par exemple
 }
 
 async function forceEndMeldPhase() {

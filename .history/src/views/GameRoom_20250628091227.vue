@@ -1,4 +1,20 @@
 <template>
+  <!-- POP-UP Pas votre tour (style “création de salle”) -->
+  <div
+    v-if="showTurnAlert"
+    class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+  >
+    <div class="bg-white rounded-2xl p-6 w-96 text-center shadow-2xl">
+      <h2 class="text-2xl font-semibold mb-4 text-red-600">Pas votre tour !</h2>
+      <p class="mb-6">
+        Attendez que votre adversaire joue avant de poser une carte.
+      </p>
+      <button class="btn w-full" @click="showTurnAlert.value = false">
+        OK
+      </button>
+    </div>
+  </div>
+
   <!-- Modal des combinaisons (affiché seulement si showComboPopup === true) -->
   <teleport to="body">
     <ComboModal
@@ -167,7 +183,7 @@
             <div
               class="card border px-3 py-2 rounded shadow text-xl cursor-pointer"
               :class="getCardColor(card)"
-              @click="handleCardClick(card)"
+              @click="playCard(card)"
             >
               {{ card }}
             </div>
@@ -245,23 +261,6 @@
       >
         Enregistrer
       </button>
-    </div>
-  </div>
-  <!-- POP‑UP Pas votre tour --------------------------------------------- -->
-  <div
-    v-if="showTurnAlert"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
-  >
-    <div
-      class="w-80 max-w-[90%] rounded-2xl bg-white p-6 text-center shadow-2xl"
-    >
-      <h2 class="mb-4 text-2xl font-semibold text-red-600">
-        Pas votre tour&nbsp;!
-      </h2>
-      <p class="mb-6">
-        Attendez que votre adversaire joue avant de poser une carte.
-      </p>
-      <button class="btn w-full" @click="showTurnAlert = false">OK</button>
     </div>
   </div>
 </template>
@@ -469,31 +468,6 @@ watch(
   { immediate: true }
 );
 
-/* ─── Auto‑pioche ────────────────────────────────────────── */
-const drawingNow = ref(false); // évite les appels concurrents
-
-watchEffect(() => {
-  const r = room.value;
-  if (
-    r &&
-    r.phase === "draw" && // on est bien en phase pioche
-    r.drawQueue?.[0] === myUid.value // c'est MON tour de piocher
-  ) {
-    // On attend un mini‑délai pour laisser l’UI respirer
-    if (!drawingNow.value) {
-      drawingNow.value = true;
-      setTimeout(() => {
-        drawCard()
-          .catch(console.error)
-          .finally(() => {
-            drawingNow.value = false;
-          });
-      }, 80); // 80 ms ≈ le temps d’un tick de rendu
-    }
-  }
-  loading.value === false;
-});
-
 /* ────────────── UI helpers ───────────────────────────── */
 function deOuD(name: string): string {
   if (!name) return "de";
@@ -515,18 +489,16 @@ function getCardColor(card: string) {
       return "";
   }
 }
-/* ────────────── Wrapper clic carte ────────────── */
-async function handleCardClick(card: string) {
+/* ────────────── gère le clic si pas le tour ─────────── */
+async function tryPlayCard(card: string) {
   try {
-    await playCard(card); // ← transaction Firestore
+    await playCard(card);
   } catch (e) {
-    // selon ton backend la chaîne peut contenir un espace/point/etc.
-    // adapte au besoin (startsWith, includes, etc.)
     if (e === "Pas votre tour") {
-      showTurnAlert.value = true; // ouvre la pop‑up
+      showTurnAlert.value = true; // ← ouvre l’alerte style “création de salle”
     } else {
       console.error(e);
-      alert(e); // autre erreur inattendue
+      alert(e);
     }
   }
 }
@@ -541,7 +513,7 @@ async function playCard(card: string) {
     const d = snap.data() as RoomDoc;
 
     /* 1. Vérifications */
-    if (d.phase !== "play") throw "Ce n'est pas votre tour ! ";
+    if (d.phase !== "play") throw "Phase play requise";
     if (d.currentTurn !== myUid.value) throw "Pas votre tour";
     if (d.trick.cards.length >= 2) throw "Pli déjà complet";
 
@@ -599,9 +571,6 @@ function choose(combo: Combination) {
   // Placeholder : fermer la popup pour l'instant
   showComboPopup.value = false;
 }
-
-/* ────────────── startMeldTimeout ───────────── */
-
 async function endTrick() {
   if (!myUid.value) return;
 
@@ -617,50 +586,12 @@ async function endTrick() {
     const winner = resolveTrick(c1, c2, p1, p2, d.trumpCard);
     const loser = winner === p1 ? p2 : p1;
 
-    // PAS direct à draw, mais à meld pour que vainqueur pose ses combinaisons
     const update: Partial<RoomDoc> & Record<string, any> = {
-      phase: "meld",
-      canMeld: winner,
-      currentTurn: winner,
-      trick: { cards: [], players: [] },
-      // conserve le drawQueue pour la suite, ou initialiser si besoin
-      drawQueue: [winner, loser],
-    };
-
-    tx.update(roomRef, update);
-  });
-
-  // Démarre un timeout côté client qui forcera la fin de la phase meld
-  startMeldTimeout();
-}
-
-let meldTimeout: ReturnType<typeof setTimeout> | null = null;
-
-/* ────────────── startMeldTimeout ───────────── */
-
-function startMeldTimeout() {
-  if (meldTimeout) clearTimeout(meldTimeout);
-  meldTimeout = setTimeout(() => {
-    forceEndMeldPhase();
-  }, 2000); // 10 secondes par exemple
-}
-
-async function forceEndMeldPhase() {
-  if (!myUid.value) return;
-
-  await runTransaction(db, async (tx) => {
-    const snap = await tx.get(roomRef);
-    const d = snap.data() as RoomDoc;
-
-    if (d.phase !== "meld") return; // plus en phase meld, on fait rien
-
-    // On passe à la phase draw
-    const [winner, loser] = d.drawQueue;
-    const update: Partial<RoomDoc> = {
       phase: "draw",
+      drawQueue: [winner, loser],
       currentTurn: winner,
       canMeld: null,
-      // drawQueue pourrait rester identique ou être réinitialisée après la pioche
+      trick: { cards: [], players: [] }, // vide la zone d’échange
     };
 
     tx.update(roomRef, update);
@@ -710,7 +641,7 @@ async function handleComboPlayed(combo: Combination) {
     alert(e);
   }
 }
-/* appelé quand on pioche */
+/* appelé quand  */
 
 async function drawCard() {
   if (!myUid.value) return;
@@ -735,7 +666,7 @@ async function drawCard() {
     };
 
     if (queue.length === 0) {
-      update.phase = "play";
+      update.phase = "meld";
       update.canMeld = d.drawQueue[0]; // le vainqueur reprend la main
       update.trick = { cards: [], players: [] };
     }
@@ -789,12 +720,7 @@ async function playCombo(combo: Combination) {
     };
     /* 6. Si plus de combos possibles → retour en phase play */
     if (!stillCombos) {
-      if (!stillCombos) {
-        update.phase = "draw";
-        update.drawQueue = [myUid.value, opponentUid.value];
-        update.currentTurn = myUid.value;
-      }
-
+      update.phase = "play";
       // le vainqueur du pli garde la main (déjà dans currentTurn)
     }
 
