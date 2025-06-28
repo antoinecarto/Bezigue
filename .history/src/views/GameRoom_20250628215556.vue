@@ -516,24 +516,20 @@ async function confirmExchange() {
 }
 
 /* ─── Auto‑pioche ────────────────────────────────────────── */
-const drawingNow = ref(false);
+const drawingNow = ref(false); // évite les appels concurrents
 
 watchEffect(() => {
   const r = room.value;
-  if (!r || !myUid.value) return;
-
-  // Condition minimale pour piocher
-  if (r.phase !== "draw") return;
-  if (r.drawQueue?.[0] !== myUid.value) return;
-  if (drawingNow.value) return; // déjà en cours
-
-  // Ne pas bloquer sur showComboPopup : à ce stade elle est fermée
-  if (showExchange.value || loading.value) return;
-
-  drawingNow.value = true;
-  drawCard()
-    .catch(console.error)
-    .finally(() => (drawingNow.value = false));
+  if (
+    r &&
+    r.phase === "draw" &&
+    r.drawQueue?.[0] === myUid.value &&
+    !showExchange.value && // ⬅️  NE RIEN FAIRE quand la popup est ouverte
+    !drawingNow.value &&
+    !loading.value
+  ) {
+    drawingNow.value = true;
+  }
 });
 
 /* reset automatique à chaque début de pli (phase "play") */

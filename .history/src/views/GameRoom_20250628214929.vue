@@ -273,7 +273,6 @@
 import { ref, computed, watch, onMounted, onUnmounted, watchEffect } from "vue";
 import { useRoute } from "vue-router";
 import {
-  collection,
   doc,
   onSnapshot,
   runTransaction,
@@ -516,24 +515,20 @@ async function confirmExchange() {
 }
 
 /* ─── Auto‑pioche ────────────────────────────────────────── */
-const drawingNow = ref(false);
+const drawingNow = ref(false); // évite les appels concurrents
 
 watchEffect(() => {
   const r = room.value;
-  if (!r || !myUid.value) return;
-
-  // Condition minimale pour piocher
-  if (r.phase !== "draw") return;
-  if (r.drawQueue?.[0] !== myUid.value) return;
-  if (drawingNow.value) return; // déjà en cours
-
-  // Ne pas bloquer sur showComboPopup : à ce stade elle est fermée
-  if (showExchange.value || loading.value) return;
-
-  drawingNow.value = true;
-  drawCard()
-    .catch(console.error)
-    .finally(() => (drawingNow.value = false));
+  if (
+    r &&
+    r.phase === "draw" &&
+    r.drawQueue?.[0] === myUid.value &&
+    !showExchange.value && // ⬅️  NE RIEN FAIRE quand la popup est ouverte
+    !drawingNow.value &&
+    !loading.value
+  ) {
+    drawingNow.value = true;
+  }
 });
 
 /* reset automatique à chaque début de pli (phase "play") */
@@ -806,21 +801,21 @@ async function endTrick() {
 
 /* ────────────── forceEndMeldPhase ───────────── */
 
-async function forceEndMeldPhase() {
+function forceEndMeldPhase() {
   if (!room.value) return;
 
-  try {
-    await updateDoc(doc(db, "rooms", roomId), {
+  // Mise à jour Firestore pour passer en phase draw
+  db.collection("rooms")
+    .doc(roomId)
+    .update({
       phase: "draw",
       trick: { cards: [], players: [] },
       currentTurn: myUid.value,
       canMeld: null,
     });
 
-    showComboPopup.value = false;
-  } catch (error) {
-    console.error("Erreur lors de la mise à jour de la phase :", error);
-  }
+  // On cache la popup combo
+  showComboPopup.value = false;
 }
 
 /* ────────────── resolveTrick (identique) ───────────── */
