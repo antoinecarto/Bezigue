@@ -207,28 +207,25 @@
   </div>
   <teleport to="body">
     <div
-      v-if="showExchange"
+      v-if="show"
       class="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-      @click.self="showExchange = false"
+      @click.self="$emit('close')"
       role="dialog"
       aria-modal="true"
     >
       <div class="bg-white p-6 rounded-2xl w-72">
         <h2 class="text-lg font-semibold mb-4 text-center">
-          Échanger le 7 d’atout&nbsp;?
+          Échanger le 7 d’atout ?
         </h2>
 
         <p class="text-center mb-4">
-          Vous pouvez prendre
-          <strong>{{ trumpCard }}</strong>
-          et placer votre
-          <strong>7{{ trumpSuit }}</strong>
-          face visible.
+          Vous pouvez prendre <strong>{{ trumpCard }}</strong> et placer votre
+          <strong>7{{ suit }}</strong> face visible.
         </p>
 
         <div class="flex gap-3">
-          <button class="flex-1 btn" @click="confirmExchange">Oui</button>
-          <button class="flex-1 btn" @click="showExchange = false">Non</button>
+          <button class="flex-1 btn" @click="$emit('confirm')">Oui</button>
+          <button class="flex-1 btn" @click="$emit('close')">Non</button>
         </div>
       </div>
     </div>
@@ -368,8 +365,6 @@ const opponentName = computed(() =>
     ? room.value?.playerNames?.[opponentUid.value] ?? "Adversaire"
     : "Adversaire"
 );
-// dérive la couleur d'atout → '♠', '♥', …
-const trumpSuit = computed(() => trumpCard.value.slice(-1));
 
 const isMyTurn = computed(() => {
   if (!room.value || !myUid.value) return false;
@@ -499,38 +494,6 @@ watchEffect(() => {
   loading.value === false;
 });
 
-/* ─── Popup échange du 7 d'atout ───────────────────────── */
-const showExchange = ref(false);
-const hasPromptedForThisTrick = ref(false); // évite de rouvrir 2×
-
-watchEffect(() => {
-  const r = room.value;
-  if (!r || !myUid.value) return;
-
-  /* remise à zéro au début de chaque nouveau pli */
-  if (r.phase === "play") {
-    hasPromptedForThisTrick.value = false;
-    showExchange.value = false;
-    return;
-  }
-
-  if (hasPromptedForThisTrick.value) return; // déjà proposé
-
-  /* --- conditions --- */
-  const deckOk = (r.deck?.length ?? 0) > 0;
-  const rankCur = r.trumpCard.slice(0, -1);
-  const suit = r.trumpCard.slice(-1);
-  const cardOk = ["A", "K", "Q", "J", "10"].includes(rankCur);
-  const have7 = r.hands[myUid.value].includes("7" + suit);
-  const iWinMeld = r.phase === "meld" && r.canMeld === myUid.value;
-  const iWinDraw = r.phase === "draw" && r.drawQueue?.[0] === myUid.value;
-
-  if (deckOk && cardOk && have7 && (iWinMeld || iWinDraw)) {
-    showExchange.value = true;
-    hasPromptedForThisTrick.value = true;
-  }
-});
-
 /* ────────────── UI helpers ───────────────────────────── */
 function deOuD(name: string): string {
   if (!name) return "de";
@@ -550,17 +513,6 @@ function getCardColor(card: string) {
       return "text-red-500";
     default:
       return "";
-  }
-}
-
-/*─────────────────────────échange du 7 ───────────────────────────────────────────*/
-
-async function confirmExchange() {
-  showExchange.value = false; // ferme la fenêtre
-  const ok = await tryExchangeSeven(myUid.value!);
-  if (!ok) {
-    // changement d'état entre-temps : rien de grave
-    console.warn("Échange impossible (état modifié)");
   }
 }
 

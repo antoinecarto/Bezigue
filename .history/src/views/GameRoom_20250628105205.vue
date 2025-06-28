@@ -368,8 +368,6 @@ const opponentName = computed(() =>
     ? room.value?.playerNames?.[opponentUid.value] ?? "Adversaire"
     : "Adversaire"
 );
-// dérive la couleur d'atout → '♠', '♥', …
-const trumpSuit = computed(() => trumpCard.value.slice(-1));
 
 const isMyTurn = computed(() => {
   if (!room.value || !myUid.value) return false;
