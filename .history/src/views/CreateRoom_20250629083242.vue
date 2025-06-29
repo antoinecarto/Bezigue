@@ -12,7 +12,7 @@
       ID de la salle&nbsp;: <code>{{ roomId }}</code>
     </p>
   </div>
-  <label class="block mb-2 font-semibold">Partie en : </label>
+  <label class="block mb-2 font-semibold">Score de victoire</label>
   <select v-model="targetScore" class="border p-2 rounded w-40 mb-4">
     <option :value="1000">1000 points</option>
     <option :value="2000">2000 points</option>
@@ -80,7 +80,7 @@ const createRoom = async () => {
       currentTurn: uid,
       nextTurnUid: uid,
       /* partie*/
-      targetScore: targetScore.value, // ← dynamique
+      targetScore: 2000,
       /* --- cartes --- */
       trumpCard: deckInfo.trumpCard,
       deck: deckInfo.drawPile,
@@ -103,7 +103,6 @@ const createRoom = async () => {
       currentPliCards: [],
       plies: [],
       scores: { [uid]: 0 },
-      targetScore: targetScore.value,
     });
 
     /* --- 4. Log & navigation -------------------------------- */

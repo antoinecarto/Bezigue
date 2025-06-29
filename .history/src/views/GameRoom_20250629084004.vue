@@ -318,8 +318,6 @@ interface RoomDoc {
   canMeld: string | null;
   trick: { cards: string[]; players: string[] };
   scores: Record<string, number>;
-  targetScore: number;
-  winnerName: string;
 }
 
 /* ────────────── Helpers ─────────────────────────────── */
@@ -358,7 +356,7 @@ const askedCombiThisTrick = ref(false); // popup combo déjà proposée
 /* protège contre les appels multiples */
 /* ────────────── Computed Shortcuts ───────────────────── */
 const targetScore = computed(
-  () => room.value?.targetScore ?? 2000 // repli si champ absent
+  () => roomData.value?.targetScore ?? 2000 // repli si champ absent
 );
 
 /* winnerName = le premier joueur dont le score >= targetScore */

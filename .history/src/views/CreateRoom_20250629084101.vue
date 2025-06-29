@@ -80,7 +80,7 @@ const createRoom = async () => {
       currentTurn: uid,
       nextTurnUid: uid,
       /* partie*/
-      targetScore: targetScore.value, // ← dynamique
+      targetScore: 2000,
       /* --- cartes --- */
       trumpCard: deckInfo.trumpCard,
       deck: deckInfo.drawPile,

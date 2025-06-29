@@ -319,7 +319,7 @@ interface RoomDoc {
   trick: { cards: string[]; players: string[] };
   scores: Record<string, number>;
   targetScore: number;
-  winnerName: string;
+  winnerScore: string;
 }
 
 /* ────────────── Helpers ─────────────────────────────── */

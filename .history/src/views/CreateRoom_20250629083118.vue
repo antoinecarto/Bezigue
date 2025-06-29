@@ -12,11 +12,6 @@
       ID de la salle&nbsp;: <code>{{ roomId }}</code>
     </p>
   </div>
-  <label class="block mb-2 font-semibold">Partie en : </label>
-  <select v-model="targetScore" class="border p-2 rounded w-40 mb-4">
-    <option :value="1000">1000 points</option>
-    <option :value="2000">2000 points</option>
-  </select>
 </template>
 
 <script setup lang="ts">
@@ -36,7 +31,6 @@ import { generateShuffledDeck, distributeCards } from "@/game/BezigueGame";
 
 const emit = defineEmits<{ "room-created": [string] }>();
 const router = useRouter();
-const targetScore = ref(2000); // défaut 2000
 
 const roomId = ref<string | null>(null);
 const loading = ref(false);
@@ -80,7 +74,7 @@ const createRoom = async () => {
       currentTurn: uid,
       nextTurnUid: uid,
       /* partie*/
-      targetScore: targetScore.value, // ← dynamique
+      targetScore: 2000,
       /* --- cartes --- */
       trumpCard: deckInfo.trumpCard,
       deck: deckInfo.drawPile,
@@ -103,7 +97,6 @@ const createRoom = async () => {
       currentPliCards: [],
       plies: [],
       scores: { [uid]: 0 },
-      targetScore: targetScore.value,
     });
 
     /* --- 4. Log & navigation -------------------------------- */

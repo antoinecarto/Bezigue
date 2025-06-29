@@ -318,8 +318,6 @@ interface RoomDoc {
   canMeld: string | null;
   trick: { cards: string[]; players: string[] };
   scores: Record<string, number>;
-  targetScore: number;
-  winnerName: string;
 }
 
 /* ────────────── Helpers ─────────────────────────────── */
@@ -357,19 +355,6 @@ const askedCombiThisTrick = ref(false); // popup combo déjà proposée
 /* ─── ID du timer qui déclenchera la résolution du pli ─── */
 /* protège contre les appels multiples */
 /* ────────────── Computed Shortcuts ───────────────────── */
-const targetScore = computed(
-  () => room.value?.targetScore ?? 2000 // repli si champ absent
-);
-
-/* winnerName = le premier joueur dont le score >= targetScore */
-const winnerName = computed(() => {
-  if (!roomData.value?.scores) return "—";
-  const entries = Object.entries(roomData.value.scores);
-  const hit = entries.find(([, pts]) => pts >= targetScore.value);
-  if (!hit) return "—";
-  const [uidHit] = hit;
-  return roomData.value.names?.[uidHit] || "—";
-});
 const opponentUid = computed(
   () => room.value?.players.find((u) => u !== myUid.value) ?? null
 );
@@ -987,6 +972,7 @@ async function playCombo(combo: Combination) {
     /* 4. On autorise **une seule** combinaison → on passe direct à draw */
     const opponentId = d.players.find((u) => u !== uid);
 
+
     const stillCombos = detectCombinations().length > 0;
 
     const update: Record<string, any> = {
@@ -1004,20 +990,21 @@ async function playCombo(combo: Combination) {
       trick: { cards: [], players: [] },
     };
 
-    /* 6. Plus de combos → on termine **TOUJOURS** de la même façon */
-    if (!stillCombos) {
-      // 1) on vide la zone d’échange
-      update.trick = { cards: [], players: [] };
-      // 2) le vainqueur reste maître
-      update.currentTurn = myUid.value;
-      // 3) prochaine étape = pioche
-      update.phase = "draw";
-      update.drawQueue = [myUid.value, opponentUid.value];
-      // 4) on ferme vraiment le meld
-      update.canMeld = null;
+      /* 6. Plus de combos → on termine **TOUJOURS** de la même façon */
+  if (!stillCombos) {
+       // 1) on vide la zone d’échange
+   update.trick       = { cards: [], players: [] };
+   // 2) le vainqueur reste maître
+   update.currentTurn = myUid.value;
+   // 3) prochaine étape = pioche
+   update.phase       = "draw";
+   update.drawQueue   = [myUid.value, opponentUid.value];
+   // 4) on ferme vraiment le meld
+   update.canMeld     = null;
 
-      tx.update(roomRef, update);
-    }
+
+
+    tx.update(roomRef, update);
   });
 }
 

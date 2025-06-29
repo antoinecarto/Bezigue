@@ -318,8 +318,6 @@ interface RoomDoc {
   canMeld: string | null;
   trick: { cards: string[]; players: string[] };
   scores: Record<string, number>;
-  targetScore: number;
-  winnerName: string;
 }
 
 /* ────────────── Helpers ─────────────────────────────── */
