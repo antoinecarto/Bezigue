@@ -1133,27 +1133,31 @@ async function playCombo(combo: Combination) {
       [`hands.${uid}`]: hand,
       [`melds.${uid}`]: melds,
       [`scores.${uid}`]: newScore,
+
+      /* transition de phase */
+      phase: "draw",
+      drawQueue: [uid, opponentId],
+      currentTurn: uid,
+      canMeld: null,
+
+      /* on vide la zone d’échange seulement maintenant */
+      trick: { cards: [], players: [] },
     };
 
     /* 6. Plus de combos → on termine **TOUJOURS** de la même façon */
-    if (stillCombos) {
-      // Le joueur peut encore meld
-      Object.assign(update, {
-        phase: "meld",
-        canMeld: uid,
-        trick: { cards: [], players: [] }, // on vide le pli maintenant
-      });
-    } else {
-      // Plus de combo possible → on passe à draw
-      Object.assign(update, {
-        phase: "draw",
-        drawQueue: [uid, opponentId],
-        currentTurn: uid,
-        canMeld: null,
-        trick: { cards: [], players: [] },
-      });
+    if (!stillCombos) {
+      // 1) on vide la zone d’échange
+      update.trick = { cards: [], players: [] };
+      // 2) le vainqueur reste maître
+      update.currentTurn = myUid.value;
+      // 3) prochaine étape = pioche
+      update.phase = "draw";
+      update.drawQueue = [myUid.value, opponentUid.value];
+      // 4) on ferme vraiment le meld
+      update.canMeld = null;
+
+      tx.update(roomRef, update);
     }
-    tx.update(roomRef, update);
   });
 }
 export interface Card {

@@ -515,13 +515,12 @@ watchEffect(() => {
 
   if (r.phase !== "meld" || r.canMeld !== myUid.value) return;
 
-  const handCards = r.hands[myUid.value].map(strToCard); // Card[]
-  const meldCards = (r.melds?.[myUid.value] ?? []).flatMap((m) => m.cards);
+  const hand = r.hands[myUid.value].map(strToCard);
+  const melds = r.melds?.[myUid.value] ?? [];
   const combos = detectCombinations(
-    handCards, // main
-    meldCards, // cartes déjà posées
-    r.trumpSuit, // atout stocké dans le doc
-    r.melds?.[myUid.value] ?? []
+    [...hand, ...melds.flatMap((m) => m.cards)],
+    r.trumpCard.slice(-1) as Suit,
+    melds
   );
 
   if (combos.length) {
@@ -1119,41 +1118,40 @@ async function playCombo(combo: Combination) {
 
     /* 4. On autorise **une seule** combinaison → on passe direct à draw */
     const opponentId = d.players.find((u) => u !== uid);
-    const handCards: Card[] = hand.map(strToCard);
-    const meldCards: Card[] = melds.flatMap((combo) => combo.cards);
+
     const stillCombos =
-      detectCombinations(
-        handCards,
-        meldCards,
-        d.trumpSuit,
-        d.melds?.[uid] ?? []
-      ).length > 0;
+      detectCombinations(hand, melds, d.trumpSuit, d.melds?.[uid] ?? [])
+        .length > 0;
 
     const update: Record<string, any> = {
       [`hands.${uid}`]: hand,
       [`melds.${uid}`]: melds,
       [`scores.${uid}`]: newScore,
+
+      /* transition de phase */
+      phase: "draw",
+      drawQueue: [uid, opponentId],
+      currentTurn: uid,
+      canMeld: null,
+
+      /* on vide la zone d’échange seulement maintenant */
+      trick: { cards: [], players: [] },
     };
 
     /* 6. Plus de combos → on termine **TOUJOURS** de la même façon */
-    if (stillCombos) {
-      // Le joueur peut encore meld
-      Object.assign(update, {
-        phase: "meld",
-        canMeld: uid,
-        trick: { cards: [], players: [] }, // on vide le pli maintenant
-      });
-    } else {
-      // Plus de combo possible → on passe à draw
-      Object.assign(update, {
-        phase: "draw",
-        drawQueue: [uid, opponentId],
-        currentTurn: uid,
-        canMeld: null,
-        trick: { cards: [], players: [] },
-      });
+    if (!stillCombos) {
+      // 1) on vide la zone d’échange
+      update.trick = { cards: [], players: [] };
+      // 2) le vainqueur reste maître
+      update.currentTurn = myUid.value;
+      // 3) prochaine étape = pioche
+      update.phase = "draw";
+      update.drawQueue = [myUid.value, opponentUid.value];
+      // 4) on ferme vraiment le meld
+      update.canMeld = null;
+
+      tx.update(roomRef, update);
     }
-    tx.update(roomRef, update);
   });
 }
 export interface Card {

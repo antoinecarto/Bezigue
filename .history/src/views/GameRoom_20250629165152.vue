@@ -1153,7 +1153,6 @@ async function playCombo(combo: Combination) {
         trick: { cards: [], players: [] },
       });
     }
-    tx.update(roomRef, update);
   });
 }
 export interface Card {
