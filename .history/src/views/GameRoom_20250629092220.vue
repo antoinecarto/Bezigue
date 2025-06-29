@@ -287,7 +287,6 @@ import {
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import Draggable from "vuedraggable";
-import { generateShuffledDeck, distributeCards } from "@/game/BezigueGame";
 
 // import { db } from "@/firebase";
 
@@ -308,7 +307,7 @@ const db = getFirestore();
 interface RoomDoc {
   players: string[];
   playerNames: Record<string, string>;
-  phase: "play" | "draw" | "meld" | "finished";
+  phase: "play" | "draw" | "meld";
   currentTurn: string;
   drawQueue: string[];
   trumpCard: string;
@@ -321,7 +320,6 @@ interface RoomDoc {
   scores: Record<string, number>;
   targetScore: number;
   winnerName: string;
-  currentMeneIndex: number;
 }
 
 /* ────────────── Helpers ─────────────────────────────── */
@@ -638,86 +636,6 @@ watchEffect(async () => {
 
   await endMene(); // fonction ci‑dessous
 });
-
-/* finalisation de la mène et de la partie */
-async function endMene() {
-  await runTransaction(db, async (tx) => {
-    const snap = await tx.get(roomRef);
-    if (!snap.exists()) return;
-    const d = snap.data() as RoomDoc;
-
-    /* 0. Qui a remporté le dernier pli ?  */
-    const lastWinnerUid = d.currentTurn; // ← vainqueur du dernier pli
-
-    /* 1. +10 pts pour ce dernier pli */
-    const scores = { ...d.scores };
-    scores[lastWinnerUid] = (scores[lastWinnerUid] ?? 0) + 10;
-
-    /* 2. Fin de partie ? */
-    const target = d.targetScore ?? 2000;
-    const finale = Object.entries(scores).find(([, pts]) => pts >= target)?.[0];
-
-    if (finale) {
-      tx.update(roomRef, {
-        phase: "finished",
-        winnerUid: finale,
-        scores, // <-- on enregistre le total mis à jour
-      });
-      return;
-    }
-
-    /* 3. Préparer la nouvelle mène (même logique qu’avant) -------- */
-    const prevFirstRef = doc(
-      db,
-      "rooms",
-      roomId,
-      "menes",
-      String(d.currentMeneIndex)
-    );
-    const prevFirstSnap = await tx.get(prevFirstRef);
-    const prevStarter = prevFirstSnap.exists()
-      ? (prevFirstSnap.data() as any).firstPlayerUid
-      : d.players[0];
-
-    const nextStarter = d.players.find((u) => u !== prevStarter)!;
-
-    const nextMeneIndex = (d.currentMeneIndex ?? 0) + 1;
-    const fullDeck = generateShuffledDeck();
-    const distrib = distributeCards(fullDeck);
-
-    const hands: Record<string, string[]> = {
-      [nextStarter]: distrib.hands.player1,
-      [d.players.find((u) => u !== nextStarter)!]: distrib.hands.player2,
-    };
-
-    /* 4. Update room */
-    tx.update(roomRef, {
-      phase: "play",
-      currentMeneIndex: nextMeneIndex,
-      currentTurn: nextStarter,
-      nextTurnUid: nextStarter,
-
-      deck: distrib.drawPile,
-      trumpCard: distrib.trumpCard,
-      trumpTaken: false,
-      hands,
-      melds: {},
-      trick: { cards: [], players: [] },
-      canMeld: null,
-      drawQueue: [],
-      scores, // <-- scores avec +10 pts
-    });
-
-    /* 5. Doc mene/{n} */
-    tx.set(doc(db, "rooms", roomId, "menes", String(nextMeneIndex)), {
-      firstPlayerUid: nextStarter,
-      currentPliCards: [],
-      plies: [],
-      scores,
-      targetScore: target,
-    });
-  });
-}
 
 /* ────────────── UI helpers ───────────────────────────── */
 function deOuD(name: string): string {

@@ -638,8 +638,6 @@ watchEffect(async () => {
 
   await endMene(); // fonction ci‑dessous
 });
-
-/* finalisation de la mène et de la partie */
 async function endMene() {
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(roomRef);
