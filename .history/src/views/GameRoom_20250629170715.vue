@@ -1107,6 +1107,7 @@ async function playCombo(combo: Combination) {
   const uid = myUid.value;
   if (!uid) return;
 
+  /* --- transaction Firestore --- */
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(roomRef);
     if (!snap.exists()) throw "Room inexistante";
@@ -1114,7 +1115,7 @@ async function playCombo(combo: Combination) {
 
     if (d.canMeld !== uid) throw "Pas votre tour de meld";
 
-    /* 1. Retirer les cartes jouées ---------------------------------- */
+    /* 1. Retirer les cartes de la main */
     const hand = [...d.hands[uid]];
     for (const c of combo.cards) {
       const i = hand.indexOf(cardToStr(c));
@@ -1122,13 +1123,14 @@ async function playCombo(combo: Combination) {
       hand.splice(i, 1);
     }
 
-    /* 2. Ajouter le meld et scorer ---------------------------------- */
+    /* 2. Ajouter la combinaison */
     const melds = [...(d.melds?.[uid] ?? []), combo];
+
+    /* 3. Scorer */
     const newScore = (d.scores?.[uid] ?? 0) + combo.points;
 
-    /* 3. Préparer la phase draw ------------------------------------ */
-    const opponentId = d.players.find((u) => u !== uid) ?? null;
-    const drawQueue = opponentId ? [uid, opponentId] : [uid];
+    /* 4. Préparer la phase draw : UNE seule combinaison autorisée */
+    const opponentId = d.players.find((u) => u !== uid);
 
     const update: Record<string, any> = {
       [`hands.${uid}`]: hand,
@@ -1136,17 +1138,17 @@ async function playCombo(combo: Combination) {
       [`scores.${uid}`]: newScore,
 
       phase: "draw",
-      drawQueue, // ✅ jamais undefined
+      drawQueue: [uid, opponentId],
       currentTurn: uid,
       canMeld: null,
 
-      trick: { cards: [], players: [] }, // on vide la zone d’échange
+      // on vide la zone d’échange
+      trick: { cards: [], players: [] },
     };
 
     tx.update(roomRef, update);
   });
 }
-
 export interface Card {
   rank: Rank;
   suit: Suit;

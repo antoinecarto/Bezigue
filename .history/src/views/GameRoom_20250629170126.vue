@@ -892,24 +892,27 @@ const saveName = async () => {
 };
 
 async function choose(combo: Combination) {
-  // 1) On la retire tout de suite de la liste locale
-  const key = (c: Combination) => c.cards.map(cardToStr).sort().join("-");
+  try {
+   // 1) On la retire tout de suite de la liste locale
+  const key = (c: Combination) =>
+    c.cards.map(cardToStr).sort().join("-");
   validCombosFiltered.value = validCombosFiltered.value.filter(
     (c) => key(c) !== key(combo)
   );
 
-  showComboPopup.value = false; // ferme visuellement la popup
+  showComboPopup.value = false;       // ferme visuellement la popup
 
   try {
-    await playCombo(combo); // transaction Firestore
+    await playCombo(combo);           // transaction Firestore
     combosDecisionTaken.value = true; // succès => on ne rouvre pas
   } catch (e) {
-    console.error("Échec playCombo : ", e);
+    console.error("Échec playCombo :", e);
     alert(e);
 
     // 2) En cas d’erreur, on remet la combinaison dans la liste…
     validCombosFiltered.value.push(combo);
-    showComboPopup.value = true; // …et on ré‑affiche la popup
+    showComboPopup.value = true;      // …et on ré‑affiche la popup
+  }
   }
 }
 
@@ -1114,7 +1117,7 @@ async function playCombo(combo: Combination) {
 
     if (d.canMeld !== uid) throw "Pas votre tour de meld";
 
-    /* 1. Retirer les cartes jouées ---------------------------------- */
+    /* 1. Retirer les cartes de la main */
     const hand = [...d.hands[uid]];
     for (const c of combo.cards) {
       const i = hand.indexOf(cardToStr(c));
@@ -1122,31 +1125,51 @@ async function playCombo(combo: Combination) {
       hand.splice(i, 1);
     }
 
-    /* 2. Ajouter le meld et scorer ---------------------------------- */
+    /* 2. Ajouter le meld */
     const melds = [...(d.melds?.[uid] ?? []), combo];
+
+    /* 3. Mise à jour du score */
     const newScore = (d.scores?.[uid] ?? 0) + combo.points;
 
-    /* 3. Préparer la phase draw ------------------------------------ */
-    const opponentId = d.players.find((u) => u !== uid) ?? null;
-    const drawQueue = opponentId ? [uid, opponentId] : [uid];
+    /* 4. On autorise **une seule** combinaison → on passe direct à draw */
+    const opponentId = d.players.find((u) => u !== uid);
+    const handCards: Card[] = hand.map(strToCard);
+    const meldCards: Card[] = melds.flatMap((combo) => combo.cards);
+    const stillCombos =
+      detectCombinations(
+        handCards,
+        meldCards,
+        d.trumpSuit,
+        d.melds?.[uid] ?? []
+      ).length > 0;
 
     const update: Record<string, any> = {
       [`hands.${uid}`]: hand,
       [`melds.${uid}`]: melds,
       [`scores.${uid}`]: newScore,
-
-      phase: "draw",
-      drawQueue, // ✅ jamais undefined
-      currentTurn: uid,
-      canMeld: null,
-
-      trick: { cards: [], players: [] }, // on vide la zone d’échange
     };
 
+    /* 6. Plus de combos → on termine **TOUJOURS** de la même façon */
+    if (stillCombos) {
+      // Le joueur peut encore meld
+      Object.assign(update, {
+        phase: "meld",
+        canMeld: uid,
+        trick: { cards: [], players: [] }, // on vide le pli maintenant
+      });
+    } else {
+      // Plus de combo possible → on passe à draw
+      Object.assign(update, {
+        phase: "draw",
+        drawQueue: [uid, opponentId],
+        currentTurn: uid,
+        canMeld: null,
+        trick: { cards: [], players: [] },
+      });
+    }
     tx.update(roomRef, update);
   });
 }
-
 export interface Card {
   rank: Rank;
   suit: Suit;
