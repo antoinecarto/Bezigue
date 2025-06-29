@@ -1240,22 +1240,6 @@ function addOrReplaceMeld(
   return [...filtered, combo]; // ajoute (ou remplace) le meld
 }
 
-/** Ajoute `combo` ; si un meld composé
- *  *exactement* des mêmes cartes existe déjà, on le remplace. */
-function mergeNewCombination(
-  melds: Combination[],
-  combo: Combination
-): Combination[] {
-  const key = (cards: Card[]) => cards.map(cardToStr).sort().join(",");
-
-  const comboKey = key(combo.cards);
-
-  // Conserve uniquement les melds « différents »
-  const kept = melds.filter((m) => key(m.cards) !== comboKey);
-
-  return [...kept, combo];
-}
-
 /**
  * Ajoute une combinaison au meld du joueur.
  * - Retire les cartes de la main
@@ -1275,7 +1259,7 @@ async function playCombo(combo: Combination) {
 
     if (d.canMeld !== uid) throw "Pas votre tour de meld";
 
-    /* --- 1. Nouvelle main : on retire les cartes qui viennent de la main --- */
+    /* --- 1. Nouvelle main : on retire les cartes venant de la main --- */
     const hand = [...d.hands[uid]];
     const meldCardsSet = new Set(
       (d.melds?.[uid] ?? []).flatMap((m) => m.cards.map(cardToStr))
@@ -1286,26 +1270,24 @@ async function playCombo(combo: Combination) {
       if (hand.includes(s)) {
         hand.splice(hand.indexOf(s), 1); // retire de la main
       } else if (!meldCardsSet.has(s)) {
-        throw "Carte manquante : incohérence.";
+        throw "Carte manquante : incohérence.";
       }
     }
 
-    /* --- 2. Nouveau tableau de melds : on remplace le doublon éventuel --- */
-    const melds = mergeNewCombination(d.melds?.[uid] ?? [], combo);
+    /* --- 2. Nouveau tableau de melds (remplace l’identique) ---------- */
+    const melds = addOrReplaceMeld(d.melds?.[uid] ?? [], combo);
 
-    /* --- 3. Vérification globale main + melds ---------------------------- */
-    checkHandAndMeld(hand, melds); // ≤ 2 copies | total ≤ 9
+    /* --- 3. Vérification globale main + melds ------------------------ */
+    checkHandAndMeld(hand, melds); // ≤ 2 copies et total ≤ 9
 
-    /* --- 4. Calcul score ------------------------------------------------- */
+    /* --- 4. Score et phase draw -------------------------------------- */
     const newScore = (d.scores?.[uid] ?? 0) + combo.points;
     const opponentId = d.players.find((u) => u !== uid)!;
 
-    /* --- 5. Mise à jour Firestore : phase draw --------------------------- */
     tx.update(roomRef, {
       [`hands.${uid}`]: hand,
       [`melds.${uid}`]: melds,
       [`scores.${uid}`]: newScore,
-
       phase: "draw",
       drawQueue: [uid, opponentId],
       currentTurn: uid,

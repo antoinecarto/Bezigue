@@ -824,8 +824,7 @@ function mergeMeldsIntoHand(d: RoomDoc, uid: string): string[] {
  * - Ne fait rien (retourne false) si l’échange n’est pas autorisé.
  * - return true si un échange a bien été effectué, false sinon.
  */
-/** Échange le 7 d’atout contre la carte exposée.
- *  Retourne true si l’échange a été effectué, sinon false. */
+/* ───────── 2. tryExchangeSeven (échange du 7) ───────── */
 async function tryExchangeSeven(playerUid: string): Promise<boolean> {
   let exchanged = false;
 
@@ -834,42 +833,34 @@ async function tryExchangeSeven(playerUid: string): Promise<boolean> {
     if (!snap.exists()) throw "Room introuvable";
     const d = snap.data() as RoomDoc;
 
-    /* 0. Phase autorisée : le joueur doit avoir la main (meld ou draw) */
-    const isMyTurn =
-      (d.phase === "meld" && d.canMeld === playerUid) ||
-      (d.phase === "draw" && d.drawQueue?.[0] === playerUid);
-    if (!isMyTurn) return;
-
-    /* 1. Encore des cartes dans le talon ? */
+    /* 1. Encore des cartes dans la pioche ? */
     if ((d.deck?.length ?? 0) === 0) return;
 
-    const trumpCardCur = d.trumpCard; // ex: 'A♥'
-    if (!trumpCardCur) return; // aucune carte exposée
+    const trumpCardCur = d.trumpCard; // ex : 'A♥'
     const allowed = ["A", "K", "Q", "J", "10"];
 
-    /* 2. La carte exposée est-elle échangeable ? */
+    /* 2. La carte exposée est-elle échangeable ? */
     const rankCur = trumpCardCur.slice(0, -1);
     if (!allowed.includes(rankCur)) return;
 
-    /* 3. Le joueur possède‑t‑il le 7 d’atout ? */
-    const sevenTrump = "7" + trumpCardCur.slice(-1); // ex: '7♥'
+    /* 3. Le joueur possède‑t‑il le 7 d’atout ? */
+    const sevenTrump = "7" + trumpCardCur.slice(-1); // ex : '7♥'
     const hand = [...d.hands[playerUid]];
-    const idxSeven = hand.indexOf(sevenTrump);
-    if (idxSeven === -1) return;
+    const i = hand.indexOf(sevenTrump);
+    if (i === -1) return;
 
-    /* 4. Construire la nouvelle main : swap 7 ↔ carte exposée */
-    hand.splice(idxSeven, 1); // retire le 7
-    hand.push(trumpCardCur); // ajoute la carte visible
+    /* 4. Construire la nouvelle main (swap 7 ↔ carte exposée) */
+    hand.splice(i, 1);
+    hand.push(trumpCardCur);
 
-    /* 5. Vérif globale main + melds : double‑paquet + total ≤ 9 */
-    const melds = d.melds?.[playerUid] ?? [];
-    checkHandAndMeld(hand, melds); // lance une exception si règle violée
+    /* 5. Vérif globale main + melds */
+    checkHandAndMeld(hand, d.melds?.[playerUid] ?? []);
 
     /* 6. Mise à jour Firestore */
     tx.update(roomRef, {
       [`hands.${playerUid}`]: hand,
-      trumpCard: sevenTrump, // on expose maintenant le 7
-      trumpSuit: sevenTrump.slice(-1) as Suit, // la couleur d’atout reste la même
+      trumpCard: sevenTrump, // on expose le 7
+      trumpSuit: sevenTrump.slice(-1) as Suit,
     });
 
     exchanged = true;
@@ -877,7 +868,6 @@ async function tryExchangeSeven(playerUid: string): Promise<boolean> {
 
   return exchanged;
 }
-
 /** Joue une carte de la main (clic normal) */
 async function playCardFromHand(cardStr: string) {
   if (!myUid.value || !roomReady.value) return;
@@ -948,7 +938,6 @@ function pushCardToTrick(
     [`melds.${myUid.value}`]: newMelds,
     trick,
   };
-  checkHandAndMeld(newHand, newMelds); // lance une exception si règle violée
 
   if (trick.cards.length === 1) {
     update.currentTurn = d.players.find((u) => u !== myUid.value);
@@ -1224,38 +1213,6 @@ async function drawCard() {
   });
 }
 
-/** Ajoute `combo` ; si un meld contenant exactement les mêmes cartes existe
- *  déjà, on le remplace (évite le double comptage). */
-function addOrReplaceMeld(
-  melds: Combination[],
-  combo: Combination
-): Combination[] {
-  const comboKey = combo.cards.map(cardToStr).sort().join(",");
-
-  const filtered = melds.filter((m) => {
-    const mKey = m.cards.map(cardToStr).sort().join(",");
-    return mKey !== comboKey; // on garde tout sauf l’identique
-  });
-
-  return [...filtered, combo]; // ajoute (ou remplace) le meld
-}
-
-/** Ajoute `combo` ; si un meld composé
- *  *exactement* des mêmes cartes existe déjà, on le remplace. */
-function mergeNewCombination(
-  melds: Combination[],
-  combo: Combination
-): Combination[] {
-  const key = (cards: Card[]) => cards.map(cardToStr).sort().join(",");
-
-  const comboKey = key(combo.cards);
-
-  // Conserve uniquement les melds « différents »
-  const kept = melds.filter((m) => key(m.cards) !== comboKey);
-
-  return [...kept, combo];
-}
-
 /**
  * Ajoute une combinaison au meld du joueur.
  * - Retire les cartes de la main
@@ -1275,7 +1232,7 @@ async function playCombo(combo: Combination) {
 
     if (d.canMeld !== uid) throw "Pas votre tour de meld";
 
-    /* --- 1. Nouvelle main : on retire les cartes qui viennent de la main --- */
+    /* 1. Construire nouvelle main (en retirant les cartes qui viennent de la main) */
     const hand = [...d.hands[uid]];
     const meldCardsSet = new Set(
       (d.melds?.[uid] ?? []).flatMap((m) => m.cards.map(cardToStr))
@@ -1284,28 +1241,26 @@ async function playCombo(combo: Combination) {
     for (const c of combo.cards) {
       const s = cardToStr(c);
       if (hand.includes(s)) {
-        hand.splice(hand.indexOf(s), 1); // retire de la main
+        hand.splice(hand.indexOf(s), 1); // retire si en main
       } else if (!meldCardsSet.has(s)) {
-        throw "Carte manquante : incohérence.";
+        throw "Carte manquante : incohérence.";
       }
     }
 
-    /* --- 2. Nouveau tableau de melds : on remplace le doublon éventuel --- */
-    const melds = mergeNewCombination(d.melds?.[uid] ?? [], combo);
+    /* 2. Nouveau tableau de melds */
+    const melds = [...(d.melds?.[uid] ?? []), combo];
 
-    /* --- 3. Vérification globale main + melds ---------------------------- */
-    checkHandAndMeld(hand, melds); // ≤ 2 copies | total ≤ 9
+    /* 3. Vérification finale main + melds */
+    checkHandAndMeld(hand, melds);
 
-    /* --- 4. Calcul score ------------------------------------------------- */
+    /* 4. Score et update phase → draw (une seule combo par tour) */
     const newScore = (d.scores?.[uid] ?? 0) + combo.points;
     const opponentId = d.players.find((u) => u !== uid)!;
 
-    /* --- 5. Mise à jour Firestore : phase draw --------------------------- */
     tx.update(roomRef, {
       [`hands.${uid}`]: hand,
       [`melds.${uid}`]: melds,
       [`scores.${uid}`]: newScore,
-
       phase: "draw",
       drawQueue: [uid, opponentId],
       currentTurn: uid,

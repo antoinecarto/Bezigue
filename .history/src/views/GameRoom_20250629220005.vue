@@ -948,7 +948,6 @@ function pushCardToTrick(
     [`melds.${myUid.value}`]: newMelds,
     trick,
   };
-  checkHandAndMeld(newHand, newMelds); // lance une exception si règle violée
 
   if (trick.cards.length === 1) {
     update.currentTurn = d.players.find((u) => u !== myUid.value);
@@ -1224,38 +1223,6 @@ async function drawCard() {
   });
 }
 
-/** Ajoute `combo` ; si un meld contenant exactement les mêmes cartes existe
- *  déjà, on le remplace (évite le double comptage). */
-function addOrReplaceMeld(
-  melds: Combination[],
-  combo: Combination
-): Combination[] {
-  const comboKey = combo.cards.map(cardToStr).sort().join(",");
-
-  const filtered = melds.filter((m) => {
-    const mKey = m.cards.map(cardToStr).sort().join(",");
-    return mKey !== comboKey; // on garde tout sauf l’identique
-  });
-
-  return [...filtered, combo]; // ajoute (ou remplace) le meld
-}
-
-/** Ajoute `combo` ; si un meld composé
- *  *exactement* des mêmes cartes existe déjà, on le remplace. */
-function mergeNewCombination(
-  melds: Combination[],
-  combo: Combination
-): Combination[] {
-  const key = (cards: Card[]) => cards.map(cardToStr).sort().join(",");
-
-  const comboKey = key(combo.cards);
-
-  // Conserve uniquement les melds « différents »
-  const kept = melds.filter((m) => key(m.cards) !== comboKey);
-
-  return [...kept, combo];
-}
-
 /**
  * Ajoute une combinaison au meld du joueur.
  * - Retire les cartes de la main
@@ -1275,7 +1242,7 @@ async function playCombo(combo: Combination) {
 
     if (d.canMeld !== uid) throw "Pas votre tour de meld";
 
-    /* --- 1. Nouvelle main : on retire les cartes qui viennent de la main --- */
+    /* 1. Construire nouvelle main (en retirant les cartes qui viennent de la main) */
     const hand = [...d.hands[uid]];
     const meldCardsSet = new Set(
       (d.melds?.[uid] ?? []).flatMap((m) => m.cards.map(cardToStr))
@@ -1284,28 +1251,26 @@ async function playCombo(combo: Combination) {
     for (const c of combo.cards) {
       const s = cardToStr(c);
       if (hand.includes(s)) {
-        hand.splice(hand.indexOf(s), 1); // retire de la main
+        hand.splice(hand.indexOf(s), 1); // retire si en main
       } else if (!meldCardsSet.has(s)) {
-        throw "Carte manquante : incohérence.";
+        throw "Carte manquante : incohérence.";
       }
     }
 
-    /* --- 2. Nouveau tableau de melds : on remplace le doublon éventuel --- */
-    const melds = mergeNewCombination(d.melds?.[uid] ?? [], combo);
+    /* 2. Nouveau tableau de melds */
+    const melds = [...(d.melds?.[uid] ?? []), combo];
 
-    /* --- 3. Vérification globale main + melds ---------------------------- */
-    checkHandAndMeld(hand, melds); // ≤ 2 copies | total ≤ 9
+    /* 3. Vérification finale main + melds */
+    checkHandAndMeld(hand, melds);
 
-    /* --- 4. Calcul score ------------------------------------------------- */
+    /* 4. Score et update phase → draw (une seule combo par tour) */
     const newScore = (d.scores?.[uid] ?? 0) + combo.points;
     const opponentId = d.players.find((u) => u !== uid)!;
 
-    /* --- 5. Mise à jour Firestore : phase draw --------------------------- */
     tx.update(roomRef, {
       [`hands.${uid}`]: hand,
       [`melds.${uid}`]: melds,
       [`scores.${uid}`]: newScore,
-
       phase: "draw",
       drawQueue: [uid, opponentId],
       currentTurn: uid,
