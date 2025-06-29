@@ -170,7 +170,7 @@
         >
           <template #item="{ element: card }">
             <div
-              class="card w-10 h-14 sm:w-12 sm:h-16 lg:w-14 lg:h-20 border rounded shadow flex items-center justify-center select-none text-1xl sm:text-2xl lg:text-3xl"
+              class="card border px-3 py-2 rounded shadow text-xl cursor-pointer"
               :class="getCardColor(card)"
               @click="handleCardClick(card)"
             >
@@ -293,7 +293,7 @@ import { generateShuffledDeck, distributeCards } from "@/game/BezigueGame";
 
 /* ────────────── Types ───────────────────────────────── */
 export type Suit = "♠" | "♥" | "♦" | "♣";
-export type Rank = "7" | "8" | "9" | "J" | "Q" | "K" | "10" | "A";
+export type Rank = "7" | "8" | "9" | "10" | "J" | "Q" | "K" | "A";
 export interface Card {
   rank: Rank;
   suit: Suit;

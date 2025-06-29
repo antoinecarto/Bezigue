@@ -170,7 +170,7 @@
         >
           <template #item="{ element: card }">
             <div
-              class="card w-10 h-14 sm:w-12 sm:h-16 lg:w-14 lg:h-20 border rounded shadow flex items-center justify-center select-none text-1xl sm:text-2xl lg:text-3xl"
+              class="card w-10 h-14 sm:w-12 sm:h-16 lg:w-14 lg:h-20 border rounded shadow flex items-center justify-center select-none text-2xl sm:text-3xl lg:text-4xl"
               :class="getCardColor(card)"
               @click="handleCardClick(card)"
             >
