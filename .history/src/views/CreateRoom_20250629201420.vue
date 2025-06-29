@@ -77,16 +77,14 @@ const createRoom = async () => {
       /* --- état de la partie --- */
       currentMeneIndex: 0,
       nextTurnIndex: 0,
-      currentTurn: "",
+      currentTurn: uid,
       nextTurnUid: uid,
       /* partie*/
       targetScore: targetScore.value, // ← dynamique
-      scores: {},
       /* --- cartes --- */
-      trumpCard: "",
-      trumpTaken: false,
-      deck: [],
-      hands: {},
+      trumpCard: deckInfo.trumpCard,
+      deck: deckInfo.drawPile,
+      hands: { [uid]: deckInfo.hands.player1 },
       reservedHands: { seat2: deckInfo.hands.player2 },
       /* --- Pioche, pli --- */
       phase: "waiting",

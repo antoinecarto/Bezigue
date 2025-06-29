@@ -1,8 +1,4 @@
 <template>
-  <div v-if="room?.phase === 'waiting'" class="text-center mt-8">
-    <p class="text-xl">En attente dʼun adversaire…</p>
-    <p class="text-sm text-gray-500"></p>
-  </div>
   <!-- Modal des combinaisons (affiché seulement si showComboPopup === true) -->
   <teleport to="body">
     <ComboModal
@@ -284,7 +280,6 @@ import { useRoute } from "vue-router";
 import {
   collection,
   setDoc,
-  Transaction,
   doc,
   onSnapshot,
   runTransaction,
@@ -314,7 +309,7 @@ const db = getFirestore();
 interface RoomDoc {
   players: string[];
   playerNames: Record<string, string>;
-  phase: "waiting" | "play" | "draw" | "meld" | "finished";
+  phase: "play" | "draw" | "meld" | "finished";
   currentTurn: string;
   drawQueue: string[];
   trumpCard: string;
@@ -431,45 +426,25 @@ const isMyTurn = computed(() => {
   }
 });
 
-//* ───────── Firestore subscription ───────── */
+/* ────────────── Firestore subscription ─────────────── */
 function subscribeRoom() {
-  return onSnapshot(roomRef, async (snap) => {
+  return onSnapshot(roomRef, (snap) => {
     loading.value = false;
-
-    /* Room supprimée ? */
     if (!snap.exists()) {
       room.value = null;
       return;
     }
 
-    /* 1. Données courantes ---------------------------------- */
-    const d = snap.data() as RoomDoc;
-    room.value = d;
+    room.value = snap.data() as RoomDoc;
+    if (myUid.value) localHand.value = room.value.hands?.[myUid.value] ?? [];
 
-    /* 2. Lancer la partie si « waiting » et deux joueurs ------ */
-    if (d.phase === "waiting" && d.players.length === 2) {
-      // Transaction pour éviter la course avec l’autre client
-      await runTransaction(db, async (tx) => {
-        const freshSnap = await tx.get(roomRef);
-        const fresh = freshSnap.data() as RoomDoc;
-        if (fresh.phase === "waiting" && fresh.players.length === 2) {
-          maybeStartGame(tx, fresh); // distribue + currentTurn
-        }
-      });
-      return; // on attend le prochain snapshot « play »
-    }
+    /* Popup nom (inchangé) */
+    showNameModal.value =
+      !!myUid.value && !room.value.playerNames?.[myUid.value];
 
-    /* 3. Mettre à jour l’état local ------------------------- */
-    if (myUid.value) {
-      localHand.value = d.hands?.[myUid.value] ?? [];
-
-      /* Nom manquant ? → popup */
-      showNameModal.value = !d.playerNames?.[myUid.value];
-    }
-
-    /* 4. Pli complet ? ------------------------------------- */
-    if (d.phase === "play" && d.trick.cards.length === 2) {
-      tryEndTrick(); // résout le pli
+    /* ─── Pli complet ? ─── */
+    if (room.value.phase === "play" && room.value.trick.cards.length === 2) {
+      tryEndTrick();
     }
   });
 }
@@ -557,40 +532,6 @@ watchEffect(() => {
   }
   askedCombiThisTrick.value = true;
 });
-/*------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------- Démarrage du jeu -------------------------------------------*/
-/*------------------------------------------------------------------------------------------------------*/
-
-function maybeStartGame(tx: Transaction, d: RoomDoc) {
-  if (d.phase !== "waiting") return;
-  if (d.players.length !== 2) return; // il manque encore quelqu’un
-
-  // 1. Qui commence ?  → l’hôte
-  const host = d.players[0]; // fallback players[0]
-  const guest = d.players.find((u) => u !== host)!;
-
-  // 2. Distribution : on veut que "host" reçoive la main player1
-  const fullDeck = generateShuffledDeck();
-  const distrib = distributeCards(fullDeck); //  { hands: { player1, player2 }, drawPile, trumpCard }
-
-  const hands: Record<string, string[]> = {
-    [host]: distrib.hands.player1,
-    [guest]: distrib.hands.player2,
-  };
-
-  // 3. Mise à jour Firestore
-  tx.update(roomRef, {
-    phase: "play",
-    currentTurn: host, // 🏁 l’hôte joue en premier
-    deck: distrib.drawPile,
-    trumpCard: distrib.trumpCard,
-    trumpTaken: false,
-    hands,
-    melds: {},
-    trick: { cards: [], players: [] },
-    drawQueue: [],
-  });
-}
 
 /* ─── 7 ────────────────────────────────────────── */
 
@@ -803,13 +744,12 @@ function getCardColor(card: string) {
   }
 }
 
-/** Replace toutes les cartes des melds du joueur dans sa main. */
+/** Replace toutes les cartes des melds du joueur dans sa main */
 function mergeMeldsIntoHand(d: RoomDoc, uid: string): string[] {
-  const hand = [...d.hands[uid]]; // main actuelle
+  const hand = [...d.hands[uid]];
   const melds = d.melds?.[uid] ?? [];
-  melds.flatMap((m) => m.cards).forEach((c) => hand.push(cardToStr(c))); // ajout melds
-
-  return normalizeHand(hand); // 🚩 limite 2
+  melds.flatMap((m) => m.cards).forEach((c) => hand.push(cardToStr(c)));
+  return hand;
 }
 
 /*────────────────────────────────────────────────────────────────────*/
@@ -1118,21 +1058,6 @@ async function handleComboPlayed(combo: Combination) {
     alert(e);
   }
 }
-
-/** Ne garde jamais plus de 2 exemplaires d’une même carte. */
-function normalizeHand(cards: string[]): string[] {
-  const res: string[] = [];
-  const count: Record<string, number> = {};
-
-  for (const c of cards) {
-    count[c] = (count[c] ?? 0) + 1;
-    if (count[c] <= 2) res.push(c); // max 2
-  }
-  return res;
-}
-
-/* drawCard */
-
 async function drawCard() {
   if (!myUid.value) return;
 
@@ -1199,22 +1124,12 @@ async function playCombo(combo: Combination) {
 
     if (d.canMeld !== uid) throw "Pas votre tour de meld";
 
-    /* 1. Retirer uniquement les cartes présentes en main ;
-      celles déjà en meld restent où elles sont */
+    /* 1. Retirer les cartes jouées ---------------------------------- */
     const hand = [...d.hands[uid]];
-    const meldCardsSet = new Set(
-      (d.melds?.[uid] ?? []).flatMap((m) => m.cards.map(cardToStr))
-    );
-
     for (const c of combo.cards) {
-      const s = cardToStr(c);
-      if (hand.includes(s)) {
-        hand.splice(hand.indexOf(s), 1); // en main → on retire
-      } else if (meldCardsSet.has(s)) {
-        continue; // déjà posé → OK
-      } else {
-        throw "Carte manquante"; // incohérence
-      }
+      const i = hand.indexOf(cardToStr(c));
+      if (i === -1) throw "Carte manquante";
+      hand.splice(i, 1);
     }
 
     /* 2. Ajouter le meld et scorer ---------------------------------- */

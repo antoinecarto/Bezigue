@@ -1,8 +1,4 @@
 <template>
-  <div v-if="room?.phase === 'waiting'" class="text-center mt-8">
-    <p class="text-xl">En attente dʼun adversaire…</p>
-    <p class="text-sm text-gray-500"></p>
-  </div>
   <!-- Modal des combinaisons (affiché seulement si showComboPopup === true) -->
   <teleport to="body">
     <ComboModal
@@ -431,45 +427,25 @@ const isMyTurn = computed(() => {
   }
 });
 
-//* ───────── Firestore subscription ───────── */
+/* ────────────── Firestore subscription ─────────────── */
 function subscribeRoom() {
-  return onSnapshot(roomRef, async (snap) => {
+  return onSnapshot(roomRef, (snap) => {
     loading.value = false;
-
-    /* Room supprimée ? */
     if (!snap.exists()) {
       room.value = null;
       return;
     }
 
-    /* 1. Données courantes ---------------------------------- */
-    const d = snap.data() as RoomDoc;
-    room.value = d;
+    room.value = snap.data() as RoomDoc;
+    if (myUid.value) localHand.value = room.value.hands?.[myUid.value] ?? [];
 
-    /* 2. Lancer la partie si « waiting » et deux joueurs ------ */
-    if (d.phase === "waiting" && d.players.length === 2) {
-      // Transaction pour éviter la course avec l’autre client
-      await runTransaction(db, async (tx) => {
-        const freshSnap = await tx.get(roomRef);
-        const fresh = freshSnap.data() as RoomDoc;
-        if (fresh.phase === "waiting" && fresh.players.length === 2) {
-          maybeStartGame(tx, fresh); // distribue + currentTurn
-        }
-      });
-      return; // on attend le prochain snapshot « play »
-    }
+    /* Popup nom (inchangé) */
+    showNameModal.value =
+      !!myUid.value && !room.value.playerNames?.[myUid.value];
 
-    /* 3. Mettre à jour l’état local ------------------------- */
-    if (myUid.value) {
-      localHand.value = d.hands?.[myUid.value] ?? [];
-
-      /* Nom manquant ? → popup */
-      showNameModal.value = !d.playerNames?.[myUid.value];
-    }
-
-    /* 4. Pli complet ? ------------------------------------- */
-    if (d.phase === "play" && d.trick.cards.length === 2) {
-      tryEndTrick(); // résout le pli
+    /* ─── Pli complet ? ─── */
+    if (room.value.phase === "play" && room.value.trick.cards.length === 2) {
+      tryEndTrick();
     }
   });
 }
@@ -566,7 +542,7 @@ function maybeStartGame(tx: Transaction, d: RoomDoc) {
   if (d.players.length !== 2) return; // il manque encore quelqu’un
 
   // 1. Qui commence ?  → l’hôte
-  const host = d.players[0]; // fallback players[0]
+  const host = d.myUid ?? d.players[0]; // fallback players[0]
   const guest = d.players.find((u) => u !== host)!;
 
   // 2. Distribution : on veut que "host" reçoive la main player1
