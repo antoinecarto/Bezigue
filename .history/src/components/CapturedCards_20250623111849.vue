@@ -16,20 +16,20 @@
 
     <!-- Nombre de plis -->
     <div class="text-xs text-gray-600">
-      {{ Math.floor(plis.length / 2) }} pli{{
-        Math.floor(plis.length / 2) > 1 ? "s" : ""
-      }}
+      {{ Math.floor(plis.length / 2) }} pli{{ Math.floor(plis.length / 2) > 1 ? 's' : '' }}
     </div>
   </div>
 </template>
 
+
 <script setup lang="ts">
-import Card from "./Card.vue";
-import { defineProps } from "vue";
-import type { CardData } from "@/game/types";
+import Card from './Card.vue'
+import { defineProps } from 'vue'
+import type { CardData } from '@/types'
 
 defineProps<{
-  player: number;
-  plis: CardData[];
-}>();
+  player: number
+  plis: CardData[]
+}>()
 </script>
+

@@ -5,13 +5,13 @@ import { getFirestore } from "firebase/firestore";
 
 // Configuration Firebase
 const firebaseConfig = {
-  apiKey: "AIzaSyBhDxXo229PBARurrpVrngCwfj98DEmSy8",
-  authDomain: "bezigue-d315b.firebaseapp.com",
-  projectId: "bezigue-d315b",
-  storageBucket: "bezigue-d315b.appspot.com",
-  messagingSenderId: "752744440964",
-  appId: "1:752744440964:web:19e40832b10f1cc726ced1",
-  measurementId: "G-RRK4KDBHH0",
+  apiKey: "AIzaSyATq8DGxk77hX9zjB2eRFHAi_YECasIgQI",
+  authDomain: "bezigueweb.firebaseapp.com",
+  projectId: "bezigueweb",
+  storageBucket: "bezigueweb.firebasestorage.app",
+  messagingSenderId: "513186632182",
+  appId: "1:513186632182:web:60fdbfa97dfbd2768c37d7",
+  measurementId: "G-09VX22707L",
 };
 
 // Initialisation Firebase
