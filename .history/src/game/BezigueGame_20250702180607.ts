@@ -1,0 +1,134 @@
+// type Suit = '♠' | '♥' | '♦' | '♣';
+// type Rank = '7' | '8' | '9' | 'J' | 'Q' | 'K' | '10' | 'A';
+
+// export interface Card {
+//   suit: Suit;
+//   rank: Rank;
+// }
+
+export interface Combination {
+  name: string;
+  cards: Card[];
+  points: number;
+}
+
+export function distributeCards(deck: Card[]) {
+  console.log(deck[0]);
+  const player1Hand = deck.slice(0, 9);
+  const player2Hand = deck.slice(9, 18);
+  const drawPile = deck.slice(18);
+  const trumpCard = drawPile[0];
+
+  return {
+    hands: {
+      player1: player1Hand,
+      player2: player2Hand,
+    },
+    trumpCard,
+    drawPile,
+  };
+  console.log(player1Hand[0]);
+}
+
+import { Card } from "@/game/types/Card";
+import type { Suit, Rank } from "@/game/types/Card";
+
+export function generateShuffledDeck(): Card[] {
+  const suits: Suit[] = ["♠", "♥", "♦", "♣"];
+  const ranks: Rank[] = ["7", "8", "9", "J", "Q", "K", "10", "A"];
+  const singleDeck: Card[] = [];
+
+  // Générer un jeu complet (32 cartes)
+  for (const suit of suits) {
+    for (const rank of ranks) {
+      singleDeck.push(new Card(rank, suit));
+    }
+  }
+
+  // Concaténer deux jeux identiques (64 cartes)
+  const deck = singleDeck.concat(singleDeck);
+
+  // Mélange du deck (Fisher-Yates)
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+
+  return deck;
+}
+
+/* -------- détection -------- */
+export function detectCombinations(all: Card[], trump: Suit): Combination[] {
+  const combos: Combination[] = [];
+  const byRank: Record<Rank, Card[]> = {
+    "7": [],
+    "8": [],
+    "9": [],
+    "10": [],
+    J: [],
+    Q: [],
+    K: [],
+    A: [],
+  };
+  all.forEach((c) => byRank[c.rank].push(c));
+
+  /* 4-As, 4-Rois, 4-Dames, 4-Valets */
+  const fourMap = { A: 100, K: 80, Q: 60, J: 40 } as const;
+  (["A", "K", "Q", "J"] as Rank[]).forEach((r) => {
+    if (byRank[r].length >= 4)
+      combos.push({
+        name: `4 ${r}`,
+        points: fourMap[r],
+        cards: byRank[r].slice(0, 4),
+      });
+  });
+
+  /* mariages */
+  ["♠", "♥", "♦", "♣"].forEach((s) => {
+    const king = all.find((c) => c.rank === "K" && c.suit === s);
+    const queen = all.find((c) => c.rank === "Q" && c.suit === s);
+    if (king && queen) {
+      const atout = s === trump ? " d’atout" : "";
+      combos.push({
+        name: `Mariage ${s}${atout}`,
+        points: s === trump ? 40 : 20,
+        cards: [king, queen],
+      });
+    }
+  });
+
+  /* suite J-Q-K-10-A */
+  ["♠", "♥", "♦", "♣"].forEach((s) => {
+    const suite = ["J", "Q", "K", "10", "A"].map((r) =>
+      all.find((c) => c.rank === r && c.suit === s)
+    );
+    if (suite.every(Boolean)) {
+      const atout = s === trump ? " d’atout" : "";
+      combos.push({
+        name: `Suite ${s}${atout}`,
+        points: s === trump ? 250 : 150,
+        cards: suite as Card[],
+      });
+    }
+  });
+
+  /* Dame ♠ + Valet ♦ (et doublon) */
+  const qs = all.filter((c) => c.rank === "Q" && c.suit === "♠");
+  const jd = all.filter((c) => c.rank === "J" && c.suit === "♦");
+  const pairs = Math.min(qs.length, jd.length);
+  if (pairs >= 1)
+    combos.push({ name: "Dame♠+Valet♦", points: 40, cards: [qs[0], jd[0]] });
+  if (pairs >= 2)
+    combos.push({
+      name: "2×(Dame♠+Valet♦)",
+      points: 500,
+      cards: [qs[0], jd[0], qs[1], jd[1]],
+    });
+
+  /* 7 d’atout */
+  const sevenTrump = all.find((c) => c.rank === "7" && c.suit === trump);
+  if (sevenTrump)
+    combos.push({ name: "7 d’atout", points: 10, cards: [sevenTrump] });
+
+  return combos;
+}
