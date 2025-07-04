@@ -534,7 +534,7 @@ onMounted(() => {
   });
 });
 
-///CCHAT §§§§§f
+///CCHAT §§§§§
 
 function getDisplayName(senderId: string): string {
   /* room.value?.playerNames est une map { uid ➜ nom } */

@@ -281,26 +281,23 @@
       class="messages max-h-64 overflow-y-auto border p-2 rounded mb-4"
       style="background: #f9f9f9"
     >
-      /// ///
-      <div
-        v-for="msg in messages"
-        :key="msg.id"
-        class="mb-2"
-        :class="{ 'text-right': msg.senderId === myUid.value }"
-      >
-        <div
-          class="inline-block p-2 rounded"
-          :class="msg.senderId === myUid.value ? 'bg-green-200' : 'bg-gray-200'"
-        >
-          <strong>{{ getDisplayName(msg.senderId) }} :</strong>
-          <span>{{ msg.text }}</span
-          ><br />
-          <small class="text-xs text-gray-500">
-            {{ msg.createdAt ? formatDate(msg.createdAt) : "" }}
-          </small>
-        </div>
-      </div>
-    </div>
+<div
+  v-for="msg in messages"
+  :key="msg.id"
+  class="mb-2"
+  :class="{ 'text-right': msg.senderId === myUid.value }"
+>
+  <div
+    class="inline-block p-2 rounded"
+    :class="msg.senderId === myUid.value ? 'bg-green-200' : 'bg-gray-200'"
+  >
+    <strong>{{ getDisplayName(msg.senderId) }} :</strong>
+    <span>{{ msg.text }}</span><br />
+    <small class="text-xs text-gray-500">
+      {{ msg.createdAt ? formatDate(msg.createdAt) : "" }}
+    </small>
+  </div>
+</div>
 
     <div class="flex gap-2">
       <input
@@ -534,7 +531,7 @@ onMounted(() => {
   });
 });
 
-///CCHAT §§§§§f
+///CCHAT §§§§§
 
 function getDisplayName(senderId: string): string {
   /* room.value?.playerNames est une map { uid ➜ nom } */

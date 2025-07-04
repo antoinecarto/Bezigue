@@ -281,7 +281,6 @@
       class="messages max-h-64 overflow-y-auto border p-2 rounded mb-4"
       style="background: #f9f9f9"
     >
-      /// ///
       <div
         v-for="msg in messages"
         :key="msg.id"
@@ -292,7 +291,11 @@
           class="inline-block p-2 rounded"
           :class="msg.senderId === myUid.value ? 'bg-green-200' : 'bg-gray-200'"
         >
-          <strong>{{ getDisplayName(msg.senderId) }} :</strong>
+          <!-- 👇 Choix du nom : si c'est moi, playerName, sinon opponentName -->
+          <strong>
+            {{ msg.senderId === myUid.value ? playerName : opponentName }}
+            :
+          </strong>
           <span>{{ msg.text }}</span
           ><br />
           <small class="text-xs text-gray-500">
@@ -534,12 +537,7 @@ onMounted(() => {
   });
 });
 
-///CCHAT §§§§§f
-
-function getDisplayName(senderId: string): string {
-  /* room.value?.playerNames est une map { uid ➜ nom } */
-  return room.value?.playerNames?.[senderId] ?? "Anonyme";
-}
+///CCHAT §§§§§
 
 interface Message {
   id: string;

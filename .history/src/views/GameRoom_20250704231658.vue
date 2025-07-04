@@ -272,35 +272,28 @@
     </div>
   </div>
   <!-- CHAT -->
+<div
+  v-for="msg in messages"
+  :key="msg.id"
+  class="mb-2"
+  :class="{ 'text-right': msg.senderId === myUid.value }"
+>
   <div
-    class="chat-container mt-8 max-w-2xl mx-auto text-left p-4 border rounded shadow bg-white"
+    class="inline-block p-2 rounded"
+    :class="msg.senderId === myUid.value ? 'bg-green-200' : 'bg-gray-200'"
   >
-    <h3 class="text-lg font-semibold mb-2">Discussion</h3>
+    <!-- 👇 Choix du nom : si c'est moi, playerName, sinon opponentName -->
+    <strong>
+      {{ msg.senderId === myUid.value ? playerName : opponentName }}
+      :
+    </strong>
+    <span>{{ msg.text }}</span><br />
+    <small class="text-xs text-gray-500">
+      {{ msg.createdAt ? formatDate(msg.createdAt) : '' }}
+    </small>
+  </div>
+</div>
 
-    <div
-      class="messages max-h-64 overflow-y-auto border p-2 rounded mb-4"
-      style="background: #f9f9f9"
-    >
-      /// ///
-      <div
-        v-for="msg in messages"
-        :key="msg.id"
-        class="mb-2"
-        :class="{ 'text-right': msg.senderId === myUid.value }"
-      >
-        <div
-          class="inline-block p-2 rounded"
-          :class="msg.senderId === myUid.value ? 'bg-green-200' : 'bg-gray-200'"
-        >
-          <strong>{{ getDisplayName(msg.senderId) }} :</strong>
-          <span>{{ msg.text }}</span
-          ><br />
-          <small class="text-xs text-gray-500">
-            {{ msg.createdAt ? formatDate(msg.createdAt) : "" }}
-          </small>
-        </div>
-      </div>
-    </div>
 
     <div class="flex gap-2">
       <input
@@ -534,12 +527,7 @@ onMounted(() => {
   });
 });
 
-///CCHAT §§§§§f
-
-function getDisplayName(senderId: string): string {
-  /* room.value?.playerNames est une map { uid ➜ nom } */
-  return room.value?.playerNames?.[senderId] ?? "Anonyme";
-}
+///CCHAT §§§§§
 
 interface Message {
   id: string;
