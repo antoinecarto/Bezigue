@@ -596,9 +596,10 @@ async function sendMessage() {
 
   await addDoc(messagesRef, {
     text: newMessage.value.trim(),
-    senderId: myUid.value, // ✅ CORRIGÉ ICI
+    senderId: myUid,
     createdAt: serverTimestamp(),
   });
+  console.log(typeof myUid); // doit afficher "string"
 
   newMessage.value = "";
 }

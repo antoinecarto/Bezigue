@@ -271,64 +271,11 @@
       <button class="btn w-full" @click="showTurnAlert = false">OK</button>
     </div>
   </div>
-  <!-- CHAT -->
-  <div
-    class="chat-container mt-8 max-w-2xl mx-auto text-left p-4 border rounded shadow bg-white"
-  >
-    <h3 class="text-lg font-semibold mb-2">Discussion</h3>
-
-    <div
-      class="messages max-h-64 overflow-y-auto border p-2 rounded mb-4"
-      style="background: #f9f9f9"
-    >
-      <div
-        v-for="msg in messages"
-        :key="msg.id"
-        class="mb-2"
-        :class="{ 'text-right': msg.senderId === myUid }"
-      >
-        <div
-          class="inline-block p-2 rounded"
-          :class="msg.senderId === myUid ? 'bg-green-200' : 'bg-gray-200'"
-        >
-          <strong>{{ msg.playerName || msg.senderId || "Anonyme" }} :</strong>
-          <span>{{ msg.text }}</span
-          ><br />
-          <small class="text-xs text-gray-500">
-            {{ msg.createdAt ? formatDate(msg.createdAt) : "" }}
-          </small>
-        </div>
-      </div>
-    </div>
-
-    <div class="flex gap-2">
-      <input
-        v-model="newMessage"
-        type="text"
-        placeholder="Écrire un message..."
-        class="flex-grow border rounded px-3 py-2"
-        @keyup.enter="sendMessage"
-      />
-      <button
-        @click="sendMessage"
-        class="btn btn-primary px-4 py-2 rounded"
-        :disabled="newMessage.trim() === ''"
-      >
-        Envoyer
-      </button>
-    </div>
-  </div>
 </template>
 <script setup lang="ts">
 /* ────────────── Imports ─────────────────────────────── */
 import { ref, computed, watch, onMounted, onUnmounted, watchEffect } from "vue";
 import { useRoute } from "vue-router";
-import type {
-  Timestamp,
-  DocumentData,
-  Unsubscribe,
-  QueryDocumentSnapshot,
-} from "firebase/firestore";
 import {
   Transaction,
   doc,
@@ -341,19 +288,12 @@ import { getAuth, onAuthStateChanged } from "firebase/auth";
 import Draggable from "vuedraggable";
 import { generateShuffledDeck, distributeCards } from "@/game/BezigueGame";
 import draggable from "vuedraggable";
-import type { Suit } from "@/game/types/Card";
-import { Card, serializeMelds } from "@/game/types/Card";
+import type { Suit, Rank } from "@/game/types/Card";
+import { Card } from "@/game/types/Card";
 import PlayingCard from "@/components/PlayingCard.vue";
 import { detectCombinations } from "@/game/types/detectCombinations";
 import type { Combination } from "@/game/types/detectCombinations";
-import {
-  QuerySnapshot,
-  collection,
-  query,
-  orderBy,
-  addDoc,
-  serverTimestamp,
-} from "firebase/firestore";
+
 const db = getFirestore();
 
 interface RoomDoc {
@@ -532,103 +472,6 @@ onMounted(() => {
     unsubscribeAuth(); // ⬅️ important si tu veux éviter une fuite mémoire
   });
 });
-
-///CCHAT §§§§§
-
-interface Message {
-  id: string;
-  text: string;
-  senderId: string;
-  createdAt: Timestamp | null; // le timestamp Firestore peut être null au début
-}
-
-const auth = getAuth();
-
-let unsubscribe: (() => void) | null = null; // stocke la fonction d'arrêt d'écoute
-// Valeurs réactives
-const messages = ref<
-  Array<{ id: string; text: string; senderId: string; createdAt: any }>
->([]);
-const newMessage = ref("");
-
-// Récupère le roomId de façon réactive via un getter
-const getRoomId = () => route.params.roomId as string;
-
-// Ecoute les changements de roomId
-
-watch(
-  getRoomId,
-  (roomId) => {
-    // Si une écoute précédente existe, on la stoppe
-    if (unsubscribe) {
-      unsubscribe();
-      unsubscribe = null;
-    }
-
-    if (!roomId) {
-      messages.value = [];
-      return;
-    }
-
-    const messagesRef = collection(db, "rooms", roomId, "messages");
-    const q = query(messagesRef, orderBy("createdAt"));
-
-    // Nouvelle écoute Firestore
-    unsubscribe = onSnapshot(q, (snapshot) => {
-      messages.value = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as any),
-      }));
-    });
-  },
-  { immediate: true }
-);
-const messagesCollection = collection(db, "rooms", roomId, "messages");
-
-// Définition explicite du type de la query
-const q = query(messagesCollection, orderBy("createdAt", "asc"));
-
-async function sendMessage() {
-  const roomId = getRoomId();
-  if (!roomId || !newMessage.value.trim()) return;
-
-  const messagesRef = collection(db, "rooms", roomId, "messages");
-
-  await addDoc(messagesRef, {
-    text: newMessage.value.trim(),
-    senderId: myUid.value, // ✅ CORRIGÉ ICI
-    createdAt: serverTimestamp(),
-  });
-
-  newMessage.value = "";
-}
-
-onUnmounted(() => {
-  if (unsubscribe) unsubscribe();
-});
-
-// Formatter date lisible
-function formatDate(timestamp) {
-  if (!timestamp) return "";
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-unsubscribe = onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
-  messages.value = snapshot.docs.map(
-    (doc: QueryDocumentSnapshot<DocumentData>) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        text: data.text as string,
-        senderId: data.senderId as string,
-        createdAt: data.createdAt ? (data.createdAt as Timestamp) : null,
-      };
-    }
-  );
-});
-
-///
 
 /* ────────────── Watchers ─────────────────────────────── */
 watchEffect(() => console.log("localHand : ", localHand.value));
@@ -953,6 +796,19 @@ function mergeMeldsIntoHand(d: RoomDoc, uid: string): string[] {
   return normalizeHand(hand); // 🚩 limite 2
 }
 
+/** transforme ["A♠", ...] */
+export const cardsToStrings = (arr: Card[]) => arr.map((c) => c.toString());
+
+/** ⇢ Combination prêt pour Firestore */
+export const serializeCombination = (c: Combination) => ({
+  name: c.name,
+  points: c.points,
+  cards: cardsToStrings(c.cards),
+});
+
+export const serializeMelds = (melds: Combination[]) =>
+  melds.map(serializeCombination);
+
 /*────────────────────────────────────────────────────────────────────*/
 
 /** Échange (facultatif) du 7 d’atout contre la trump exposée. */
@@ -999,6 +855,10 @@ async function tryExchangeSeven(playerUid: string): Promise<boolean> {
     hand.splice(idxSeven, 1); // retire le 7
     hand.push(trumpCardCur); // ajoute la carte visible
 
+    /* 5. Vérif globale main + melds : double‑paquet + total ≤ 9 */
+    const melds = d.melds?.[playerUid] ?? [];
+    checkHandAndMeld(hand, melds); // lance une exception si règle violée
+
     /* 6. Mise à jour Firestore */
     tx.update(roomRef, {
       [`hands.${playerUid}`]: hand,
@@ -1040,16 +900,16 @@ function pushCardToTrick(
   newHand: string[],
   newMelds: Combination[] = d.melds?.[myUid.value] ?? []
 ) {
-  const uid = String(myUid.value);
   const trick = { ...d.trick };
   trick.cards.push(cardStr);
   trick.players.push(myUid.value!);
 
   const update: Record<string, any> = {
-    [`hands.${uid}`]: newHand,
-    [`melds.${uid}`]: serializeMelds(newMelds),
+    [`hands.${myUid.value}`]: newHand,
+    [`melds.${myUid.value}`]: newMelds,
     trick,
   };
+  checkHandAndMeld(newHand, newMelds); // lance une exception si règle violée
 
   if (trick.cards.length === 1) {
     update.currentTurn = d.players.find((u) => u !== myUid.value);
@@ -1195,51 +1055,36 @@ async function forceEndMeldPhase() {
 
 /* ────────────── resolveTrick (identique) ───────────── */
 function resolveTrick(
-  c1: string,
-  c2: string,
-  p1: string,
-  p2: string,
+  firstCard: string,
+  secondCard: string,
+  firstPlayerUid: string,
+  secondPlayerUid: string,
   trumpCard: string
 ): string {
-  const rankValue = (s: string) => {
-    const r = s.slice(0, -1);
-    return r === "A"
+  const valueOf = (c: string) => {
+    const v = c.slice(0, -1);
+    return v === "A"
       ? 14
-      : r === "K"
+      : v === "K"
       ? 13
-      : r === "Q"
+      : v === "Q"
       ? 12
-      : r === "J"
+      : v === "J"
       ? 11
-      : r === "10"
+      : v === "10"
       ? 10
-      : parseInt(r);
+      : parseInt(v);
   };
+  const suitOf = (c: string) => c.slice(-1);
+  const [s1, s2] = [suitOf(firstCard), suitOf(secondCard)];
+  const [v1, v2] = [valueOf(firstCard), valueOf(secondCard)];
+  const trump = suitOf(trumpCard);
 
-  const suit = (s: string) => s.slice(-1);
-  const [s1, s2] = [suit(c1), suit(c2)];
-  const [v1, v2] = [rankValue(c1), rankValue(c2)];
-  const trump = suit(trumpCard);
-
-  /* 1. Couleur identique (y compris double atout) */
-  if (s1 === s2) {
-    if (v2 > v1) return p2;
-    if (v2 < v1) return p1;
-    /* égalité → la carte posée **en premier** gagne */
-    return p1;
-  }
-
-  /* 2. Aucune carte atout ─► couleur demandée gagne (premier joueur)  */
-  if (s1 !== trump && s2 !== trump) return p1;
-
-  /* 3. Première carte atout → première gagne  */
-  if (s1 === trump && s2 !== trump) return p1;
-
-  /* 4. Seconde carte atout → seconde gagne  */
-  if (s1 !== trump && s2 === trump) return p2;
-
-  /* 5. Dernier filet de sécurité (ne devrait plus arriver) */
-  return p1;
+  if (s1 === s2) return v2 > v1 ? secondPlayerUid : firstPlayerUid;
+  if (s1 !== trump && s2 !== trump) return firstPlayerUid;
+  if (s1 === trump && s2 !== trump) return firstPlayerUid;
+  if (s1 !== trump && s2 === trump) return secondPlayerUid;
+  return v2 > v1 ? secondPlayerUid : firstPlayerUid;
 }
 
 /** Ne garde jamais plus de 2 exemplaires d’une même carte. */
@@ -1279,6 +1124,9 @@ async function drawCard() {
 
     const melds = d.melds?.[myUid.value] ?? [];
 
+    // 🔐 Vérification complète sécurité
+    checkHandAndMeld(hand, melds);
+
     const update: Record<string, any> = {
       deck,
       [`hands.${myUid.value}`]: hand,
@@ -1299,6 +1147,35 @@ async function drawCard() {
   });
 }
 
+/** Contrôle les deux règles :
+ *  1) jamais plus de 2 exemplaires identiques ;
+ *  2) main + toutes les cartes (y compris doublons) posées ≤ 9. */
+function checkHandAndMeld(hand: string[], melds: Combination[]) {
+  const count: Record<string, number> = {};
+  let total = hand.length; // cartes en main
+
+  // main
+  hand.forEach((s) => {
+    count[s] = (count[s] ?? 0) + 1;
+    if (count[s] > 2)
+      throw "Règle : jamais plus de deux exemplaires identiques.";
+  });
+
+  // melds (chaque occurrence compte)
+  melds.forEach((m) =>
+    m.cards.forEach((c) => {
+      const s = cardToStr(c);
+      count[s] = (count[s] ?? 0) + 1;
+      if (count[s] > 2)
+        throw "Règle : jamais plus de deux exemplaires identiques.";
+      total += 1;
+    })
+  );
+
+  if (total > 9)
+    throw "Règle : vous ne pouvez pas posséder plus de 9 cartes au total.";
+}
+
 function addCombination(
   melds: Combination[],
   combo: Combination
@@ -1316,7 +1193,6 @@ function addCombination(
 /* ───────── 1. playCombo (pose d’une combinaison) ───────── */
 async function playCombo(combo: Combination) {
   const uid = myUid.value;
-
   if (!uid) return;
 
   await runTransaction(db, async (tx) => {
@@ -1340,6 +1216,10 @@ async function playCombo(combo: Combination) {
 
     /* 2. Ajouter la nouvelle combinaison sans suppression */
     const melds = addCombination(d.melds?.[uid] ?? [], combo);
+
+    /* 3. Vérifications globales */
+    checkHandAndMeld(hand, melds);
+
     /* 4. Score : on AJOUTE toujours les points de la nouvelle combo */
     const newScore = (d.scores?.[uid] ?? 0) + combo.points;
 
@@ -1347,7 +1227,7 @@ async function playCombo(combo: Combination) {
     const opponent = d.players.find((u) => u !== uid)!;
     tx.update(roomRef, {
       [`hands.${uid}`]: hand,
-      [`melds.${uid}`]: serializeMelds(melds), // ✅ string[]
+      [`melds.${uid}`]: melds,
       [`scores.${uid}`]: newScore,
       phase: "draw",
       drawQueue: [uid, opponent],
@@ -1359,7 +1239,11 @@ async function playCombo(combo: Combination) {
 }
 
 /* ──────── helpers ──────────────────────────────────────────────── */
-const strToCard = (s: string): Card => Card.fromCode(s);
+
+const strToCard = (s: string): Card => ({
+  rank: s.slice(0, -1) as Rank,
+  suit: s.slice(-1) as Suit,
+});
 </script>
 
 <style scoped>

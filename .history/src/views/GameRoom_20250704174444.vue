@@ -285,13 +285,13 @@
         v-for="msg in messages"
         :key="msg.id"
         class="mb-2"
-        :class="{ 'text-right': msg.senderId === myUid }"
+        :class="{ 'text-right': msg.uid === myUid }"
       >
         <div
           class="inline-block p-2 rounded"
-          :class="msg.senderId === myUid ? 'bg-green-200' : 'bg-gray-200'"
+          :class="msg.uid === myUid ? 'bg-green-200' : 'bg-gray-200'"
         >
-          <strong>{{ msg.playerName || msg.senderId || "Anonyme" }} :</strong>
+          <strong>{{ msg.name || "Anonyme" }} :</strong>
           <span>{{ msg.text }}</span
           ><br />
           <small class="text-xs text-gray-500">
@@ -323,12 +323,7 @@
 /* ────────────── Imports ─────────────────────────────── */
 import { ref, computed, watch, onMounted, onUnmounted, watchEffect } from "vue";
 import { useRoute } from "vue-router";
-import type {
-  Timestamp,
-  DocumentData,
-  Unsubscribe,
-  QueryDocumentSnapshot,
-} from "firebase/firestore";
+import type { Timestamp, Unsubscribe } from "firebase/firestore";
 import {
   Transaction,
   doc,
@@ -347,7 +342,6 @@ import PlayingCard from "@/components/PlayingCard.vue";
 import { detectCombinations } from "@/game/types/detectCombinations";
 import type { Combination } from "@/game/types/detectCombinations";
 import {
-  QuerySnapshot,
   collection,
   query,
   orderBy,
@@ -583,10 +577,6 @@ watch(
   },
   { immediate: true }
 );
-const messagesCollection = collection(db, "rooms", roomId, "messages");
-
-// Définition explicite du type de la query
-const q = query(messagesCollection, orderBy("createdAt", "asc"));
 
 async function sendMessage() {
   const roomId = getRoomId();
@@ -596,7 +586,7 @@ async function sendMessage() {
 
   await addDoc(messagesRef, {
     text: newMessage.value.trim(),
-    senderId: myUid.value, // ✅ CORRIGÉ ICI
+    senderId: "monUid", // adapte ici
     createdAt: serverTimestamp(),
   });
 
@@ -614,18 +604,16 @@ function formatDate(timestamp) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-unsubscribe = onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
-  messages.value = snapshot.docs.map(
-    (doc: QueryDocumentSnapshot<DocumentData>) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        text: data.text as string,
-        senderId: data.senderId as string,
-        createdAt: data.createdAt ? (data.createdAt as Timestamp) : null,
-      };
-    }
-  );
+unsubscribe = onSnapshot(q, (snapshot) => {
+  messages.value = snapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      text: data.text as string,
+      senderId: data.senderId as string,
+      createdAt: data.createdAt as Timestamp | null,
+    };
+  });
 });
 
 ///

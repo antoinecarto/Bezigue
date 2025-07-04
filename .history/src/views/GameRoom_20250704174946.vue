@@ -285,13 +285,13 @@
         v-for="msg in messages"
         :key="msg.id"
         class="mb-2"
-        :class="{ 'text-right': msg.senderId === myUid }"
+        :class="{ 'text-right': msg.uid === myUid }"
       >
         <div
           class="inline-block p-2 rounded"
-          :class="msg.senderId === myUid ? 'bg-green-200' : 'bg-gray-200'"
+          :class="msg.uid === myUid ? 'bg-green-200' : 'bg-gray-200'"
         >
-          <strong>{{ msg.playerName || msg.senderId || "Anonyme" }} :</strong>
+          <strong>{{ msg.name || "Anonyme" }} :</strong>
           <span>{{ msg.text }}</span
           ><br />
           <small class="text-xs text-gray-500">
@@ -596,7 +596,7 @@ async function sendMessage() {
 
   await addDoc(messagesRef, {
     text: newMessage.value.trim(),
-    senderId: myUid.value, // ✅ CORRIGÉ ICI
+    senderId: "monUid", // adapte ici
     createdAt: serverTimestamp(),
   });
 

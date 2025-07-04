@@ -285,13 +285,13 @@
         v-for="msg in messages"
         :key="msg.id"
         class="mb-2"
-        :class="{ 'text-right': msg.senderId === myUid }"
+        :class="{ 'text-right': msg.uid === myUid }"
       >
         <div
           class="inline-block p-2 rounded"
-          :class="msg.senderId === myUid ? 'bg-green-200' : 'bg-gray-200'"
+          :class="msg.uid === myUid ? 'bg-green-200' : 'bg-gray-200'"
         >
-          <strong>{{ msg.playerName || msg.senderId || "Anonyme" }} :</strong>
+          <strong>{{ msg.name || "Anonyme" }} :</strong>
           <span>{{ msg.text }}</span
           ><br />
           <small class="text-xs text-gray-500">
@@ -323,12 +323,6 @@
 /* ────────────── Imports ─────────────────────────────── */
 import { ref, computed, watch, onMounted, onUnmounted, watchEffect } from "vue";
 import { useRoute } from "vue-router";
-import type {
-  Timestamp,
-  DocumentData,
-  Unsubscribe,
-  QueryDocumentSnapshot,
-} from "firebase/firestore";
 import {
   Transaction,
   doc,
@@ -341,13 +335,13 @@ import { getAuth, onAuthStateChanged } from "firebase/auth";
 import Draggable from "vuedraggable";
 import { generateShuffledDeck, distributeCards } from "@/game/BezigueGame";
 import draggable from "vuedraggable";
-import type { Suit } from "@/game/types/Card";
-import { Card, serializeMelds } from "@/game/types/Card";
+import type { Suit, Rank } from "@/game/types/Card";
+import { Card, serializeCombination, serializeMelds } from "@/game/types/Card";
 import PlayingCard from "@/components/PlayingCard.vue";
 import { detectCombinations } from "@/game/types/detectCombinations";
 import type { Combination } from "@/game/types/detectCombinations";
+
 import {
-  QuerySnapshot,
   collection,
   query,
   orderBy,
@@ -535,73 +529,32 @@ onMounted(() => {
 
 ///CCHAT §§§§§
 
-interface Message {
-  id: string;
-  text: string;
-  senderId: string;
-  createdAt: Timestamp | null; // le timestamp Firestore peut être null au début
-}
-
 const auth = getAuth();
 
-let unsubscribe: (() => void) | null = null; // stocke la fonction d'arrêt d'écoute
-// Valeurs réactives
-const messages = ref<
-  Array<{ id: string; text: string; senderId: string; createdAt: any }>
->([]);
+const messages = ref([]);
 const newMessage = ref("");
 
-// Récupère le roomId de façon réactive via un getter
-const getRoomId = () => route.params.roomId as string;
-
-// Ecoute les changements de roomId
-
 watch(
-  getRoomId,
-  (roomId) => {
-    // Si une écoute précédente existe, on la stoppe
-    if (unsubscribe) {
-      unsubscribe();
-      unsubscribe = null;
-    }
+  roomId,
+  (id) => {
+    if (unsubscribe) unsubscribe();
+    if (!id) return;
 
-    if (!roomId) {
-      messages.value = [];
-      return;
-    }
+    const messagesCollection = collection(db, "rooms", id, "messages");
+    const messagesQuery = query(
+      messagesCollection,
+      orderBy("createdAt", "asc")
+    );
 
-    const messagesRef = collection(db, "rooms", roomId, "messages");
-    const q = query(messagesRef, orderBy("createdAt"));
-
-    // Nouvelle écoute Firestore
-    unsubscribe = onSnapshot(q, (snapshot) => {
+    unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
       messages.value = snapshot.docs.map((doc) => ({
         id: doc.id,
-        ...(doc.data() as any),
+        ...doc.data(),
       }));
     });
   },
   { immediate: true }
 );
-const messagesCollection = collection(db, "rooms", roomId, "messages");
-
-// Définition explicite du type de la query
-const q = query(messagesCollection, orderBy("createdAt", "asc"));
-
-async function sendMessage() {
-  const roomId = getRoomId();
-  if (!roomId || !newMessage.value.trim()) return;
-
-  const messagesRef = collection(db, "rooms", roomId, "messages");
-
-  await addDoc(messagesRef, {
-    text: newMessage.value.trim(),
-    senderId: myUid.value, // ✅ CORRIGÉ ICI
-    createdAt: serverTimestamp(),
-  });
-
-  newMessage.value = "";
-}
 
 onUnmounted(() => {
   if (unsubscribe) unsubscribe();
@@ -614,19 +567,21 @@ function formatDate(timestamp) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-unsubscribe = onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
-  messages.value = snapshot.docs.map(
-    (doc: QueryDocumentSnapshot<DocumentData>) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        text: data.text as string,
-        senderId: data.senderId as string,
-        createdAt: data.createdAt ? (data.createdAt as Timestamp) : null,
-      };
-    }
-  );
-});
+// Envoi message
+async function sendMessage() {
+  if (newMessage.value.trim() === "" || !roomId.value) return;
+
+  const messagesCollection = collection(db, "rooms", roomId.value, "messages");
+
+  await addDoc(messagesCollection, {
+    text: newMessage.value.trim(),
+    createdAt: serverTimestamp(),
+    uid: myUid.value,
+    name: auth.currentUser?.displayName || "Anonyme",
+  });
+
+  newMessage.value = "";
+}
 
 ///
 
