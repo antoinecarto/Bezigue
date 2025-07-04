@@ -132,30 +132,25 @@
 
     <!-- ================ MAIN DU JOUEUR ================= -->
     <div v-if="localHand.length" class="player-hand mt-8">
-      <!-- Combinaisons du joueur -->
-      <div
-        class="drop-zone mt-4 p-4 border-2 border-dashed border-gray-400 rounded bg-gray-50"
-      >
-        <p class="text-xs font-semibold mb-1">Vos combinaisons</p>
+      
+<!-- Combinaisons du joueur -->
+<div
+  class="drop-zone mt-4 p-4 border-2 border-dashed border-gray-400 rounded bg-gray-50"
+>
+  <p class="text-xs font-semibold mb-1">Vos combinaisons</p>
 
-        <div
-          v-if="playerMelds.length"
-          class="flex flex-wrap gap-2 justify-center"
-        >
-          <template
-            v-for="(meld, mIndex) in playerMelds"
-            :key="'meld-' + mIndex"
-          >
-            <PlayingCard
-              v-for="card in meld.cards"
-              :key="'meldcard-' + cardToStr(card)"
-              :code="cardToStr(card)"
-              :width="60"
-              :height="90"
-              @click="playCard(cardToStr(card))"
-            />
-          </template>
-        </div>
+  <div v-if="playerMelds.length" class="flex flex-wrap gap-2 justify-center">
+    <template v-for="(meld, mIndex) in playerMelds" :key="'meld-' + mIndex">
+      <PlayingCard
+        v-for="card in meld.cards"
+        :key="'meldcard-' + cardToStr(card)"
+        :code="cardToStr(card)"
+        :width="60"
+        :height="90"
+        @click="playCard(cardToStr(card))"   <!-- 👈 nouveau -->
+      />
+    </template>
+  </div>
 
         <span v-else class="text-[10px] italic text-gray-400">Aucune</span>
       </div>
@@ -1050,8 +1045,8 @@ async function playCard(cardStr: string) {
       throw "Pas votre tour";
 
     /* ---------- 1. Retirer la carte de la MAIN ou d’un MELD ---------- */
-    const hand = [...d.hands[myUid.value]];
-    const melds = (d.melds?.[myUid.value] ?? []).map((m) => ({ ...m })); // clone
+    const hand   = [...d.hands[myUid.value]];
+    const melds  = (d.melds?.[myUid.value] ?? []).map((m) => ({ ...m })); // clone
 
     let found = false;
 
@@ -1078,7 +1073,7 @@ async function playCard(cardStr: string) {
     if (!found) throw "Carte introuvable (main + meld)";
 
     /* ---------- 2. Pousser la carte dans le trick ---------- */
-    const trickCards = [...d.trick.cards, cardStr];
+    const trickCards   = [...d.trick.cards, cardStr];
     const trickPlayers = [...d.trick.players, myUid.value];
 
     tx.update(roomRef, {
@@ -1089,6 +1084,7 @@ async function playCard(cardStr: string) {
     });
   });
 }
+
 
 /* Helper commun : pousse la carte dans le pli, met à jour hand+melds */
 function pushCardToTrick(
