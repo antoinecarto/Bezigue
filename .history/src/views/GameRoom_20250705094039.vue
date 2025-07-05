@@ -1036,6 +1036,8 @@ async function tryExchangeSeven(uid: string): Promise<boolean> {
     hand.splice(idx, 1);
     hand.push(trumpCardCur);
 
+    checkHandAndMeld(hand, d.melds?.[uid] ?? []);
+
     tx.update(roomRef, {
       [`hands.${uid}`]: hand,
       trumpCard: sevenTrump,

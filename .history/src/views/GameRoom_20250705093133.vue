@@ -757,29 +757,6 @@ function maybeStartGame(tx: Transaction, d: RoomDoc) {
     { merge: true }
   );
 }
-async function playCardFromMeld(card: Card) {
-  if (!myUid.value || !roomReady.value) return;
-
-  await runTransaction(db, async (tx) => {
-    const d = (await tx.get(roomRef)).data() as RoomDoc;
-    if (d.phase !== "play" || d.currentTurn !== myUid.value)
-      throw "Pas votre tour";
-
-    const cardStr = cardToStr(card);
-
-    // --- 1. on clone les melds puis on enlève la carte cliquée
-    const melds = (d.melds?.[myUid.value] ?? []).map((m) => ({
-      ...m,
-      cards: m.cards.filter((c) => cardToStr(c) !== cardStr),
-    }));
-
-    // on supprime les melds vides
-    const cleaned = melds.filter((m) => m.cards.length);
-
-    // --- 2. on pousse la carte dans le pli
-    pushCardToTrick(tx, d, cardStr, d.hands[myUid.value], cleaned);
-  });
-}
 
 /* ─── 7 ────────────────────────────────────────── */
 
@@ -997,7 +974,7 @@ function mergeMeldsIntoHand(d: RoomDoc, uid: string): string[] {
  */
 /** Échange le 7 d’atout contre la carte exposée.
  *  Retourne true si l’échange a été effectué, sinon false. */
-async function tryExchangeSeven(uid: string): Promise<boolean> {
+async function tryExchangeSeven(playerUid: string): Promise<boolean> {
   let exchanged = false;
 
   await runTransaction(db, async (tx) => {
@@ -1005,42 +982,38 @@ async function tryExchangeSeven(uid: string): Promise<boolean> {
     if (!snap.exists()) throw "Room introuvable";
     const d = snap.data() as RoomDoc;
 
-    /* --- autorisations de phase / tour --- */
-    const myTurn =
-      (d.phase === "meld" && d.canMeld === uid) ||
-      (d.phase === "draw" && d.drawQueue?.[0] === uid);
-    if (!myTurn) return;
+    /* 0. Phase autorisée : le joueur doit avoir la main (meld ou draw) */
+    const isMyTurn =
+      (d.phase === "meld" && d.canMeld === playerUid) ||
+      (d.phase === "draw" && d.drawQueue?.[0] === playerUid);
+    if (!isMyTurn) return;
 
-    /* --- plus de talon ? --- */
-    if (!d.deck.length) return;
+    /* 1. Encore des cartes dans le talon ? */
+    if ((d.deck?.length ?? 0) === 0) return;
 
-    const trumpCardCur = d.trumpCard; // ex : 'K♣'
-    const sevenTrump = "7" + d.trumpSuit; // ex : '7♣'
-
-    /* --- si déjà échangé sur un retry, on sort proprement --- */
-    if (trumpCardCur === sevenTrump) {
-      exchanged = true;
-      return; // rien à faire : document déjà à jour
-    }
-
-    /* --- la carte exposée doit être A,K,Q,J,10 --- */
+    const trumpCardCur = d.trumpCard; // ex: 'A♥'
+    if (!trumpCardCur) return; // aucune carte exposée
     const allowed = ["A", "K", "Q", "J", "10"];
-    if (!allowed.includes(trumpCardCur.slice(0, -1))) return;
 
-    /* --- le joueur possède‑t‑il le 7 d’atout ? --- */
-    const hand = [...d.hands[uid]];
-    const idx = hand.indexOf(sevenTrump);
-    if (idx === -1) return;
+    /* 2. La carte exposée est-elle échangeable ? */
+    const rankCur = trumpCardCur.slice(0, -1);
+    if (!allowed.includes(rankCur)) return;
 
-    /* --- swap 7 ↔ carte exposée --- */
-    hand.splice(idx, 1);
-    hand.push(trumpCardCur);
+    /* 3. Le joueur possède‑t‑il le 7 d’atout ? */
+    const sevenTrump = "7" + trumpCardCur.slice(-1); // ex: '7♥'
+    const hand = [...d.hands[playerUid]];
+    const idxSeven = hand.indexOf(sevenTrump);
+    if (idxSeven === -1) return;
 
+    /* 4. Construire la nouvelle main : swap 7 ↔ carte exposée */
+    hand.splice(idxSeven, 1); // retire le 7
+    hand.push(trumpCardCur); // ajoute la carte visible
+
+    /* 6. Mise à jour Firestore */
     tx.update(roomRef, {
-      [`hands.${uid}`]: hand,
-      trumpCard: sevenTrump,
-      // trumpSuit inchangé
-      trumpTaken: false,
+      [`hands.${playerUid}`]: hand,
+      trumpCard: sevenTrump, // on expose maintenant le 7
+      trumpSuit: sevenTrump.slice(-1) as Suit, // la couleur d’atout reste la même
     });
 
     exchanged = true;
