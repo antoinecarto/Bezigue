@@ -285,6 +285,7 @@
       class="messages max-h-64 overflow-y-auto border p-2 rounded mb-4"
       style="background: #f9f9f9"
     >
+      /// ///
       <div
         v-for="msg in messages"
         :key="msg.id"
@@ -330,6 +331,7 @@ import { useRoute } from "vue-router";
 import type {
   Timestamp,
   DocumentData,
+  Unsubscribe,
   QueryDocumentSnapshot,
 } from "firebase/firestore";
 import {
@@ -533,12 +535,21 @@ onMounted(() => {
   });
 });
 
-//-------------------------------CHAT------------------------------------------------------
+///CCHAT §§§§§f
 
 function getDisplayName(senderId: string): string {
   /* room.value?.playerNames est une map { uid ➜ nom } */
   return room.value?.playerNames?.[senderId] ?? "Anonyme";
 }
+
+interface Message {
+  id: string;
+  text: string;
+  senderId: string;
+  createdAt: Timestamp | null; // le timestamp Firestore peut être null au début
+}
+
+const auth = getAuth();
 
 let unsubscribe: (() => void) | null = null; // stocke la fonction d'arrêt d'écoute
 // Valeurs réactives
@@ -592,7 +603,7 @@ async function sendMessage() {
 
   await addDoc(messagesRef, {
     text: newMessage.value.trim(),
-    senderId: myUid.value,
+    senderId: myUid.value, // ✅ CORRIGÉ ICI
     createdAt: serverTimestamp(),
   });
 
@@ -846,15 +857,14 @@ watchEffect(() => {
 /* ─── Pioche vide → passage en “battle” + rapatriement meld ─── */
 watchEffect(async () => {
   const r = room.value;
-
   if (!r || r.phase !== "draw") return; // on n’est pas en pioche
   if (r.deck.length > 0) return; // il reste encore des cartes
+  if (r.phase === "battle") return; // déjà fait
 
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(roomRef);
     const d = snap.data() as RoomDoc;
 
-    if (r.phase === "battle") return; // déjà fait
     /* re‑vérification serveur */
     if (d.phase !== "draw" || d.deck.length) return;
 
@@ -1045,6 +1055,77 @@ async function tryExchangeSeven(uid: string): Promise<boolean> {
   return exchanged;
 }
 
+/** Joue une carte de la main (clic normal) */
+async function playCardFromHand(cardStr: string) {
+  if (!myUid.value || !roomReady.value) return;
+
+  await runTransaction(db, async (tx) => {
+    const d = (await tx.get(roomRef)).data() as RoomDoc;
+
+    if (d.phase !== "play" || d.currentTurn !== myUid.value)
+      throw "Pas votre tour";
+
+    const hand = [...d.hands[myUid.value]];
+    const idx = hand.indexOf(cardStr);
+    if (idx === -1) throw "Carte absente dans la main";
+
+    hand.splice(idx, 1); // retire
+
+    pushCardToTrick(tx, d, cardStr, hand); // helper commun
+  });
+}
+
+async function playCard(cardStr: string) {
+  if (!myUid.value || !roomReady.value) return;
+
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(roomRef);
+    const d = snap.data() as RoomDoc;
+
+    if (d.phase !== "play" || d.currentTurn !== myUid.value)
+      throw "Pas votre tour";
+
+    /* ---------- 1. Retirer la carte de la MAIN ou d’un MELD ---------- */
+    const hand = [...d.hands[myUid.value]];
+    const melds = (d.melds?.[myUid.value] ?? []).map((m) => ({ ...m })); // clone
+
+    let found = false;
+
+    /* a) dans la main */
+    const hIdx = hand.indexOf(cardStr);
+    if (hIdx !== -1) {
+      hand.splice(hIdx, 1);
+      found = true;
+    }
+
+    /* b) sinon, dans les melds */
+    if (!found) {
+      for (const meld of melds) {
+        const cIdx = meld.cards.findIndex((c) => cardToStr(c) === cardStr);
+        if (cIdx !== -1) {
+          meld.cards.splice(cIdx, 1);
+          found = true;
+          /* si le meld devient vide, on pourra l’enlever plus tard si besoin */
+          break;
+        }
+      }
+    }
+
+    if (!found) throw "Carte introuvable (main + meld)";
+
+    /* ---------- 2. Pousser la carte dans le trick ---------- */
+    const trickCards = [...d.trick.cards, cardStr];
+    const trickPlayers = [...d.trick.players, myUid.value];
+
+    tx.update(roomRef, {
+      [`hands.${myUid.value}`]: hand,
+      [`melds.${myUid.value}`]: melds,
+      "trick.cards": trickCards,
+      "trick.players": trickPlayers,
+    });
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* 3. pushCardToTrick (une seule source d’écriture)                   */
 /* ------------------------------------------------------------------ */
@@ -1054,10 +1135,10 @@ function pushCardToTrick(
   d: RoomDoc,
   cardStr: string,
   newHand: string[],
-  newMelds: Combination[]
+  rawMelds: Combination[] = d.melds?.[myUid.value!] ?? []
 ) {
   /* A. sécurité règles */
-  checkHandAndMeld(newHand, newMelds);
+  checkHandAndMeld(newHand, rawMelds);
 
   /* B. construction du nouveau trick */
   const trick = {
@@ -1066,7 +1147,7 @@ function pushCardToTrick(
   };
 
   /* C. sérialisation AVANT écriture */
-  const meldsSerialized = serializeMelds(newMelds);
+  const meldsSerialized = serializeMelds(rawMelds);
 
   const update: Record<string, any> = {
     [`hands.${myUid.value}`]: newHand,
@@ -1427,43 +1508,6 @@ function serializeHands(
 export type FSCombination = Omit<Combination, "cards"> & {
   cards: string[]; // <-- uniquement des codes "A♠" etc.
 };
-
-/* ───────── helpers de (dé)sérialisation ────────── */
-function fsToCombination(fs: FSCombination[]): Combination[] {
-  return fs.map((m) => ({
-    ...m,
-    cards: m.cards.map(Card.fromCode), // "A♠" → new Card("A","♠")
-  }));
-}
-
-/** Joue une carte de la main (clic normal) */
-async function playCardFromHand(cardStr: string): Promise<void> {
-  const uid = myUid.value;
-  if (!uid || !roomReady.value) return;
-
-  await runTransaction(db, async (tx) => {
-    /* 1. lecture du doc */
-    const snap = await tx.get(roomRef);
-    if (!snap.exists()) return;
-    const d = snap.data() as RoomDoc;
-
-    /* 2. phase + tour OK ? */
-    const playable = d.phase === "play" || d.phase === "battle";
-    if (!playable || d.currentTurn !== uid) throw "Pas votre tour";
-
-    /* 3. on retire la carte de la main */
-    const hand = [...d.hands[uid]];
-    const i = hand.indexOf(cardStr);
-    if (i === -1) throw "Carte absente dans la main";
-    hand.splice(i, 1);
-
-    /* 4. conversion des melds Firestore → objets */
-    const myMelds: Combination[] = fsToCombination(d.melds?.[uid] ?? []);
-
-    /* 5. push dans le trick */
-    pushCardToTrick(tx, d, cardStr, hand, myMelds);
-  });
-}
 
 /** Conversion Card[] -> string[] */
 function serializeMelds(melds: Combination[]): FSCombination[] {

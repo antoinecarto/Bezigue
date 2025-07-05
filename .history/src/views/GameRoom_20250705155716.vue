@@ -285,6 +285,7 @@
       class="messages max-h-64 overflow-y-auto border p-2 rounded mb-4"
       style="background: #f9f9f9"
     >
+      /// ///
       <div
         v-for="msg in messages"
         :key="msg.id"
@@ -330,6 +331,7 @@ import { useRoute } from "vue-router";
 import type {
   Timestamp,
   DocumentData,
+  Unsubscribe,
   QueryDocumentSnapshot,
 } from "firebase/firestore";
 import {
@@ -533,12 +535,21 @@ onMounted(() => {
   });
 });
 
-//-------------------------------CHAT------------------------------------------------------
+///CCHAT §§§§§f
 
 function getDisplayName(senderId: string): string {
   /* room.value?.playerNames est une map { uid ➜ nom } */
   return room.value?.playerNames?.[senderId] ?? "Anonyme";
 }
+
+interface Message {
+  id: string;
+  text: string;
+  senderId: string;
+  createdAt: Timestamp | null; // le timestamp Firestore peut être null au début
+}
+
+const auth = getAuth();
 
 let unsubscribe: (() => void) | null = null; // stocke la fonction d'arrêt d'écoute
 // Valeurs réactives
