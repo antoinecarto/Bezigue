@@ -66,11 +66,6 @@ export function serializeMelds(melds: Combination[] = []) {
   }));
 }
 
-/* ────────────── Helpers ─────────────────────────────── */
-const cardToStr = (c: Card | string | undefined | null): string => {
-  if (!c) return "";
-  return typeof c === "string" ? c : c.toString(); // conserve _1 / _2
-};
 /* ------------------------------------------------------------------ */
 /*  Classe Card (rang + couleur)                                       */
 /* ------------------------------------------------------------------ */
