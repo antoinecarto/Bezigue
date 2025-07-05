@@ -28,13 +28,10 @@
       </h3>
 
       <!-- Affichage des dos de cartes -->
-      <!-- Affichage des dos de cartes -->
-      <div
-        class="cards flex gap-2 justify-center flex-wrap overflow-x-auto overflow-y-hidden"
-      >
+      <div class="cards flex gap-2 justify-center flex-wrap">
         <PlayingCard
-          v-for="(_, i) in opponentHand"
-          :key="'opp-' + i"
+          v-for="c in opponentHand"
+          key="'opp' + c.rank + c.suit"
           code="back"
           :width="60"
           :height="90"
@@ -133,55 +130,56 @@
       </div>
     </div>
 
-    <!-- ================ MAIN DU JOUEUR ================= -->
-    <div v-if="localHand.length" class="player-hand mt-8">
-      <!-- Combinaisons du joueur -->
-      <div
-        class="drop-zone min-h-[160px] border-2 border-dashed border-green-400 rounded bg-green-50 p-4 flex items-center gap-4 overflow-x-auto overflow-y-hidden"
+   <!-- ================ MAIN DU JOUEUR ================= -->
+<div v-if="localHand.length" class="player-hand mt-8">
+  <!-- Combinaisons du joueur -->
+  <div
+    class="drop-zone min-h-[160px] border-2 border-dashed border-green-400 rounded bg-green-50 p-4 flex items-center gap-4 overflow-x-auto overflow-y-hidden"
+  >
+    <p class="text-xs font-semibold mb-1">Vos combinaisons</p>
+
+    <div
+      v-if="playerMelds.length"
+      class="flex flex-wrap gap-2 justify-center"
+    >
+      <template
+        v-for="(meld, mIndex) in playerMelds"
+        :key="'meld-' + mIndex"
       >
-        <p class="text-xs font-semibold mb-1">Vos combinaisons</p>
+        <PlayingCard
+          v-for="card in meld.cards"
+          :key="'meldcard-' + cardToStr(card)"
+          :code="cardToStr(card)"
+          :width="60"
+          :height="90"
+          @click="playCard(cardToStr(card))"
+        />
+      </template>
+    </div>
 
-        <div
-          v-if="playerMelds.length"
-          class="flex flex-wrap gap-2 justify-center"
-        >
-          <template
-            v-for="(meld, mIndex) in playerMelds"
-            :key="'meld-' + mIndex"
-          >
-            <PlayingCard
-              v-for="card in meld.cards"
-              :key="'meldcard-' + cardToStr(card)"
-              :code="cardToStr(card)"
-              :width="60"
-              :height="90"
-              @click="playCard(cardToStr(card))"
-            />
-          </template>
-        </div>
+    <span v-else class="text-[10px] italic text-gray-400">Aucune</span>
+  </div>
 
-        <span v-else class="text-[10px] italic text-gray-400">Aucune</span>
-      </div>
-
-      <!-- Main du joueur -->
-      <div class="mt-4">
-        <draggable
-          v-model="localHand"
-          @end="onHandReorder"
-          class="cards flex gap-2 justify-center flex-wrap overflow-x-auto overflow-y-hidden"
-          :item-key="cardToStr"
-        >
-          <template #item="{ element: card }">
-            <PlayingCard
-              :code="card"
-              :key="cardToStr(card)"
-              :width="60"
-              :height="90"
-              @click="playCardFromHand(card)"
-            />
-          </template>
-        </draggable>
-      </div>
+  <!-- Main du joueur -->
+  <div class="mt-4">
+    <draggable
+      v-model="localHand"
+      @end="onHandReorder"
+      class="cards flex gap-2 justify-center flex-wrap"
+      :item-key="cardToStr"
+    >
+      <template #item="{ element: card }">
+        <PlayingCard
+          :code="card"
+          :key="cardToStr(card)"
+          :width="60"
+          :height="90"
+          @click="playCardFromHand(card)"
+        />
+      </template>
+    </draggable>
+  </div>
+</div>
       <h3
         class="text-xl font-semibold mb-2"
         :class="{ 'text-green-600': room?.currentTurn === myUid }"

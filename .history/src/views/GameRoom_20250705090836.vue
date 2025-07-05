@@ -28,13 +28,10 @@
       </h3>
 
       <!-- Affichage des dos de cartes -->
-      <!-- Affichage des dos de cartes -->
-      <div
-        class="cards flex gap-2 justify-center flex-wrap overflow-x-auto overflow-y-hidden"
-      >
+      <div class="cards flex gap-2 justify-center flex-wrap">
         <PlayingCard
-          v-for="(_, i) in opponentHand"
-          :key="'opp-' + i"
+          v-for="c in opponentHand"
+          key="'opp' + c.rank + c.suit"
           code="back"
           :width="60"
           :height="90"
@@ -168,7 +165,7 @@
         <draggable
           v-model="localHand"
           @end="onHandReorder"
-          class="cards flex gap-2 justify-center flex-wrap overflow-x-auto overflow-y-hidden"
+          class="cards flex gap-2 justify-center flex-wrap"
           :item-key="cardToStr"
         >
           <template #item="{ element: card }">

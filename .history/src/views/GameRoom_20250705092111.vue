@@ -19,27 +19,18 @@
     <div v-else-if="!room">Partie introuvable ou supprimée.</div>
 
     <!-- ================= MAIN ADVERSE ================= -->
-    <div v-if="opponentHand.length" class="player-hand mt-6">
-      <h3
-        class="text-xl font-semibold mb-2"
-        :class="{ 'text-green-600': room?.currentTurn === opponentUid }"
-      >
-        Main {{ deOuD(opponentName) }} {{ opponentName }}
-      </h3>
-
-      <!-- Affichage des dos de cartes -->
-      <!-- Affichage des dos de cartes -->
-      <div
-        class="cards flex gap-2 justify-center flex-wrap overflow-x-auto overflow-y-hidden"
-      >
-        <PlayingCard
-          v-for="(_, i) in opponentHand"
-          :key="'opp-' + i"
-          code="back"
-          :width="60"
-          :height="90"
-        />
-      </div>
+   <!-- Affichage des dos de cartes -->
+<div
+  class="cards flex gap-2 justify-center flex-wrap overflow-x-auto overflow-y-hidden"
+>
+  <PlayingCard
+    v-for="(_, i) in opponentHand"
+    :key="'opp-' + i"
+    code="back"
+    :width="60"
+    :height="90"
+  />
+</div>
 
       <!-- ------------ COMBINAISONS ADVERSES ------------- -->
       <div class="drop-zone mt-4">
