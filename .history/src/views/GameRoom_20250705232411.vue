@@ -1260,30 +1260,7 @@ async function forceEndMeldPhase() {
   });
 }
 
-const getSuit = (code: string) => {
-  // Extraire le symbole de couleur entre ♠ ♥ ♦ ♣
-  const match = code.match(/[♠♥♦♣]/);
-  if (!match) throw new Error(`Carte sans couleur valide: ${code}`);
-  return match[0];
-};
-
-const getRankValue = (code: string) => {
-  const rankMatch = code.match(/^([7-9JQKA]|10)/);
-  if (!rankMatch) throw new Error(`Carte sans rang valide: ${code}`);
-  const r = rankMatch[0];
-  return r === "A"
-    ? 14
-    : r === "10"
-    ? 13
-    : r === "K"
-    ? 12
-    : r === "Q"
-    ? 11
-    : r === "J"
-    ? 10
-    : parseInt(r);
-};
-
+/* ────────────── resolveTrick (identique) ───────────── */
 function resolveTrick(
   c1: string,
   c2: string,
@@ -1291,24 +1268,44 @@ function resolveTrick(
   p2: string,
   trumpCard: string
 ): string {
-  const s1 = getSuit(c1);
-  const s2 = getSuit(c2);
-  const v1 = getRankValue(c1);
-  const v2 = getRankValue(c2);
-  const trump = getSuit(trumpCard);
+  const rankValue = (s: string) => {
+    const r = s.slice(0, -1);
+    return r === "A"
+      ? 14
+      : r === "10"
+      ? 13
+      : r === "K"
+      ? 12
+      : r === "Q"
+      ? 11
+      : r === "J"
+      ? 10
+      : parseInt(r);
+  };
 
+  const suit = (s: string) => s.slice(-1);
+  const [s1, s2] = [suit(c1), suit(c2)];
+  const [v1, v2] = [rankValue(c1), rankValue(c2)];
+  const trump = suit(trumpCard);
+
+  /* 1. Couleur identique (y compris double atout) */
   if (s1 === s2) {
     if (v2 > v1) return p2;
     if (v2 < v1) return p1;
-    return p1; // égalité, premier joueur gagne
+    /* égalité → la carte posée **en premier** gagne */
+    return p1;
   }
 
+  /* 2. Aucune carte atout ─► couleur demandée gagne (premier joueur)  */
   if (s1 !== trump && s2 !== trump) return p1;
 
+  /* 3. Première carte atout → première gagne  */
   if (s1 === trump && s2 !== trump) return p1;
 
+  /* 4. Seconde carte atout → seconde gagne  */
   if (s1 !== trump && s2 === trump) return p2;
 
+  /* 5. Dernier filet de sécurité (ne devrait plus arriver) */
   return p1;
 }
 
