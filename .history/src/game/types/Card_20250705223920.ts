@@ -21,14 +21,13 @@ export type Copy = 1 | 2;
  * @param copy  1 ou 2 → suffixe du fichier ("_1", "_2")
  * @returns     "AS_1.svg", "10H_2.svg", etc.
  */
-export function fileNameFromCode(code: string, copy?: Copy): string {
+export function fileNameFromCode(code: string, copy: Copy = 1): string {
   if (code.trim().toLowerCase() === "back") return "back.svg";
 
-  // Séparer la copie (suffixe) du code s'il y en a un
-  const [baseCode, copyStr] = code.split("_");
-  const rank = baseCode.slice(0, -1).toUpperCase();
-  const suitChar = baseCode.slice(-1);
+  const rank = code.slice(0, -1).toUpperCase(); // "7" ou "10"
+  const suitChar = code.slice(-1).toUpperCase();
 
+  // Map étendue avec symboles et lettres
   const suitMap: Record<string, string> = {
     "♠": "S",
     S: "S",
@@ -43,8 +42,7 @@ export function fileNameFromCode(code: string, copy?: Copy): string {
   const suit = suitMap[suitChar];
   if (!suit) return "unknown.svg";
 
-  const copyNum = copy ?? (copyStr ? Number(copyStr) : 1);
-  return `${rank}${suit}_${copyNum}.svg`;
+  return `${rank}${suit}_${copy}`; // ex.: "7C_1.svg"
 }
 
 console.log(fileNameFromCode("7♣")); // "7C_1.svg"
@@ -85,10 +83,6 @@ export class Card {
   readonly copy: Copy;
 
   constructor(rank: Rank, suit: Suit, copy: Copy) {
-    if (copy !== 1 && copy !== 2) {
-      console.warn("Card created with invalid copy:", copy);
-      copy = 1; // fallback
-    }
     this.rank = rank;
     this.suit = suit;
     this.copy = copy;

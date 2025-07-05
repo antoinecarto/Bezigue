@@ -24,26 +24,18 @@ export type Copy = 1 | 2;
 export function fileNameFromCode(code: string, copy?: Copy): string {
   if (code.trim().toLowerCase() === "back") return "back.svg";
 
-  // Séparer la copie (suffixe) du code s'il y en a un
-  const [baseCode, copyStr] = code.split("_");
-  const rank = baseCode.slice(0, -1).toUpperCase();
-  const suitChar = baseCode.slice(-1);
-
+  const rank = code.slice(0, -1).toUpperCase();
+  const suitChar = code.slice(-1);
   const suitMap: Record<string, string> = {
     "♠": "S",
-    S: "S",
     "♥": "H",
-    H: "H",
     "♦": "D",
-    D: "D",
     "♣": "C",
-    C: "C",
   };
-
   const suit = suitMap[suitChar];
   if (!suit) return "unknown.svg";
 
-  const copyNum = copy ?? (copyStr ? Number(copyStr) : 1);
+  const copyNum = copy ?? 1; // default à 1 si undefined ou null
   return `${rank}${suit}_${copyNum}.svg`;
 }
 

@@ -26,18 +26,24 @@ import type { Suit, Rank } from "@/game/types/Card";
 export function generateShuffledDeck(): Card[] {
   const suits: Suit[] = ["♠", "♥", "♦", "♣"];
   const ranks: Rank[] = ["7", "8", "9", "J", "Q", "K", "10", "A"];
-  const deck: Card[] = [];
+  const singleDeck: Card[] = [];
 
-  // Créer deux jeux avec copy 1 et 2
-  for (let copy = 1 as 1 | 2; copy <= 2; copy++) {
-    for (const suit of suits) {
-      for (const rank of ranks) {
-        deck.push(new Card(rank, suit, copy));
-      }
+  for (const suit of suits) {
+    for (const rank of ranks) {
+      singleDeck.push(new Card(rank, suit, 1));
     }
   }
 
-  // Mélange Fisher-Yates
+  const secondDeck: Card[] = [];
+  for (const suit of suits) {
+    for (const rank of ranks) {
+      secondDeck.push(new Card(rank, suit, 2));
+    }
+  }
+
+  const deck = singleDeck.concat(secondDeck);
+
+  // Shuffle Fisher-Yates
   for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [deck[i], deck[j]] = [deck[j], deck[i]];

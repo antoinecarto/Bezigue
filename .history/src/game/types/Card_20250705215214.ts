@@ -11,46 +11,32 @@ export type Copy = 1 | 2;
 /* ------------------------------------------------------------------ */
 /*  Fonction utilitaire exportée                                       */
 /* ------------------------------------------------------------------ */
+export function fileNameFromCode(code: string, copy: 1 | 2 = 1): string {
+  console.log(`[fileNameFromCode] code reçu: "${code}"`);
 
-/* ------------------------------------------------------------------ */
-/*  Conversion code carte <-> nom de fichier                          */
-/* ------------------------------------------------------------------ */
+  if (code.trim().toLowerCase() === "back") {
+    console.log("[fileNameFromCode] code = back détecté");
+    return "back.svg";
+  }
 
-/**
- * @param code  Ex.: "A♠" ou "10♦"
- * @param copy  1 ou 2 → suffixe du fichier ("_1", "_2")
- * @returns     "AS_1.svg", "10H_2.svg", etc.
- */
-export function fileNameFromCode(code: string, copy?: Copy): string {
-  if (code.trim().toLowerCase() === "back") return "back.svg";
-
-  // Séparer la copie (suffixe) du code s'il y en a un
-  const [baseCode, copyStr] = code.split("_");
-  const rank = baseCode.slice(0, -1).toUpperCase();
-  const suitChar = baseCode.slice(-1);
-
+  const rank = code.slice(0, -1).toUpperCase();
+  const suitChar = code.slice(-1);
   const suitMap: Record<string, string> = {
     "♠": "S",
-    S: "S",
     "♥": "H",
-    H: "H",
     "♦": "D",
-    D: "D",
     "♣": "C",
-    C: "C",
   };
-
   const suit = suitMap[suitChar];
-  if (!suit) return "unknown.svg";
 
-  const copyNum = copy ?? (copyStr ? Number(copyStr) : 1);
-  return `${rank}${suit}_${copyNum}.svg`;
+  if (!suit) {
+    console.warn(
+      `[fileNameFromCode] enseigne inconnue : "${suitChar}" (code complet: "${code}")`
+    );
+    return "unknown.svg";
+  }
+  return `${rank}${suit}_${copy}.svg`;
 }
-
-console.log(fileNameFromCode("7♣")); // "7C_1.svg"
-console.log(fileNameFromCode("7C")); // "7C_1.svg"
-console.log(fileNameFromCode("10D")); // "10D_1.svg"
-console.log(fileNameFromCode("JS")); // "J S_1.svg" ?
 
 /** transforme ["A♠", ...] */
 export const cardsToStrings = (arr: Card[]) => arr.map((c) => c.toString());
@@ -85,10 +71,6 @@ export class Card {
   readonly copy: Copy;
 
   constructor(rank: Rank, suit: Suit, copy: Copy) {
-    if (copy !== 1 && copy !== 2) {
-      console.warn("Card created with invalid copy:", copy);
-      copy = 1; // fallback
-    }
     this.rank = rank;
     this.suit = suit;
     this.copy = copy;
@@ -112,17 +94,9 @@ export class Card {
     return `${this.rank}${this.suit}_${this.copy}`;
   }
 
+  /** Nom de fichier svg : “AS_1.svg”, “10H_2.svg”, … */
   fileName(): string {
-    const suitLetter = {
-      "♣": "C",
-      "♦": "D",
-      "♥": "H",
-      "♠": "S",
-    }[this.suit];
-
-    const copyNum = this.copy ?? 1; // ou whatever copy number you track, default 1
-
-    return `${this.rank}${suitLetter}_${copyNum}.svg`;
+    return fileNameFromCode(this.shortCode(), this.copy);
   }
 
   /* ----------- Parsing inverse ------------------------------------ */
@@ -137,15 +111,9 @@ export class Card {
   }
 
   /** Créée une Card depuis un code court  */
-  /** Crée une Card depuis un code court.
-   *  Exemples acceptés : "A♠", "10♦", "QH_2", "7C", "K♣_1" */
-  /** Parse "A♠", "A♠_2", "10♦_1" → Card */
   static fromCode(code: string): Card {
-    const cleaned = code.trim();
-    const [base, copyPart] = cleaned.split("_");
-    const suit = base.slice(-1) as Suit;
-    const rank = base.startsWith("10") ? "10" : (base[0] as Rank);
-    const copy = (copyPart ? Number(copyPart) : 1) as Copy;
-    return new Card(rank, suit, copy);
+    const suit = code.slice(-1) as Suit;
+    const rank = code.startsWith("10") ? "10" : (code[0] as Rank);
+    return new Card(rank, suit);
   }
 }

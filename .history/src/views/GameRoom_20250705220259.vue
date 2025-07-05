@@ -359,9 +359,6 @@ import {
 
 const db = getFirestore();
 
-/* ------------------------------------------------------------------ */
-/* Types Firestore (inchangés sauf cartes = string avec _1/_2)         */
-/* ------------------------------------------------------------------ */
 interface RoomDoc {
   players: string[];
   playerNames: Record<string, string>;
@@ -653,33 +650,27 @@ unsubscribe = onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
 
 ///
 
-/* ------------------------------------------------------------------ */
-/* WATCHERS – corrigés                                                */
-/* ------------------------------------------------------------------ */
-
-/* 1. Debug main courante (optionnel) */
-watchEffect(() => {
-  console.log("localHand:", localHand.value);
-});
-
-/* 2. Demande de saisie du nom si manquant */
+/* ────────────── Watchers ─────────────────────────────── */
+watchEffect(() => console.log("localHand : ", localHand.value));
+/* Ouvre la popup de demande de nom si vide */
 watch(
-  () => room.value?.playerNames,
+  () => roomData.value?.playerNames,
   () => {
-    if (!myUid.value || !room.value) return;
-
-    const current = room.value.playerNames?.[myUid.value] ?? "";
-    if (current.trim()) {
-      showNameModal.value = false;
-    } else {
-      nameInput.value = "";
-      showNameModal.value = true;
+    if (myUid.value && roomData.value) {
+      const current = roomData.value.playerNames?.[myUid.value] ?? "";
+      if (!current.trim()) {
+        // nom encore vide
+        nameInput.value = "";
+        showNameModal.value = true;
+      } else {
+        showNameModal.value = false;
+      }
     }
   },
   { immediate: true }
 );
 
-/* 3. Réinitialise les flags combo en début de pli */
+/* RESET en début de tour */
 watchEffect(() => {
   if (room.value?.phase === "play") {
     askedCombiThisTrick.value = false;
@@ -687,49 +678,54 @@ watchEffect(() => {
   }
 });
 
-/* 4. Ouverture automatique de la popup combinaisons */
+/* WATCHER popup Combinaisons */
+/* ───────── WATCHER popup Combinaisons ───────── */
+
 watchEffect(() => {
   const r = room.value;
   const uid = myUid.value;
+
+  /* 0. sécurité */
   if (!r || !uid) return;
 
-  /* NE PAS ouvrir dans ces cas */
+  /* 1. situations où l’on NE doit PAS rouvrir la popup --------- */
   if (
-    showComboPopup.value ||
-    askedCombiThisTrick.value ||
-    showExchange.value ||
+    showComboPopup.value || // déjà ouverte
+    askedCombiThisTrick.value || // déjà calculé ce pli
+    showExchange.value || // popup « 7 » prioritaire
     (asked7ThisTrick.value && !exchangeDone.value)
   ) {
     return;
   }
 
-  /* Phase autorisée ? */
-  if (r.phase === "battle") return; // jamais en battle
+  /* 2. phase + droit de meld */
+  if (r.phase === "battle") return; //  ← ajoutez cette ligne
   if (r.phase !== "meld" || r.canMeld !== uid) return;
 
-  /* Conversion main & melds -> Card[] */
-  const handCards: Card[] = r.hands[uid].map(Card.fromCode);
-  const meldCards: Card[] = (r.melds?.[uid] ?? []).flatMap((m) =>
-    m.cards.map(Card.fromCode)
-  );
+  /* 3. conversion main (string[] ➜ Card[]) + cartes déjà posées */
+  const handCards: Card[] = r.hands[uid].map((code) => Card.fromCode(code));
 
-  /* Détection des combinaisons */
+  const meldCards: Card[] = (r.melds?.[uid] ?? []).flatMap((m) => m.cards);
+
+  /* 4. détection des combinaisons */
   const combos = detectCombinations(handCards, meldCards, r.trumpSuit);
 
+  /* 5. résultat */
   if (combos.length) {
     validCombosFiltered.value = combos;
-    showComboPopup.value = true;
+    showComboPopup.value = true; // on attend le choix utilisateur
   } else {
-    // Aucune combinaison → fin automatique de la phase meld
+    // aucune combinaison possible ➜ on force la fin de la phase meld
     forceEndMeldPhase().catch(console.error);
   }
 
-  /* Ne pas recalculer ce pli */
+  /* 6. flag pour ne pas recalculer pendant ce pli */
   askedCombiThisTrick.value = true;
 });
 
 /*------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------- Démarrage du jeu -------------------------------------------*/
+/*------------------------------------------------------------------------------------------------------*/
 
 function maybeStartGame(tx: Transaction, d: RoomDoc) {
   if (d.phase !== "waiting") return;
@@ -760,10 +756,10 @@ function maybeStartGame(tx: Transaction, d: RoomDoc) {
     {
       phase: "play",
       currentTurn: host,
-      deck: distrib.drawPile.map(cardToStr),
-      trumpCard: cardToStr(distrib.trumpCard),
+      deck: distrib.drawPile.map((card) => card.toString()),
+      trumpCard: distrib.trumpCard.toString(),
       trumpTaken: false,
-      trumpSuit: distrib.trumpCard.suit,
+      trumpSuit: distrib.trumpCard.toString().slice(-1) as Suit,
       hands,
       melds: {},
       trick: { cards: [], players: [] },
@@ -810,21 +806,20 @@ async function confirmExchange() {
   if (ok) exchangeDone.value = true; // signale la réussite
 }
 
-//* ------------------------------------------------------------------ */
-/*  WATCHERS – VERSION DÉFINITIVE                                     */
-/* ------------------------------------------------------------------ */
-
-/***** 1. Auto‑pioche *************************************************/
+/* ─── Auto‑pioche ────────────────────────────────────────── */
 const drawingNow = ref(false);
 
 watchEffect(() => {
   const r = room.value;
   if (!r || !myUid.value) return;
 
-  if (r.phase !== "draw") return; // mauvaise phase
-  if (r.drawQueue?.[0] !== myUid.value) return; // pas mon tour
+  // Condition minimale pour piocher
+  if (r.phase !== "draw") return;
+  if (r.drawQueue?.[0] !== myUid.value) return;
   if (drawingNow.value) return; // déjà en cours
-  if (showExchange.value || loading.value) return; // modale bloquante
+
+  // Ne pas bloquer sur showComboPopup : à ce stade elle est fermée
+  if (showExchange.value || loading.value) return;
 
   drawingNow.value = true;
   drawCard()
@@ -832,49 +827,39 @@ watchEffect(() => {
     .finally(() => (drawingNow.value = false));
 });
 
-/***** 2. Reset flags début de pli ***********************************/
+/* reset automatique à chaque début de pli (phase "play") */
 watchEffect(() => {
   if (room.value?.phase === "play") {
     hasPromptedForThisTrick.value = false; // popup échange 7
   }
 });
 
-/***** 3. Popup échange du 7 d'atout *********************************/
-const hasPromptedForThisTrick = ref(false);
+/* ─── Popup échange du 7 d'atout ───────────────────────── */
+const hasPromptedForThisTrick = ref(false); // évite de rouvrir 2×
 
 watchEffect(() => {
   const r = room.value;
-  const uid = myUid.value;
-  if (!r || !uid) return;
+  if (!r || !myUid.value) return;
 
-  /* Reset complet au début du pli */
+  /* reset en début de pli seulement */
   if (r.phase === "play") {
     hasPromptedForThisTrick.value = false;
     showExchange.value = false;
     return;
   }
 
-  /* Déjà affichée ? */
+  /* si déjà affichée, on ne touche plus */
   if (showExchange.value || hasPromptedForThisTrick.value) return;
 
-  /* ----------- Conditions d'ouverture ----------------------------- */
-  const deckOk = (r.deck?.length ?? 0) > 0; // talon non vide
-
-  /* Nettoie l'underscore (_1/_2) pour lire rang & enseigne */
-  const trumpClean = r.trumpCard.replace(/_(1|2)$/u, "");
-  const rankCur = trumpClean.slice(0, -1); // ex "K"
-  const suit = trumpClean.slice(-1); // ex "♣"
-
+  /* conditions d’ouverture */
+  const deckOk = (r.deck?.length ?? 0) > 0;
+  const rankCur = r.trumpCard.slice(0, -1);
+  const suit = r.trumpCard.slice(-1);
   const cardOk = ["A", "K", "Q", "J", "10"].includes(rankCur);
-
-  /* Le joueur possède‑t‑il "7♣_1" ou "7♣_2" ? */
-  const handCodes = r.hands[uid];
-  const have7 = handCodes.some((c) => c.startsWith("7" + suit));
-
-  /* Est‑ce mon tour (meld ou draw) ? */
+  const have7 = r.hands[myUid.value].includes("7" + suit);
   const iWin =
-    (r.phase === "meld" && r.canMeld === uid) ||
-    (r.phase === "draw" && r.drawQueue?.[0] === uid);
+    (r.phase === "meld" && r.canMeld === myUid.value) ||
+    (r.phase === "draw" && r.drawQueue?.[0] === myUid.value);
 
   if (deckOk && cardOk && have7 && iWin) {
     showExchange.value = true;
@@ -882,38 +867,51 @@ watchEffect(() => {
   }
 });
 
-/***** 4. Talon vide -> phase battle & rapatriement meld *************/
+/* ─── Pioche vide → passage en “battle” + rapatriement meld ─── */
 watchEffect(async () => {
   const r = room.value;
-  if (!r || r.phase !== "draw") return;
-  if (r.deck.length > 0) return; // talon non vide
+
+  if (!r || r.phase !== "draw") return; // on n’est pas en pioche
+  if (r.deck.length > 0) return; // il reste encore des cartes
 
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(roomRef);
     const d = snap.data() as RoomDoc;
-    if (d.phase !== "draw" || d.deck.length) return; // re‑vérif.
 
+    if (r.phase === "battle") return; // déjà fait
+    /* re‑vérification serveur */
+    if (d.phase !== "draw" || d.deck.length) return;
+
+    /* ------------------------------------------------------------------
+       1. Rapatrier les cartes des melds dans la main de chaque joueur
+          – on applique votre helper `mergeMeldsIntoHand`
+          – on vide le champ `melds`
+    ------------------------------------------------------------------ */
     const handsUpdate: Record<string, any> = {};
     const emptyMelds: Record<string, any> = {};
 
     d.players.forEach((uid) => {
-      const merged = mergeMeldsIntoHand(d, uid);
+      const merged = mergeMeldsIntoHand(d, uid); // string[]
       handsUpdate[`hands.${uid}`] = merged;
-      emptyMelds[`melds.${uid}`] = [];
+      emptyMelds[`melds.${uid}`] = []; // ← on vide les melds
     });
 
+    /* ------------------------------------------------------------------
+       2. On passe en phase “battle”
+          – le 1er joueur de drawQueue[1] démarre (cf. règle)
+    ------------------------------------------------------------------ */
     tx.update(roomRef, {
       phase: "battle",
       currentTurn: d.drawQueue?.[1] ?? d.currentTurn,
-      drawQueue: [],
-      canMeld: null,
+      drawQueue: [], // plus de pioche
+      canMeld: null, // plus de meld
       ...handsUpdate,
       ...emptyMelds,
     });
   });
 });
 
-/***** 5. Fin de mène : talon vide + mains vides *********************/
+/* ─── Fin de mène : pioche vide + mains vides ─── */
 watchEffect(async () => {
   const r = room.value;
   if (!r) return;
@@ -922,8 +920,10 @@ watchEffect(async () => {
   const deckEmpty = r.deck.length === 0;
 
   if (!deckEmpty || !allHandsEmpty || r.phase === "finished") return;
-  await endMene();
+
+  await endMene(); // fonction ci‑dessous
 });
+
 /* ------------------------------------------------------------------ */
 /* 2. Fin de mène + mise en route de la suivante                      */
 /* ------------------------------------------------------------------ */
