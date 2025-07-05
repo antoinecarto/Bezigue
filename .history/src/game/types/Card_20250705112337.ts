@@ -48,11 +48,11 @@ export const serializeCombination = (c: Combination) => ({
 });
 
 /** transforme [{ name, points, cards:[Card] }] ➜ tableau 100 % “string-safe” */
-// Card.ts (ou utils)
-export function serializeMelds(melds: Combination[] = []) {
+export function serializeMelds(melds: Combination[]) {
   return melds.map((m) => ({
-    ...m,
-    cards: m.cards.map(cardToStr), // Card[] → string[]
+    name: m.name,
+    points: m.points,
+    cards: m.cards.map((c) => cardToStr(c)), // ← ici !
   }));
 }
 

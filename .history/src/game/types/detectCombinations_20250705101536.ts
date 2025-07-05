@@ -61,6 +61,7 @@ const mark = (used: UsedMap, cs: Card[]) =>
 /* ------------------------------------------------------------------ */
 /*  Fonction principale                                               */
 /* ------------------------------------------------------------------ */
+e; /* Fonction principale -------------------------------------------------------- */
 export function detectCombinations(
   hand: Card[],
   meld: Card[],

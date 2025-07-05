@@ -347,7 +347,7 @@ import Draggable from "vuedraggable";
 import { generateShuffledDeck, distributeCards } from "@/game/BezigueGame";
 import draggable from "vuedraggable";
 import type { Suit } from "@/game/types/Card";
-import { Card } from "@/game/types/Card";
+import { Card, serializeMelds } from "@/game/types/Card";
 import PlayingCard from "@/components/PlayingCard.vue";
 import { detectCombinations } from "@/game/types/detectCombinations";
 import type { Combination } from "@/game/types/detectCombinations";
@@ -371,7 +371,7 @@ interface RoomDoc {
   trumpTaken: boolean;
   deck: string[];
   hands: Record<string, string[]>;
-  melds: Record<string, FSCombination[]>;
+  melds: Record<string, Combination[]>;
   canMeld: string | null;
   trick: { cards: string[]; players: string[] };
   scores: Record<string, number>;
@@ -1499,19 +1499,13 @@ function serializeHands(
   return out;
 }
 
-/** Représentation “String only” stockée dans Firestore */
-export type FSCombination = Omit<Combination, "cards"> & {
-  cards: string[]; // <-- uniquement des codes "A♠" etc.
-};
-
-/** Conversion Card[] -> string[] */
-function serializeMelds(melds: Combination[]): FSCombination[] {
+/** Combination[] -> même objet mais cartes ⇢ string[] */
+function serializeMelds(melds: Combination[]): Combination[] {
   return melds.map((m) => ({
     ...m,
     cards: m.cards.map(cardToStr),
   }));
 }
-
 const strToCard = (s: string): Card => Card.fromCode(s);
 </script>
 

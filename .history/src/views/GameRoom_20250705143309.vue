@@ -347,7 +347,7 @@ import Draggable from "vuedraggable";
 import { generateShuffledDeck, distributeCards } from "@/game/BezigueGame";
 import draggable from "vuedraggable";
 import type { Suit } from "@/game/types/Card";
-import { Card } from "@/game/types/Card";
+import { Card, serializeMelds } from "@/game/types/Card";
 import PlayingCard from "@/components/PlayingCard.vue";
 import { detectCombinations } from "@/game/types/detectCombinations";
 import type { Combination } from "@/game/types/detectCombinations";
@@ -371,7 +371,7 @@ interface RoomDoc {
   trumpTaken: boolean;
   deck: string[];
   hands: Record<string, string[]>;
-  melds: Record<string, FSCombination[]>;
+  melds: Record<string, Combination[]>;
   canMeld: string | null;
   trick: { cards: string[]; players: string[] };
   scores: Record<string, number>;
@@ -934,7 +934,8 @@ async function endMene() {
     const fullDeck = generateShuffledDeck();
     const { hands, drawPile, trumpCard } = distributeCards(fullDeck);
 
-    const starter = d.players.find((u) => u !== d.currentTurn) ?? d.players[0];
+    const starter =
+      d.players.find((u) => u !== d.currentTurn) ?? d.players[0];
 
     /* -- 3. Sérialisation des mains avant écriture ----------------- */
     const handsObj: Record<string, Card[]> = {
@@ -969,6 +970,62 @@ async function endMene() {
   });
 }
 
+    /* 3. Préparer la nouvelle mène (même logique qu’avant) -------- */
+    const prevFirstRef = doc(
+      db,
+      "rooms",
+      roomId,
+      "menes",
+      String(d.currentMeneIndex)
+    );
+    const prevFirstSnap = await tx.get(prevFirstRef);
+    const prevStarter = prevFirstSnap.exists()
+      ? (prevFirstSnap.data() as any).firstPlayerUid
+      : d.players[0];
+
+    const nextStarter = d.players.find((u) => u !== prevStarter)!;
+
+    const nextMeneIndex = (d.currentMeneIndex ?? 0) + 1;
+    const fullDeck = generateShuffledDeck();
+    const distrib = distributeCards(fullDeck);
+
+    const hands: Record<string, string[]> = {
+      [nextStarter]: distrib.hands.player1,
+      [d.players.find((u) => u !== nextStarter)!]: distrib.hands.player2,
+    };
+
+    const handsToSave = serializeHands(hands); // hands: Record<string, Card[]>
+
+
+    /* 4. Update room */
+    tx.update(roomRef, {
+      phase: "play",
+      currentMeneIndex: nextMeneIndex,
+      currentTurn: nextStarter,
+      nextTurnUid: nextStarter,
+
+      deck: distrib.drawPile,
+      trumpCard: distrib.trumpCard,
+      trumpTaken: false,
+      handsToSave,
+      melds: {},
+      trick: { cards: [], players: [] },
+      canMeld: null,
+      drawQueue: [],
+      scores, // <-- scores avec +10 pts
+    });
+
+    /* 5. Doc mene/{n} */
+    tx.set(doc(db, "rooms", roomId, "menes", String(nextMeneIndex)), {
+      firstPlayerUid: nextStarter,
+      currentPliCards: [],
+      plies: [],
+      scores,
+      targetScore: target,
+    });
+  });
+}
+
 /* ────────────── UI helpers ───────────────────────────── */
 function deOuD(name: string): string {
   if (!name) return "de";
@@ -986,6 +1043,9 @@ function mergeMeldsIntoHand(d: RoomDoc, uid: string): string[] {
   /* filtre “> 2 exemplaires” puis coupe à 9 */
   return normalizeHand(merged).slice(0, 9);
 }
+
+
+
 
 /*────────────────────────────────────────────────────────────────────*/
 
@@ -1121,39 +1181,30 @@ async function playCard(cardStr: string) {
   });
 }
 
-/* ------------------------------------------------------------------ */
-/* 3. pushCardToTrick (une seule source d’écriture)                   */
-/* ------------------------------------------------------------------ */
-
+/* Helper commun : pousse la carte dans le pli, met à jour hand+melds */
 function pushCardToTrick(
   tx: Transaction,
   d: RoomDoc,
   cardStr: string,
   newHand: string[],
-  rawMelds: Combination[] = d.melds?.[myUid.value!] ?? []
+  newMelds: Combination[]
+    rawMelds?: Combination[]          // ← param. optionnel
+
 ) {
-  /* A. sécurité règles */
-  checkHandAndMeld(newHand, rawMelds);
+  const trick = { ...d.trick };
+  trick.cards.push(cardStr);
+  trick.players.push(myUid.value!);
 
-  /* B. construction du nouveau trick */
-  const trick = {
-    cards: [...d.trick.cards, cardStr],
-    players: [...d.trick.players, myUid.value!],
-  };
-
-  /* C. sérialisation AVANT écriture */
-  const meldsSerialized = serializeMelds(rawMelds);
-
+  /* A2. on sérialise avant envoi */
   const update: Record<string, any> = {
     [`hands.${myUid.value}`]: newHand,
-    [`melds.${myUid.value}`]: meldsSerialized,
+    [`melds.${myUid.value}`]: serializeMelds(newMelds),
     trick,
   };
+  checkHandAndMeld(newHand, newMelds);
 
-  /* D. passe la main si c’était la première carte du pli */
-  if (trick.cards.length === 1) {
+  if (trick.cards.length === 1)
     update.currentTurn = d.players.find((u) => u !== myUid.value);
-  }
 
   tx.update(roomRef, update);
 }
@@ -1499,19 +1550,13 @@ function serializeHands(
   return out;
 }
 
-/** Représentation “String only” stockée dans Firestore */
-export type FSCombination = Omit<Combination, "cards"> & {
-  cards: string[]; // <-- uniquement des codes "A♠" etc.
-};
-
-/** Conversion Card[] -> string[] */
-function serializeMelds(melds: Combination[]): FSCombination[] {
+/** Combination[] -> même objet mais cartes ⇢ string[] */
+function serializeMelds(melds: Combination[]): Combination[] {
   return melds.map((m) => ({
     ...m,
     cards: m.cards.map(cardToStr),
   }));
 }
-
 const strToCard = (s: string): Card => Card.fromCode(s);
 </script>
 

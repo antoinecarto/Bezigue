@@ -1,66 +1,13 @@
-/* detectCombinations.ts
-   ------------------------------------------------------------------ */
-import type { Card, Rank, Suit } from "./Card";
-
-/* ------------ Types retournés ------------------------------------- */
-export interface Combination {
-  name: string;
-  points: number;
-  cards: Card[];
-}
-
-/* ------------ Constantes utiles ---------------------------------- */
-const allSuits: Suit[] = ["♠", "♥", "♦", "♣"];
-const fourBaseScore: Record<Rank, number> = {
-  A: 100,
-  K: 80,
-  Q: 60,
-  J: 40,
-  "10": 0,
-  "9": 0,
-  "8": 0,
-  "7": 0,
-};
-
-/* ------------------------------------------------------------------ */
-/*  Gestion de l’utilisation des cartes                               */
-/* ------------------------------------------------------------------ */
-type UsageFlags = { marriage?: true; sequence?: true };
-type UsedMap = Map<string, UsageFlags>;
-
-const cardKey = (c: Card) => `${c.rank}${c.suit}`;
-
-const hasFlag = (used: UsedMap, c: Card, flag: keyof UsageFlags) =>
-  used.get(cardKey(c))?.[flag] === true;
-
-const addFlag = (used: UsedMap, cards: Card[], flag: keyof UsageFlags) => {
-  for (const c of cards) {
-    const k = cardKey(c);
-    const entry = used.get(k) ?? {};
-    entry[flag] = true;
-    used.set(k, entry);
-  }
-};
-
-/* → Enregistre les combinaisons déjà posées                           */
-const seedUsedMap = (used: UsedMap, existing: Combination[]) => {
-  for (const comb of existing) {
-    const flag = comb.name.startsWith("Mariage") ? "marriage" : "sequence";
-    addFlag(used, comb.cards, flag);
-  }
-};
-
 /* Utilitaires ---------------------------------------------------------------- */
 
+type UsedMap = Record<string /* "rank+suit" */, boolean>;
 const id = (c: Card) => `${c.rank}${c.suit}`;
 
 const isFree = (used: UsedMap, c: Card) => !used[id(c)];
 const mark = (used: UsedMap, cs: Card[]) =>
   cs.forEach((c) => (used[id(c)] = true));
 
-/* ------------------------------------------------------------------ */
-/*  Fonction principale                                               */
-/* ------------------------------------------------------------------ */
+/* Fonction principale -------------------------------------------------------- */
 export function detectCombinations(
   hand: Card[],
   meld: Card[],

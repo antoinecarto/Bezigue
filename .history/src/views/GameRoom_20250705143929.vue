@@ -347,7 +347,7 @@ import Draggable from "vuedraggable";
 import { generateShuffledDeck, distributeCards } from "@/game/BezigueGame";
 import draggable from "vuedraggable";
 import type { Suit } from "@/game/types/Card";
-import { Card } from "@/game/types/Card";
+import { Card, serializeMelds } from "@/game/types/Card";
 import PlayingCard from "@/components/PlayingCard.vue";
 import { detectCombinations } from "@/game/types/detectCombinations";
 import type { Combination } from "@/game/types/detectCombinations";
