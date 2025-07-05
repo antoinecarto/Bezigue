@@ -1253,13 +1253,13 @@ function resolveTrick(
     return r === "A"
       ? 14
       : r === "10"
-      ? 13
-      : r === "K"
-      ? 12
-      : r === "Q"
-      ? 11
-      : r === "J"
       ? 10
+      : r === "K"
+      ? 13
+      : r === "Q"
+      ? 12
+      : r === "J"
+      ? 11
       : parseInt(r);
   };
 

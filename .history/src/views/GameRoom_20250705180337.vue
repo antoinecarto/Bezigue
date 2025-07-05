@@ -151,11 +151,11 @@
           >
             <PlayingCard
               v-for="card in meld.cards"
-              :key="'meldcard-' + cardToStr(card)"
+              :key="'meldcard-' + card.id()"
               :code="cardToStr(card)"
               :width="60"
               :height="90"
-              @click="playCardFromMeld(card)"
+              @click="playCardFromMeld(card.id())"
             />
           </template>
         </div>
@@ -173,11 +173,11 @@
         >
           <template #item="{ element: card }">
             <PlayingCard
-              :code="card"
-              :key="cardToStr(card)"
+              :code="card.id()"
+              :key="card.id()"
               :width="60"
               :height="90"
-              @click="playCardFromHand(card)"
+              @click="playCardFromHand(card.id())"
             />
           </template>
         </draggable>
@@ -192,7 +192,7 @@
   </div>
   <!-- popup -->
   <div
-    v-if="showComboPopup"
+    v-if="showComboPopup && room?.phase === 'meld'"
     class="fixed inset-0 bg-black/50 flex items-center justify-center"
     @click.self="showComboPopup = false"
   >
@@ -815,75 +815,80 @@ const hasPromptedForThisTrick = ref(false); // évite de rouvrir 2×
 
 watchEffect(() => {
   const r = room.value;
-  if (!r || !myUid.value) return;
+  const uid = myUid.value;
+  if (!r || !uid) return;
 
-  /* reset en début de pli seulement */
-  if (r.phase === "play") {
+  // 1. Réinitialisation en début de pli
+  if (r.phase === "play" && r.trick.cards.length === 0) {
     hasPromptedForThisTrick.value = false;
     showExchange.value = false;
     return;
   }
 
-  /* si déjà affichée, on ne touche plus */
+  // 2. Conditions déjà rempli / popup déjà montrée
   if (showExchange.value || hasPromptedForThisTrick.value) return;
 
-  /* conditions d’ouverture */
-  const deckOk = (r.deck?.length ?? 0) > 0;
-  const rankCur = r.trumpCard.slice(0, -1);
-  const suit = r.trumpCard.slice(-1);
-  const cardOk = ["A", "K", "Q", "J", "10"].includes(rankCur);
-  const have7 = r.hands[myUid.value].includes("7" + suit);
-  const iWin =
-    (r.phase === "meld" && r.canMeld === myUid.value) ||
-    (r.phase === "draw" && r.drawQueue?.[0] === myUid.value);
+  // 3. Déclenchement UNIQUEMENT si le joueur a réellement la main
+  const iCanMeld = r.phase === "meld" && r.canMeld === uid;
+  const iMustDraw =
+    r.phase === "draw" &&
+    r.drawQueue?.[0] === uid &&
+    r.trick.cards.length === 0; // pli terminé
 
-  if (deckOk && cardOk && have7 && iWin) {
+  if (!iCanMeld && !iMustDraw) return;
+
+  // 4. Règles d’échange (talon, 7 d’atout, etc.)
+  const talonDisponible = r.deck.length > 0;
+  const rankShown = r.trumpCard.slice(0, -1);
+  const suit = r.trumpCard.slice(-1);
+  const exposable = ["A", "K", "Q", "J", "10"].includes(rankShown);
+  const have7 = r.hands[uid].includes("7" + suit);
+
+  if (talonDisponible && exposable && have7) {
     showExchange.value = true;
     hasPromptedForThisTrick.value = true;
   }
 });
 
-/* ─── Pioche vide → passage en “battle” + rapatriement meld ─── */
+/* ─── Talon vide : on déclenche la battle ─── */
 watchEffect(async () => {
   const r = room.value;
+  if (!r || r.phase === "battle" || r.phase === "finished") return;
 
-  if (!r || r.phase !== "draw") return; // on n’est pas en pioche
-  if (r.deck.length > 0) return; // il reste encore des cartes
+  /* talon encore plein → on sort */
+  if (r.deck.length) return;
+
+  /* on ne fait rien tant qu'il reste des cartes dans le pli courant */
+  if (r.trick.cards.length) return;
 
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(roomRef);
+    if (!snap.exists()) return;
     const d = snap.data() as RoomDoc;
 
-    if (r.phase === "battle") return; // déjà fait
-    /* re‑vérification serveur */
-    if (d.phase !== "draw" || d.deck.length) return;
+    /* sécurité : quelqu’un l’a peut‑être déjà fait */
+    if (d.phase === "battle" || d.deck.length) return;
 
-    /* ------------------------------------------------------------------
-       1. Rapatrier les cartes des melds dans la main de chaque joueur
-          – on applique votre helper `mergeMeldsIntoHand`
-          – on vide le champ `melds`
-    ------------------------------------------------------------------ */
-    const handsUpdate: Record<string, any> = {};
-    const emptyMelds: Record<string, any> = {};
-
-    d.players.forEach((uid) => {
-      const merged = mergeMeldsIntoHand(d, uid); // string[]
-      handsUpdate[`hands.${uid}`] = merged;
-      emptyMelds[`melds.${uid}`] = []; // ← on vide les melds
-    });
-
-    /* ------------------------------------------------------------------
-       2. On passe en phase “battle”
-          – le 1er joueur de drawQueue[1] démarre (cf. règle)
-    ------------------------------------------------------------------ */
-    tx.update(roomRef, {
+    const update: Record<string, any> = {
       phase: "battle",
-      currentTurn: d.drawQueue?.[1] ?? d.currentTurn,
+      canMeld: null, // plus de meld possible
       drawQueue: [], // plus de pioche
-      canMeld: null, // plus de meld
-      ...handsUpdate,
-      ...emptyMelds,
+    };
+
+    /* ----------------------------------------------------------------
+       1. on fusionne tous les melds de CHAQUE joueur dans sa main
+    ---------------------------------------------------------------- */
+    d.players.forEach((uid) => {
+      const mergedHand = [
+        ...d.hands[uid],
+        ...(d.melds[uid] ?? []).flatMap((m) => m.cards.map(cardToStr)),
+      ].slice(0, 18); // maximum théorique : 18 cartes (= 2×9)
+
+      update[`hands.${uid}`] = mergedHand;
+      update[`melds.${uid}`] = []; // melds vidés
     });
+
+    tx.update(roomRef, update);
   });
 });
 
