@@ -79,6 +79,6 @@ const exchangeTable = computed(() => game.room?.exchangeTable ?? {});
 }
 
 .center-cards {
-  padding-top: 60px; /* descend un peu la colonne */
+  padding-top: 30px; /* descend un peu la colonne */
 }
 </style>

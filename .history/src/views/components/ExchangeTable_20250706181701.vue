@@ -10,6 +10,12 @@
       <PlayingCard :code="cardCode" :width="70" :height="100" />
       <span class="text-sm mt-1">{{ playerNames[uid] ?? "Joueur" }}</span>
     </div>
+
+    <!-- carte d'atout fixe
+    <div class="ml-10 flex flex-col items-center">
+      <PlayingCard :code="trumpCard" :width="70" :height="100" />
+      <span class="text-sm mt-1">Atout</span>
+    </div>-->
   </div>
 </template>
 
@@ -22,18 +28,13 @@ const game = useGameStore();
 
 const exchangeTable = computed(() => game.room?.exchangeTable ?? {});
 const playerNames = computed(() => game.room?.playerNames ?? {});
+const trumpCard = computed(() => game.room?.trumpCard?.split("_")[0] ?? "back");
 </script>
 
 <style scoped>
 .exchange-table {
-  margin-top: 50px; /* ou une valeur plus grande selon l’espace souhaité */
-  margin-bottom: 20px;
-  margin-left: auto;
-  margin-right: auto;
-  max-width: 600px;
-  background: #0a4d0a;
+  background: #0a4d0a; /* tapis vert */
   padding: 10px 20px;
   border-radius: 8px;
-  box-sizing: border-box;
 }
 </style>

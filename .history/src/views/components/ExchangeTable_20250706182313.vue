@@ -22,11 +22,12 @@ const game = useGameStore();
 
 const exchangeTable = computed(() => game.room?.exchangeTable ?? {});
 const playerNames = computed(() => game.room?.playerNames ?? {});
+const trumpCard = computed(() => game.room?.trumpCard?.split("_")[0] ?? "back");
 </script>
 
 <style scoped>
 .exchange-table {
-  margin-top: 50px; /* ou une valeur plus grande selon l’espace souhaité */
+  margin-top: 200px; /* ou une valeur plus grande selon l’espace souhaité */
   margin-bottom: 20px;
   margin-left: auto;
   margin-right: auto;

@@ -40,7 +40,7 @@ function draw() {
   padding: 12px; /* espace intérieur autour de la carte */
   margin: 16px; /* espace extérieur pour ne pas coller aux autres éléments */
   box-sizing: border-box; /* inclure la bordure et padding dans la taille */
-  background-color: radial-gradient(circle at 30% 30%, #116d30 0%, #0c4f28 50%);
+  background-color: white; /* pour mieux faire ressortir */
   display: inline-block; /* ou block selon contexte */
 }
 </style>

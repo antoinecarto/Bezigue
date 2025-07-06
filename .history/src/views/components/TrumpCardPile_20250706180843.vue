@@ -14,7 +14,7 @@ function draw() {
 </script>
 
 <template>
-  <div class="trump-card flex flex-col items-center">
+  <div class="flex flex-col items-center" .trump-card>
     <PlayingCard
       :code="trump"
       v-if="trump"
@@ -35,12 +35,8 @@ function draw() {
 
 <style>
 .trump-card {
-  border: 6px solid black; /* cadre large noir */
+  border: 6px solid black; /* large bordure noire */
   border-radius: 8px; /* coins arrondis, optionnel */
-  padding: 12px; /* espace intérieur autour de la carte */
-  margin: 16px; /* espace extérieur pour ne pas coller aux autres éléments */
-  box-sizing: border-box; /* inclure la bordure et padding dans la taille */
-  background-color: radial-gradient(circle at 30% 30%, #116d30 0%, #0c4f28 50%);
-  display: inline-block; /* ou block selon contexte */
+  box-sizing: border-box; /* inclure la bordure dans la taille */
 }
 </style>

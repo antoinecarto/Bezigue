@@ -22,6 +22,7 @@ const game = useGameStore();
 
 const exchangeTable = computed(() => game.room?.exchangeTable ?? {});
 const playerNames = computed(() => game.room?.playerNames ?? {});
+const trumpCard = computed(() => game.room?.trumpCard?.split("_")[0] ?? "back");
 </script>
 
 <style scoped>
