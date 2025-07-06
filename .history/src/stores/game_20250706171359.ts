@@ -352,7 +352,5 @@ export const useGameStore = defineStore("game", () => {
     confirmExchange,
     cancelExchange,
     maybeStartGame,
-    addToMeld,
-    getMeld,
   };
 });

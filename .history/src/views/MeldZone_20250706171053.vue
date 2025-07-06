@@ -33,34 +33,13 @@ function onChange(evt: any) {
     :group="{ name: 'cards', pull: false, put: true }"
     :disabled="props.isOpponent"
     item-key="code"
-    class="meld-zone flex gap-2 flex-wrap border-2 border-dashed p-2 rounded-md relative"
+    class="flex gap-2 flex-wrap border-2 border-dashed p-2 rounded-md"
     @change="onChange"
   >
     <template #item="{ element }">
       <PlayingCard :code="element" :width="60" :height="90" />
     </template>
-
-    <!-- Message quand meld est vide -->
-    <div
-      v-if="meld.length === 0"
-      class="empty-message absolute inset-0 flex items-center justify-center pointer-events-none"
-    >
-      Combinaisons
-    </div>
   </draggable>
+
+  <p v-if="meld.length === 0" class="text-xs text-gray-400 mt-1">Aucune</p>
 </template>
-
-<style scoped>
-.meld-zone {
-  min-height: 90px; /* hauteur au moins égale à la hauteur de la carte */
-  background-color: #0b5e1e; /* couleur tapis vert foncé */
-  color: white;
-  position: relative;
-}
-
-.empty-message {
-  font-size: 1rem;
-  font-weight: bold;
-  user-select: none;
-}
-</style>
