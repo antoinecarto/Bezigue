@@ -48,7 +48,7 @@ import {
 import { db } from "@/services/firebase";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { generateShuffledDeck, distributeCards } from "@/game/BezigueGame";
-import NameModal from "@/views/components/NameModal.vue";
+import NameModal from "@/components/NameModal.vue";
 
 /* ───────── état réactif ───────── */
 const rooms = ref<any[]>([]);

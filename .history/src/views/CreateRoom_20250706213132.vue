@@ -42,7 +42,7 @@ import {
 import { db } from "@/services/firebase";
 import { generateShuffledDeck, distributeCards } from "@/game/BezigueGame";
 import { arrayToStr } from "@/game/serializers";
-import NameModal from "@/views/components/NameModal.vue";
+import NameModal from "@/components/NameModal.vue";
 import { useGameStore } from "@/stores/game.ts";
 
 const game = useGameStore();

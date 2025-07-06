@@ -6,7 +6,6 @@
     class="player-hand"
     :group="{ name: 'cards' }"
     @end="onEnd"
-    :disabled="!isMyTurn"
   >
     <!-- element = string "A♠_1"  -->
     <template #item="{ element }">
@@ -51,7 +50,6 @@ watch(
 const cardKey = (c: string) => c;
 
 const showNotYourTurn = ref(false);
-const playing = ref(false);
 
 // Calcul du tour du joueur
 const isMyTurn = computed(() => currentTurn.value === myUid.value);
@@ -61,21 +59,17 @@ function onEnd() {
 }
 
 function onCardClick(code: string) {
+  if (!code) return;
+
   if (!isMyTurn.value) {
     showNotYourTurn.value = true;
     return;
   }
-  if (playing.value) return; // déjà une carte en cours
 
-  // enlève immédiatement du hand local
-  const idx = hand.value.indexOf(code);
-  if (idx !== -1) hand.value.splice(idx, 1);
-
-  game.playCard(code).catch((err) => {
-    // si la TX échoue, on remet la carte
-    hand.value.splice(idx, 0, code);
-    console.error(err);
-  });
+  console.log("clic:", code);
+  game.playCard(code);
+  console.log("hand local =", hand.value);
+  console.log("carte cliquée =", code);
 }
 </script>
 
@@ -101,11 +95,5 @@ function onCardClick(code: string) {
   padding: 1em 2em;
   z-index: 100;
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
-}
-
-.disabled {
-  opacity: 0.5;
-  pointer-events: none; /* pour que le clic ne passe pas */
-  cursor: not-allowed;
 }
 </style>

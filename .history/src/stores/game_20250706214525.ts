@@ -144,7 +144,6 @@ export const useGameStore = defineStore("game", () => {
 
         const cards = [...(d.trick.cards ?? []), serverCard];
         const players = [...(d.trick.players ?? []), uid];
-        const opponent = d.players.find((p: string) => p !== uid);
 
         const update: Record<string, any> = {
           [`hands.${uid}`]: srvHand,
@@ -152,40 +151,15 @@ export const useGameStore = defineStore("game", () => {
           exchangeTable: { ...(d.exchangeTable ?? {}), [uid]: serverCard },
         };
 
-        /* ---- Si 1 carte : on passe simplement la main à l'adversaire ---- */
-        if (cards.length === 1 && opponent) {
-          update.currentTurn = opponent;
-        }
-
         if (cards.length === 2) {
           const leadSuit = splitCode(cards[0]).suit;
           const winner =
             compareCards(cards[0], cards[1], d.trumpSuit as Suit, leadSuit) >= 0
               ? players[0]
               : players[1];
-          const loser = players.find((p) => p !== winner);
-
-          update.currentTurn = winner; // le gagnant garde la main
+          update.currentTurn = winner;
           update.trick = { cards: [], players: [] };
-          update.exchangeTable = {}; // reset table échange
-
-          let deckRest = d.deck ?? [];
-
-          const giveCard = (who: string, currentHand: string[]) => {
-            const meldCount = d.melds?.[who]?.length ?? 0;
-            const total = currentHand.length + meldCount; // hand + meld
-            if (total < 9 && deckRest.length) {
-              const drawn = deckRest[0];
-              deckRest = deckRest.slice(1);
-              update[`hands.${who}`] = [...currentHand, drawn];
-            }
-          };
-
-          // main déjà modifiée pour winner (srvHand) — on récupère la main actuelle
-          giveCard(winner, srvHand);
-          if (loser) giveCard(loser, d.hands[loser] ?? []);
-
-          update.deck = deckRest;
+          update.exchangeTable = {}; // clear table for next trick
         }
 
         tx.update(roomRef, update);
