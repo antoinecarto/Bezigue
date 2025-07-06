@@ -1,4 +1,5 @@
 import type { Suit } from "@/game/models/Card";
+import type { Combination } from "@/core/rules/detectCombinations";
 import { ref } from "vue";
 
 export interface RoomDoc {

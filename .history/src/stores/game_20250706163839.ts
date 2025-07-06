@@ -27,7 +27,6 @@ export const useGameStore = defineStore("game", () => {
   const drawInProgress = ref(false);
 
   /* ──────────── getters ─────────── */
-
   function getMeldArea(uid: string) {
     return computed(() => melds.value[uid] ?? []);
   }
@@ -215,44 +214,30 @@ export const useGameStore = defineStore("game", () => {
   }
 
   /* ───────── dropToMeld ───────── */
-  async function dropToMeld(code: string) {
-    if (!room.value || !myUid.value) return;
+  async function dropToMeld(code: string, uid: string) {
+    if (uid !== myUid.value) {
+      // On peut choisir de ne rien faire côté client si c'est l'adversaire,
+      // ou bien autoriser mais la synchro doit venir de Firestore
+      return;
+    }
 
-    const uid = myUid.value;
-    const roomRef = doc(db, "rooms", room.value.id);
-
-    // ► Mise à jour locale
     const idx = hand.value.indexOf(code);
-    if (idx === -1) return; // la carte n’est pas en main
-    hand.value.splice(idx, 1);
+    if (idx === -1) return;
 
+    hand.value.splice(idx, 1);
     melds.value[uid] = melds.value[uid] ?? [];
     melds.value[uid].push(code);
 
-    // ► Persistance Firestore
-    try {
-      await runTransaction(db, async (tx) => {
-        const snap = await tx.get(roomRef);
-        if (!snap.exists()) throw new Error("Room not found");
+    // Détecter la meilleure combinaison
+    const [best] = detectCombinations(
+      melds.value[uid].map(Card.fromCode),
+      [],
+      trumpSuit.value
+    );
 
-        const d = snap.data() as RoomDoc;
-        const serverHand = [...(d.hands?.[uid] ?? [])];
-        const pos = serverHand.indexOf(code);
-        if (pos === -1) throw new Error("Card not in hand (server)");
+    console.log("Best combination found:", best);
 
-        serverHand.splice(pos, 1);
-
-        const serverMelds = (d.melds?.[uid] ?? []).slice();
-        serverMelds.push(code);
-
-        tx.update(roomRef, {
-          [`hands.${uid}`]: serverHand,
-          [`melds.${uid}`]: serverMelds,
-        });
-      });
-    } catch (e) {
-      console.error("Firestore meld update failed:", e);
-    }
+    // TODO : écrire dans Firestore pour synchroniser
   }
 
   // Au démarrage :

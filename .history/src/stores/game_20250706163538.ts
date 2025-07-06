@@ -27,10 +27,7 @@ export const useGameStore = defineStore("game", () => {
   const drawInProgress = ref(false);
 
   /* ──────────── getters ─────────── */
-
-  function getMeldArea(uid: string) {
-    return computed(() => melds.value[uid] ?? []);
-  }
+  const meldArea = computed(() => meld.value);
   const trumpSuit = computed(() => room.value?.trumpCard.slice(-1) ?? "");
   const canDraw = computed(() => {
     const r = room.value;
@@ -75,10 +72,6 @@ export const useGameStore = defineStore("game", () => {
   // ------------------------------------------------------------------
   // ACTIONS
   // ------------------------------------------------------------------
-
-  function updateMeldArea(uid: string, cards: string[]) {
-    melds.value[uid] = [...cards];
-  }
   async function setTargetScore(value: number) {
     if (!room.value) return;
     if (room.value.phase !== "waiting") return;
@@ -216,45 +209,23 @@ export const useGameStore = defineStore("game", () => {
 
   /* ───────── dropToMeld ───────── */
   async function dropToMeld(code: string) {
-    if (!room.value || !myUid.value) return;
-
-    const uid = myUid.value;
-    const roomRef = doc(db, "rooms", room.value.id);
-
-    // ► Mise à jour locale
+    /* 1. Retire la carte de la main et l’ajoute au meld local */
     const idx = hand.value.indexOf(code);
-    if (idx === -1) return; // la carte n’est pas en main
+    if (idx === -1) return; // rien à faire si la carte n’est pas en main
+
     hand.value.splice(idx, 1);
+    meld.value.push(code);
 
-    melds.value[uid] = melds.value[uid] ?? [];
-    melds.value[uid].push(code);
+    /* 2. Détecte la (meilleure) combinaison obtenue */
+    const [best] = detectCombinations(
+      meld.value.map(Card.fromCode),
+      [], // cartes déjà meldées si tu en gardes la trace
+      trumpSuit.value
+    );
 
-    // ► Persistance Firestore
-    try {
-      await runTransaction(db, async (tx) => {
-        const snap = await tx.get(roomRef);
-        if (!snap.exists()) throw new Error("Room not found");
-
-        const d = snap.data() as RoomDoc;
-        const serverHand = [...(d.hands?.[uid] ?? [])];
-        const pos = serverHand.indexOf(code);
-        if (pos === -1) throw new Error("Card not in hand (server)");
-
-        serverHand.splice(pos, 1);
-
-        const serverMelds = (d.melds?.[uid] ?? []).slice();
-        serverMelds.push(code);
-
-        tx.update(roomRef, {
-          [`hands.${uid}`]: serverHand,
-          [`melds.${uid}`]: serverMelds,
-        });
-      });
-    } catch (e) {
-      console.error("Firestore meld update failed:", e);
-    }
+    // TODO : persister la combinaison et comptabiliser le score
+    console.log("Best combination found:", best);
   }
-
   // Au démarrage :
   function maybeStartGame(tx: Transaction, d: RoomDoc, roomId: string) {
     if (d.phase !== "waiting") return;
@@ -297,20 +268,19 @@ export const useGameStore = defineStore("game", () => {
     room,
     myUid,
     hand,
+    meld,
     loading,
-    melds,
 
     // getters
+    meldArea,
     trumpSuit,
     canDraw,
 
     // actions
-    getMeldArea,
-    updateMeldArea,
-    dropToMeld,
     joinRoom,
     updateHand,
     playCard,
+    dropToMeld,
     setTargetScore,
     drawCard,
     confirmExchange,

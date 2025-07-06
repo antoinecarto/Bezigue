@@ -14,7 +14,6 @@ import { useGameStore } from "@/stores/game.ts";
 import PlayerHand from "@/views/PlayerHand.vue";
 import MeldZone from "@/views/MeldZone.vue";
 import CenterBoard from "@/views/components/CenterBoard.vue";
-import GameChat from "./GameChat.vue";
 
 const route = useRoute();
 const game = useGameStore();
@@ -43,6 +42,9 @@ onMounted(() => {
   </section>
 
   <div v-else class="grid gap-4">
+    <!-- Main de l'adversaire (cartes dos) -->
+    <OpponentHand />
+
     <!-- Zone des combinaisons / dépôt de l'adversaire -->
     <MeldZone :isOpponent="true" />
 
@@ -54,7 +56,6 @@ onMounted(() => {
 
     <!-- Main du joueur (draggable + sortable) -->
     <PlayerHand />
-    <GameChat class="mt-4" />
   </div>
 </template>
 

@@ -12,9 +12,9 @@ import { getAuth, onAuthStateChanged } from "firebase/auth";
 
 import { useGameStore } from "@/stores/game.ts";
 import PlayerHand from "@/views/PlayerHand.vue";
+import OpponentHand from "./OpponentHand.vue";
 import MeldZone from "@/views/MeldZone.vue";
 import CenterBoard from "@/views/components/CenterBoard.vue";
-import GameChat from "./GameChat.vue";
 
 const route = useRoute();
 const game = useGameStore();
@@ -54,7 +54,6 @@ onMounted(() => {
 
     <!-- Main du joueur (draggable + sortable) -->
     <PlayerHand />
-    <GameChat class="mt-4" />
   </div>
 </template>
 

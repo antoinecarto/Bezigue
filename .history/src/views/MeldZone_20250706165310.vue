@@ -37,8 +37,17 @@ function onEnd() {
     <!-- ⚠️ utilise :list au lieu de v-model si tu ne veux pas que draggable modifie directement -->
     <draggable
       v-model="meldArea"
-      :group="{ name: 'cards', pull: true, put: false }"
+      :group="{ name: 'cards', pull: 'clone', put: true }"
       :disabled="props.isOpponent"
+      <!--
+      false
+      pour
+      le
+      joueur
+      ➜
+      drop
+      autorisé
+      --
     >
       item-key="code"
       <!-- clé unique si tu en as une -->

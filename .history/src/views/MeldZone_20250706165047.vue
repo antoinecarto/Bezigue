@@ -36,13 +36,12 @@ function onEnd() {
   <div class="meld-zone">
     <!-- ⚠️ utilise :list au lieu de v-model si tu ne veux pas que draggable modifie directement -->
     <draggable
-      v-model="meldArea"
-      :group="{ name: 'cards', pull: true, put: false }"
+      :list="meldArea"
+      group="cards"
       :disabled="props.isOpponent"
+      class="flex gap-2 flex-wrap"
+      @end="onEnd"
     >
-      item-key="code"
-      <!-- clé unique si tu en as une -->
-      class="flex gap-2 flex-wrap" @end="onEnd" >
       <template #item="{ element }">
         <PlayingCard :code="element" :width="60" :height="90" />
       </template>

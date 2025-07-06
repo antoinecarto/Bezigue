@@ -1,4 +1,5 @@
 import type { Suit } from "@/game/models/Card";
+import type { Combination } from "@/core/rules/detectCombinations";
 import { ref } from "vue";
 
 export interface RoomDoc {
@@ -15,6 +16,8 @@ export interface RoomDoc {
   trick: { cards: string[]; players: string[] };
   trumpSuit: Suit;
   exchangeTable: Record<string, string>;
+ 
+}
 }
 
 // type local qui inclut l’id

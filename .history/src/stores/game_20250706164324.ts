@@ -27,7 +27,6 @@ export const useGameStore = defineStore("game", () => {
   const drawInProgress = ref(false);
 
   /* ──────────── getters ─────────── */
-
   function getMeldArea(uid: string) {
     return computed(() => melds.value[uid] ?? []);
   }
