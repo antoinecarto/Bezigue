@@ -249,10 +249,10 @@ export const useGameStore = defineStore("game", () => {
     trumpSuit,
     canDraw,
     currentTurn,
+    getMeldArea,
     getExchange,
 
     // actions
-    getMeldArea,
     updateHand,
     addToMeld,
     playCard,
