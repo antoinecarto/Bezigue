@@ -168,11 +168,6 @@ export const useGameStore = defineStore("game", () => {
     });
   }
 
-  /** Retourne "d'" ou "de " selon la première lettre */
-  function deOuD(name: string): string {
-    return /^[aeiouyàâäéèëêïîôöùûüh]/i.test(name.trim()) ? "d'" : "de ";
-  }
-
   /* ---------- joinRoom ---------- */
   function joinRoom(roomId: string, uid: string) {
     myUid.value = uid;
@@ -205,7 +200,5 @@ export const useGameStore = defineStore("game", () => {
     dropToMeld,
     playCard,
     joinRoom,
-    deOuD,
-    getMeld,
   };
 });

@@ -206,6 +206,5 @@ export const useGameStore = defineStore("game", () => {
     playCard,
     joinRoom,
     deOuD,
-    getMeld,
   };
 });

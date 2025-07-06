@@ -126,7 +126,7 @@ export const useGameStore = defineStore("game", () => {
   async function playCard(code: string) {
     if (!room.value || room.value.phase !== "play" || !myUid.value) return;
     const uid = myUid.value;
-    if (room.value.currentTurn !== uid) return; // pas ton tour
+    if (room.value.currentTurnUid !== uid) return; // pas ton tour
 
     const roomRef = doc(db, "rooms", room.value.id);
 
@@ -160,17 +160,12 @@ export const useGameStore = defineStore("game", () => {
           leadSuit
         );
         const winnerUid = cmp >= 0 ? players[0] : players[1];
-        update.currentTurn = winnerUid; // garde la main
+        update.currentTurnUid = winnerUid; // garde la main
         update.trick = { cards: [], players: [] }; // reset pli
       }
 
       tx.update(roomRef, update);
     });
-  }
-
-  /** Retourne "d'" ou "de " selon la première lettre */
-  function deOuD(name: string): string {
-    return /^[aeiouyàâäéèëêïîôöùûüh]/i.test(name.trim()) ? "d'" : "de ";
   }
 
   /* ---------- joinRoom ---------- */
@@ -205,7 +200,5 @@ export const useGameStore = defineStore("game", () => {
     dropToMeld,
     playCard,
     joinRoom,
-    deOuD,
-    getMeld,
   };
 });
