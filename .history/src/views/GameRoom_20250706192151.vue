@@ -6,7 +6,7 @@
     les sous‑vues : MeldZone, PlayerHand, TrickZone (à ajouter si besoin).
 -->
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed } from "vue";
+import { onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 
@@ -18,31 +18,6 @@ import GameChat from "./GameChat.vue";
 
 const route = useRoute();
 const game = useGameStore();
-const myUid = computed(() => game.myUid);
-const room = computed(() => game.room);
-
-const opponentUid = computed(() => {
-  if (!room.value || !myUid.value) return null;
-  return (
-    Object.keys(room.value.playerNames).find((uid) => uid !== myUid.value) ??
-    null
-  );
-});
-
-const opponentName = computed(() => {
-  if (!room.value || !opponentUid.value) return "Adversaire";
-  return room.value.playerNames[opponentUid.value] ?? "Adversaire";
-});
-
-const isOpponentTurn = computed(() => {
-  if (!room.value || !myUid.value || !room.value.currentTurnUid) return false;
-  return room.value.currentTurnUid === opponentUid.value;
-});
-
-/* libellé complet */
-const mainOpponentLabel = computed(
-  () => `${game.deOuD(opponentName.value)}${opponentName.value}`
-);
 
 let unsubscribeRoom: (() => void) | null = null;
 
@@ -79,7 +54,7 @@ onMounted(() => {
         }"
         class="font-semibold"
       >
-        Main {{ mainOpponentLabel }}
+        Main de {{ opponentName }}
       </div>
     </div>
 

@@ -6,9 +6,10 @@
     les sous‑vues : MeldZone, PlayerHand, TrickZone (à ajouter si besoin).
 -->
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed } from "vue";
+import { onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { computed } from "vue";
 
 import { useGameStore } from "@/stores/game.ts";
 import PlayerHand from "@/views/PlayerHand.vue";
@@ -38,11 +39,6 @@ const isOpponentTurn = computed(() => {
   if (!room.value || !myUid.value || !room.value.currentTurnUid) return false;
   return room.value.currentTurnUid === opponentUid.value;
 });
-
-/* libellé complet */
-const mainOpponentLabel = computed(
-  () => `${game.deOuD(opponentName.value)}${opponentName.value}`
-);
 
 let unsubscribeRoom: (() => void) | null = null;
 
@@ -79,7 +75,7 @@ onMounted(() => {
         }"
         class="font-semibold"
       >
-        Main {{ mainOpponentLabel }}
+        Main de {{ opponentName }}
       </div>
     </div>
 

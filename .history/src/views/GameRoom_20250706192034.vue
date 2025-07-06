@@ -6,7 +6,7 @@
     les sous‑vues : MeldZone, PlayerHand, TrickZone (à ajouter si besoin).
 -->
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed } from "vue";
+import { onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 
@@ -18,31 +18,6 @@ import GameChat from "./GameChat.vue";
 
 const route = useRoute();
 const game = useGameStore();
-const myUid = computed(() => game.myUid);
-const room = computed(() => game.room);
-
-const opponentUid = computed(() => {
-  if (!room.value || !myUid.value) return null;
-  return (
-    Object.keys(room.value.playerNames).find((uid) => uid !== myUid.value) ??
-    null
-  );
-});
-
-const opponentName = computed(() => {
-  if (!room.value || !opponentUid.value) return "Adversaire";
-  return room.value.playerNames[opponentUid.value] ?? "Adversaire";
-});
-
-const isOpponentTurn = computed(() => {
-  if (!room.value || !myUid.value || !room.value.currentTurnUid) return false;
-  return room.value.currentTurnUid === opponentUid.value;
-});
-
-/* libellé complet */
-const mainOpponentLabel = computed(
-  () => `${game.deOuD(opponentName.value)}${opponentName.value}`
-);
 
 let unsubscribeRoom: (() => void) | null = null;
 
@@ -66,8 +41,6 @@ onMounted(() => {
   <section v-if="game.loading" class="flex items-center justify-center h-full">
     Chargement…
   </section>
-
-  <div v-else class="grid gap-4 min-h-[600px]">
     <!-- *** ZONE STATUT MAIN DE L'ADVERSAIRE EN HAUT *** -->
     <div
       class="hand-status-top flex justify-end px-8 py-2 border-b border-gray-600"
@@ -79,10 +52,10 @@ onMounted(() => {
         }"
         class="font-semibold"
       >
-        Main {{ mainOpponentLabel }}
+        Main de {{ opponentName }}
       </div>
-    </div>
 
+  <div v-else class="grid gap-4">
     <!-- Zone des combinaisons / dépôt de l'adversaire -->
     <MeldZone :meld="player2Melds" :isOpponent="true" />
 
@@ -94,26 +67,10 @@ onMounted(() => {
 
     <!-- Main du joueur (draggable + sortable) -->
     <PlayerHand />
-
-    <!-- *** ZONE STATUT DE VOTRE MAIN EN BAS *** -->
-    <div
-      class="hand-status-bottom flex justify-start px-8 py-4 border-t border-gray-600 mt-6"
-    >
-      <div class="text-white font-semibold">Votre main</div>
-    </div>
-
     <GameChat class="mt-4" />
   </div>
 </template>
 
 <style scoped>
-.hand-status-top {
-  background: #1a1a1a; /* fond sombre */
-  border-radius: 0 0 8px 8px;
-}
-
-.hand-status-bottom {
-  background: #1a1a1a; /* fond sombre */
-  border-radius: 8px 8px 0 0;
-}
+/* Pas de règles spécifiques ici ; la mise en page se fait dans les sous‑vues. */
 </style>

@@ -39,11 +39,6 @@ const isOpponentTurn = computed(() => {
   return room.value.currentTurnUid === opponentUid.value;
 });
 
-/* libellé complet */
-const mainOpponentLabel = computed(
-  () => `${game.deOuD(opponentName.value)}${opponentName.value}`
-);
-
 let unsubscribeRoom: (() => void) | null = null;
 
 onMounted(() => {
@@ -79,7 +74,7 @@ onMounted(() => {
         }"
         class="font-semibold"
       >
-        Main {{ mainOpponentLabel }}
+        Main de {{ opponentName }}
       </div>
     </div>
 

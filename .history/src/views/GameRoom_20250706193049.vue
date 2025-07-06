@@ -79,7 +79,7 @@ onMounted(() => {
         }"
         class="font-semibold"
       >
-        Main {{ mainOpponentLabel }}
+        Main de {{ mainOpponentLabel }}
       </div>
     </div>
 
