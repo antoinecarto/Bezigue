@@ -96,9 +96,7 @@ onMounted(() => {
     <PlayerHand />
 
     <!-- *** ZONE STATUT DE VOTRE MAIN EN BAS *** -->
-    <div
-      class="hand-status-bottom flex justify-start px-8 py-4 border-t border-gray-600 mt-6"
-    >
+    <div class="hand-status-bottom flex justify-start px-8 py-4 border-t mt-6">
       <div
         :class="{
           'text-green-500': !isOpponentTurn,
@@ -116,8 +114,12 @@ onMounted(() => {
 
 <style scoped>
 .hand-status-top {
+  background: #1a1a1a; /* fond sombre */
+  border-radius: 0 0 8px 8px;
 }
 
 .hand-status-bottom {
+  background: #1a1a1a; /* fond sombre */
+  border-radius: 8px 8px 0 0;
 }
 </style>

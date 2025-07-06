@@ -116,8 +116,10 @@ onMounted(() => {
 
 <style scoped>
 .hand-status-top {
+  border-radius: 0 0 8px 8px;
 }
 
 .hand-status-bottom {
+  border-radius: 8px 8px 0 0;
 }
 </style>

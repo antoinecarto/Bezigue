@@ -99,15 +99,7 @@ onMounted(() => {
     <div
       class="hand-status-bottom flex justify-start px-8 py-4 border-t border-gray-600 mt-6"
     >
-      <div
-        :class="{
-          'text-green-500': !isOpponentTurn,
-          'text-red-500': isOpponentTurn,
-        }"
-        class="font-semibold"
-      >
-        Votre main
-      </div>
+      <div class="text-white font-semibold">Votre main</div>
     </div>
 
     <GameChat class="mt-4" />
@@ -116,8 +108,12 @@ onMounted(() => {
 
 <style scoped>
 .hand-status-top {
+  background: #1a1a1a; /* fond sombre */
+  border-radius: 0 0 8px 8px;
 }
 
 .hand-status-bottom {
+  background: #1a1a1a; /* fond sombre */
+  border-radius: 8px 8px 0 0;
 }
 </style>

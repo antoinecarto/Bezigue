@@ -101,8 +101,8 @@ onMounted(() => {
     >
       <div
         :class="{
-          'text-green-500': !isOpponentTurn,
-          'text-red-500': isOpponentTurn,
+          'text-green-500': isOpponentTurn,
+          'text-red-500': !isOpponentTurn,
         }"
         class="font-semibold"
       >
@@ -116,8 +116,12 @@ onMounted(() => {
 
 <style scoped>
 .hand-status-top {
+  background: #1a1a1a; /* fond sombre */
+  border-radius: 0 0 8px 8px;
 }
 
 .hand-status-bottom {
+  background: #1a1a1a; /* fond sombre */
+  border-radius: 8px 8px 0 0;
 }
 </style>
