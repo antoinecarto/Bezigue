@@ -136,13 +136,9 @@ export const useGameStore = defineStore("game", () => {
     await addToMeld(myUid.value, code);
   }
 
-  // ──────────── joinRoom (garde la logique précédente) ────────────
-  function joinRoom(roomId: string, uid: string) {
-    myUid.value = uid;
-    return _subscribeRoom(roomId); // unsubscribe retourné
-  }
-
   // autres actions (drawCard, playCard, etc.) restent inchangées
+  /* ... tu peux insérer ici les fonctions drawCard, playCard, etc. ... */
+
   /* ──────────── expose ──────────── */
   return {
     // state
@@ -162,7 +158,6 @@ export const useGameStore = defineStore("game", () => {
     addToMeld,
     updateMeldArea,
     dropToMeld,
-    joinRoom,
-    _subscribeRoom,
+    _subscribeRoom, // à utiliser via joinRoom
   };
 });

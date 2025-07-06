@@ -1,17 +1,9 @@
 // src/stores/game.ts
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
-import {
-  doc,
-  onSnapshot,
-  runTransaction,
-  updateDoc,
-  Transaction,
-} from "firebase/firestore";
+import { doc, onSnapshot, runTransaction } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import type { RoomDoc, RoomState } from "@/types/firestore";
-import type { Suit } from "@/game/models/Card";
-import { distributeCards, generateShuffledDeck } from "@/game/BezigueGame";
 
 export const useGameStore = defineStore("game", () => {
   /* ──────────── state ──────────── */
@@ -136,13 +128,9 @@ export const useGameStore = defineStore("game", () => {
     await addToMeld(myUid.value, code);
   }
 
-  // ──────────── joinRoom (garde la logique précédente) ────────────
-  function joinRoom(roomId: string, uid: string) {
-    myUid.value = uid;
-    return _subscribeRoom(roomId); // unsubscribe retourné
-  }
-
   // autres actions (drawCard, playCard, etc.) restent inchangées
+  /* ... tu peux insérer ici les fonctions drawCard, playCard, etc. ... */
+
   /* ──────────── expose ──────────── */
   return {
     // state
@@ -162,7 +150,6 @@ export const useGameStore = defineStore("game", () => {
     addToMeld,
     updateMeldArea,
     dropToMeld,
-    joinRoom,
-    _subscribeRoom,
+    _subscribeRoom, // à utiliser via joinRoom
   };
 });

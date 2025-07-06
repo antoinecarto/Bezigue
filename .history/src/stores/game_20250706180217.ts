@@ -15,12 +15,12 @@ import { distributeCards, generateShuffledDeck } from "@/game/BezigueGame";
 
 export const useGameStore = defineStore("game", () => {
   /* ──────────── state ──────────── */
-  const room = ref<RoomState | null>(null);
-  const myUid = ref<string | null>(null);
-  const hand = ref<string[]>([]);
-  const melds = ref<Record<string, string[]>>({});
-  const loading = ref(true);
-  const showExchange = ref(false);
+  const room   = ref<RoomState | null>(null);
+  const myUid  = ref<string | null>(null);
+  const hand   = ref<string[]>([]);
+  const melds  = ref<Record<string, string[]>>({});
+  const loading        = ref(true);
+  const showExchange   = ref(false);
   const drawInProgress = ref(false);
 
   /* ──────────── getters ──────────── */
@@ -163,6 +163,4 @@ export const useGameStore = defineStore("game", () => {
     updateMeldArea,
     dropToMeld,
     joinRoom,
-    _subscribeRoom,
-  };
-});
+    _subscribeRoom, // à utiliser via joinRoom
