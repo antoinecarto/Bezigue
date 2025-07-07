@@ -134,55 +134,48 @@ export const useGameStore = defineStore("game", () => {
         const card = deck.shift()!;
         const newHand = [...(d.hands[myUid.value] ?? []), card];
         const newQueue = d.drawQueue.slice(1);
-        //
-        /* drawCard ------------------------------------------------------------ */
+
         const update: Record<string, any> = {
           deck,
           [`hands.${myUid.value}`]: newHand,
           drawQueue: newQueue,
         };
-        if (!newQueue.length) {
-          update.phase = "play";
-          update.currentTurn = d.currentTurn; // ↩︎ force le tour correct
-        }
+        if (!newQueue.length) update.phase = "play";
         tx.update(roomRef, update);
-
-        // mise à jour optimiste localement
-        hand.value = [...newHand];
       });
     } finally {
       drawInProgress.value = false;
     }
   }
   //
-  async function playCard(code: string) {
+async function playCard(code: string) {
     if (
       playing.value ||
       !room.value ||
-      room.value.phase !== "play" ||
-      !myUid.value
+      room.value.phase !== 'play' ||
+      !myUid.value,
     )
       return;
     if (room.value.currentTurn !== myUid.value) return;
 
-    const roomRef = doc(db, "rooms", room.value.id);
+    const roomRef = doc(db, 'rooms', room.value.id);
     playing.value = true;
     try {
-      await runTransaction(db, async (tx) => {
+      await runTransaction(db, async tx => {
         const snap = await tx.get(roomRef);
-        if (!snap.exists()) throw new Error("Room missing");
+        if (!snap.exists()) throw new Error('Room missing');
         const d = snap.data() as RoomDoc;
-        if ((d.trick.cards?.length ?? 0) >= 2) throw new Error("Trick full");
+        if ((d.trick.cards?.length ?? 0) >= 2) throw new Error('Trick full');
 
         // — supprime la carte de la main serveur —
         const srvHand = [...(d.hands[myUid.value] ?? [])];
         const idx = srvHand.indexOf(code);
-        if (idx === -1) throw new Error("Card not in hand server");
+        if (idx === -1) throw new Error('Card not in hand server');
         srvHand.splice(idx, 1);
 
         const cards = [...(d.trick.cards ?? []), code];
         const players = [...(d.trick.players ?? []), myUid.value];
-        const opponent = d.players.find((p) => p !== myUid.value)!;
+        const opponent = d.players.find(p => p !== myUid.value)!;
 
         const update: Record<string, any> = {
           [`hands.${myUid.value}`]: srvHand,
@@ -198,9 +191,9 @@ export const useGameStore = defineStore("game", () => {
             cards[1],
             players[0],
             players[1],
-            d.trumpSuit as Suit
+            d.trumpSuit as Suit,
           );
-          const loser = players.find((p) => p !== winner)!;
+          const loser = players.find(p => p !== winner)!;
 
           update.currentTurn = winner;
           update.trick = { cards: [], players: [] };
@@ -209,7 +202,8 @@ export const useGameStore = defineStore("game", () => {
           // ——— PI O C H E ———
           const prospectiveHands = { ...d.hands, [myUid.value]: srvHand };
           const needsCard = (u: string) =>
-            (prospectiveHands[u]?.length ?? 0) + (d.melds?.[u]?.length ?? 0) <
+            (prospectiveHands[u]?.length ?? 0) +
+              (d.melds?.[u]?.length ?? 0) <
             9;
 
           const newQueue: string[] = [];
@@ -217,7 +211,7 @@ export const useGameStore = defineStore("game", () => {
           if (needsCard(loser)) newQueue.push(loser);
 
           if (newQueue.length && d.deck.length) {
-            update.phase = "draw";
+            update.phase = 'draw';
             update.drawQueue = newQueue; // winner puis loser
           }
         }
@@ -227,6 +221,7 @@ export const useGameStore = defineStore("game", () => {
       playing.value = false;
     }
   }
+
 
   //
 
@@ -389,7 +384,6 @@ export const useGameStore = defineStore("game", () => {
     updateHand,
     addToMeld,
     playCard,
-    drawCard,
     dropToMeld,
     joinRoom,
     deOuD,

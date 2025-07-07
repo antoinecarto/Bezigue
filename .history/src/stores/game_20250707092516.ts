@@ -134,27 +134,20 @@ export const useGameStore = defineStore("game", () => {
         const card = deck.shift()!;
         const newHand = [...(d.hands[myUid.value] ?? []), card];
         const newQueue = d.drawQueue.slice(1);
-        //
-        /* drawCard ------------------------------------------------------------ */
+
         const update: Record<string, any> = {
           deck,
           [`hands.${myUid.value}`]: newHand,
           drawQueue: newQueue,
         };
-        if (!newQueue.length) {
-          update.phase = "play";
-          update.currentTurn = d.currentTurn; // ↩︎ force le tour correct
-        }
+        if (!newQueue.length) update.phase = "play";
         tx.update(roomRef, update);
-
-        // mise à jour optimiste localement
-        hand.value = [...newHand];
       });
     } finally {
       drawInProgress.value = false;
     }
   }
-  //
+
   async function playCard(code: string) {
     if (
       playing.value ||
@@ -165,6 +158,7 @@ export const useGameStore = defineStore("game", () => {
       return;
     if (room.value.currentTurn !== myUid.value) return;
 
+    const uid = myUid.value;
     const roomRef = doc(db, "rooms", room.value.id);
     playing.value = true;
     try {
@@ -174,51 +168,54 @@ export const useGameStore = defineStore("game", () => {
         const d = snap.data() as RoomDoc;
         if ((d.trick.cards?.length ?? 0) >= 2) throw new Error("Trick full");
 
-        // — supprime la carte de la main serveur —
-        const srvHand = [...(d.hands[myUid.value] ?? [])];
-        const idx = srvHand.indexOf(code);
-        if (idx === -1) throw new Error("Card not in hand server");
-        srvHand.splice(idx, 1);
+        const srvHand = [...(d.hands[uid] ?? [])];
+        const idxSrv = srvHand.findIndex(
+          (c) => c.split("_")[0] === code.split("_")[0]
+        );
+        if (idxSrv === -1) throw new Error("Card not in hand server");
+        const serverCard = srvHand[idxSrv];
+        srvHand.splice(idxSrv, 1);
 
-        const cards = [...(d.trick.cards ?? []), code];
-        const players = [...(d.trick.players ?? []), myUid.value];
-        const opponent = d.players.find((p) => p !== myUid.value)!;
+        const cards = [...(d.trick.cards ?? []), serverCard];
+        const players = [...(d.trick.players ?? []), uid];
+        const opponent = d.players.find((p) => p !== uid);
 
         const update: Record<string, any> = {
-          [`hands.${myUid.value}`]: srvHand,
+          [`hands.${uid}`]: srvHand,
           trick: { cards, players },
-          exchangeTable: { ...(d.exchangeTable ?? {}), [myUid.value]: code },
+          exchangeTable: { ...(d.exchangeTable ?? {}), [uid]: serverCard },
         };
 
-        if (cards.length === 1) {
-          update.currentTurn = opponent; // l'autre joue la 2ᵉ carte
-        } else if (cards.length === 2) {
-          const winner = resolveTrick(
-            cards[0],
-            cards[1],
-            players[0],
-            players[1],
-            d.trumpSuit as Suit
-          );
-          const loser = players.find((p) => p !== winner)!;
+        if (cards.length === 1 && opponent) {
+          update.currentTurn = opponent; // adversaire joue la 2ᵉ carte
+        }
+
+        if (cards.length === 2) {
+          const leadSuit = splitCode(cards[0]).suit;
+          const winner =
+            compareCards(cards[0], cards[1], leadSuit, d.trumpSuit as Suit) >= 0
+              ? players[0]
+              : players[1];
+          const loser = players.find((p) => p !== winner);
 
           update.currentTurn = winner;
           update.trick = { cards: [], players: [] };
-          update.exchangeTable = {};
+          update.exchangeTable = {}; // reset table
 
-          // ——— PI O C H E ———
-          const prospectiveHands = { ...d.hands, [myUid.value]: srvHand };
+          // ---------------- PI O C H E -------------------------------------------
+          const prospectiveHands = { ...d.hands, [uid]: srvHand }; // main après retrait
+
           const needsCard = (u: string) =>
             (prospectiveHands[u]?.length ?? 0) + (d.melds?.[u]?.length ?? 0) <
             9;
 
           const newQueue: string[] = [];
           if (needsCard(winner)) newQueue.push(winner);
-          if (needsCard(loser)) newQueue.push(loser);
+          if (loser && needsCard(loser)) newQueue.push(loser);
 
           if (newQueue.length && d.deck.length) {
             update.phase = "draw";
-            update.drawQueue = newQueue; // winner puis loser
+            update.drawQueue = newQueue; // winner pioche d’abord, puis loser
           }
         }
         tx.update(roomRef, update);
@@ -227,85 +224,6 @@ export const useGameStore = defineStore("game", () => {
       playing.value = false;
     }
   }
-
-  //
-
-  // async function playCard(code: string) {
-  //   if (
-  //     playing.value ||
-  //     !room.value ||
-  //     room.value.phase !== "play" ||
-  //     !myUid.value
-  //   )
-  //     return;
-  //   if (room.value.currentTurn !== myUid.value) return;
-
-  //   const uid = myUid.value;
-  //   const roomRef = doc(db, "rooms", room.value.id);
-  //   playing.value = true;
-  //   try {
-  //     await runTransaction(db, async (tx) => {
-  //       const snap = await tx.get(roomRef);
-  //       if (!snap.exists()) throw new Error("Room missing");
-  //       const d = snap.data() as RoomDoc;
-  //       if ((d.trick.cards?.length ?? 0) >= 2) throw new Error("Trick full");
-
-  //       const srvHand = [...(d.hands[uid] ?? [])];
-  //       const idxSrv = srvHand.findIndex(
-  //         (c) => c.split("_")[0] === code.split("_")[0]
-  //       );
-  //       if (idxSrv === -1) throw new Error("Card not in hand server");
-  //       const serverCard = srvHand[idxSrv];
-  //       srvHand.splice(idxSrv, 1);
-
-  //       const cards = [...(d.trick.cards ?? []), serverCard];
-  //       const players = [...(d.trick.players ?? []), uid];
-  //       const opponent = d.players.find((p) => p !== uid);
-
-  //       const update: Record<string, any> = {
-  //         [`hands.${uid}`]: srvHand,
-  //         trick: { cards, players },
-  //         exchangeTable: { ...(d.exchangeTable ?? {}), [uid]: serverCard },
-  //       };
-
-  //       if (cards.length === 1 && opponent) {
-  //         update.currentTurn = opponent; // adversaire joue la 2ᵉ carte
-  //       }
-
-  //       if (cards.length === 2) {
-  //         const leadSuit = splitCode(cards[0]).suit;
-  //         const winner =
-  //           compareCards(cards[0], cards[1], leadSuit, d.trumpSuit as Suit) >= 0
-  //             ? players[0]
-  //             : players[1];
-  //         const loser = players.find((p) => p !== winner);
-
-  //         update.currentTurn = winner;
-  //         update.trick = { cards: [], players: [] };
-  //         update.exchangeTable = {}; // reset table
-
-  //         // ---------------- PI O C H E -------------------------------------------
-  //         const prospectiveHands = { ...d.hands, [uid]: srvHand }; // main après retrait
-
-  //         const needsCard = (u: string) =>
-  //           (prospectiveHands[u]?.length ?? 0) + (d.melds?.[u]?.length ?? 0) <
-  //           9;
-
-  //         const newQueue: string[] = [];
-  //         if (needsCard(winner)) newQueue.push(winner);
-  //         if (loser && needsCard(loser)) newQueue.push(loser);
-
-  //         if (newQueue.length && d.deck.length) {
-  //           update.phase = "draw";
-  //           update.drawQueue = newQueue; // winner pioche d’abord, puis loser
-  //         }
-  //       }
-  //       tx.update(roomRef, update);
-  //     });
-  //   } finally {
-  //     playing.value = false;
-  //   }
-  // }
 
   function joinRoom(roomId: string, uid: string) {
     myUid.value = uid;
@@ -389,7 +307,6 @@ export const useGameStore = defineStore("game", () => {
     updateHand,
     addToMeld,
     playCard,
-    drawCard,
     dropToMeld,
     joinRoom,
     deOuD,

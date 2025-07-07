@@ -134,21 +134,14 @@ export const useGameStore = defineStore("game", () => {
         const card = deck.shift()!;
         const newHand = [...(d.hands[myUid.value] ?? []), card];
         const newQueue = d.drawQueue.slice(1);
-        //
-        /* drawCard ------------------------------------------------------------ */
+
         const update: Record<string, any> = {
           deck,
           [`hands.${myUid.value}`]: newHand,
           drawQueue: newQueue,
         };
-        if (!newQueue.length) {
-          update.phase = "play";
-          update.currentTurn = d.currentTurn; // ↩︎ force le tour correct
-        }
+        if (!newQueue.length) update.phase = "play";
         tx.update(roomRef, update);
-
-        // mise à jour optimiste localement
-        hand.value = [...newHand];
       });
     } finally {
       drawInProgress.value = false;
@@ -389,7 +382,6 @@ export const useGameStore = defineStore("game", () => {
     updateHand,
     addToMeld,
     playCard,
-    drawCard,
     dropToMeld,
     joinRoom,
     deOuD,
