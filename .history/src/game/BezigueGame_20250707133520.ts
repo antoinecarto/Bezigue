@@ -1,10 +1,10 @@
-// import { Card } from "@/game/models/Card.ts";
+import { Card } from "@/game/models/Card.ts";
 
-// export interface Combination {
-//   name: string;
-//   cards: Card[];
-//   points: number;
-// }
+export interface Combination {
+  name: string;
+  cards: Card[];
+  points: number;
+}
 /** Crée un deck de 64 cartes, 2 exemplaires par rang/couleur, puis mélange */
 export function generateShuffledDeck(): string[] {
   const suits = ["S", "H", "D", "C"]; // ♠ ♥ ♦ ♣

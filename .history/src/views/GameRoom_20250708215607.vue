@@ -19,7 +19,7 @@ import GameChat from "./GameChat.vue";
 
 const route = useRoute();
 const game = useGameStore();
-const myUid = game.myUid;
+const myUid = game.myUid);
 const room = computed(() => game.room);
 
 const opponentUid = computed(() => {
@@ -102,12 +102,13 @@ onMounted(() => {
     </div>
 
     <!-- Zone des combinaisons / dépôt de l'adversaire -->
-    <MeldZone v-if="opponentUid" :uid="opponentUid" :readonly="true" />
+    <MeldZone :myUid="opponentUid" :readonly="true" />
+
     <!-- Zone de score, d'échange, d'atout -->
     <CenterBoard />
 
     <!-- Zone des combinaisons / dépôt du joueur -->
-    <MeldZone v-if="myUid" :uid="myUid" />
+    <MeldZone :myUid="myUid" />
 
     <!-- Main du joueur (draggable + sortable) -->
     <PlayerHand />

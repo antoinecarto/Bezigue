@@ -19,7 +19,7 @@ import GameChat from "./GameChat.vue";
 
 const route = useRoute();
 const game = useGameStore();
-const myUid = game.myUid;
+const myUid = computed(() => game.myUid);
 const room = computed(() => game.room);
 
 const opponentUid = computed(() => {
@@ -28,16 +28,6 @@ const opponentUid = computed(() => {
     Object.keys(room.value.playerNames).find((uid) => uid !== myUid.value) ??
     null
   );
-});
-
-const player1Melds = computed(() => {
-  if (!room.value || !myUid.value) return [];
-  return room.value.melds?.[myUid.value] ?? [];
-});
-
-const player2Melds = computed(() => {
-  if (!room.value || !opponentUid.value) return [];
-  return room.value.melds?.[opponentUid.value] ?? [];
 });
 
 const opponentName = computed(() => {
@@ -59,13 +49,12 @@ let unsubscribeRoom: Unsubscribe | null = null;
 
 onMounted(() => {
   const auth = getAuth();
+
   const stopAuth = onAuthStateChanged(auth, async (user) => {
-    if (!user) return; // non connecté
+    if (!user) return;
 
-    // annule l'abonnement précédent si existant
-    unsubscribeRoom?.();
+    unsubscribeRoom?.(); // coupe abonnement précédent si présent
 
-    // attends la promesse joinRoom qui renvoie la fonction d'unsubscribe
     unsubscribeRoom = await game.joinRoom(
       route.params.roomId as string,
       user.uid,
@@ -102,12 +91,13 @@ onMounted(() => {
     </div>
 
     <!-- Zone des combinaisons / dépôt de l'adversaire -->
-    <MeldZone v-if="opponentUid" :uid="opponentUid" :readonly="true" />
+    <MeldZone :meld="player2Melds" :isOpponent="true" />
+
     <!-- Zone de score, d'échange, d'atout -->
     <CenterBoard />
 
     <!-- Zone des combinaisons / dépôt du joueur -->
-    <MeldZone v-if="myUid" :uid="myUid" />
+    <MeldZone :meld="player1Melds" :isOpponent="false" />
 
     <!-- Main du joueur (draggable + sortable) -->
     <PlayerHand />

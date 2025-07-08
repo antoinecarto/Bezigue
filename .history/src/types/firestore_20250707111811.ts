@@ -1,7 +1,5 @@
 import type { Suit } from "@/game/models/Card";
 import { ref } from "vue";
-// import type { Combination } from "@/game/BezigueGame.ts";
-import type { Combination } from "@/core/rules/detectCombinations";
 
 export interface RoomDoc {
   players: string[];
@@ -18,7 +16,6 @@ export interface RoomDoc {
   trumpSuit: Suit;
   exchangeTable: Record<string, string>;
   reservedHands?: Record<string, string[]>;
-  combos?: Record<string, Combination[]>; // ex. combos["uid1"] = [{name, points, cards}]
 }
 
 // type local qui inclut l’id

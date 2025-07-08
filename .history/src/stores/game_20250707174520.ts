@@ -221,7 +221,7 @@ export const useGameStore = defineStore("game", () => {
 
         if ((d.trick.cards?.length ?? 0) >= 2) throw new Error("Trick full");
 
-        /* ─── enlève la carte de la main serveur ─── */
+        // Enlève la carte de la main serveur
         const srvHand = [...(d.hands[myUid.value] ?? [])];
         const pos = srvHand.indexOf(code);
         if (pos === -1) throw new Error("Card not in hand server");
@@ -237,23 +237,51 @@ export const useGameStore = defineStore("game", () => {
           exchangeTable: { ...(d.exchangeTable ?? {}), [myUid.value]: code },
         };
 
-        /* ───────── 1re carte ───────── */
+        // Si 1ère carte jouée, passe le tour à l'adversaire
         if (cards.length === 1) {
           update.currentTurn = opponent;
         } else {
-          /* ───────── 2e carte : on résout le pli ───────── */
-          // trump est le dernier caractère de trumpCard, ex. "♣", "♦", …
-          const trumpSuit = d.trumpCard.slice(-1) as Suit;
-          const winner = resolveTrick(
-            cards[0],
-            cards[1],
-            players[0],
-            players[1],
-            trumpSuit
-          );
+          // 2e carte jouée => on résout le pli
+
+          // Détermine le gagnant selon règles Bézigue :
+          const trump = d.trumpSuit;
+          const [card1, card2] = cards;
+          const [player1, player2] = players;
+
+          const c1 = splitCode(card1);
+          const c2 = splitCode(card2);
+
+          // Fonction pour comparer deux cartes selon Bézigue
+          function compareCards(
+            c1: { rank: string; suit: string },
+            c2: { rank: string; suit: string },
+            trump: string
+          ) {
+            const order = ["7", "8", "9", "J", "Q", "K", "10", "A"];
+
+            const c1IsTrump = c1.suit === trump;
+            const c2IsTrump = c2.suit === trump;
+
+            if (c1IsTrump && !c2IsTrump) return 1;
+            if (!c1IsTrump && c2IsTrump) return -1;
+
+            if (c1.suit === c2.suit) {
+              // Même couleur, compare ordre
+              const c1Index = order.indexOf(c1.rank);
+              const c2Index = order.indexOf(c2.rank);
+              return c1Index > c2Index ? 1 : c1Index < c2Index ? -1 : 0;
+            }
+
+            // Différentes couleurs, pas d’atout => premier joueur gagne
+            return 1;
+          }
+
+          // Compare et détermine le gagnant
+          const cmp = compareCards(c1, c2, trump);
+          const winner = cmp >= 0 ? player1 : player2;
           const loser = players.find((p) => p !== winner)!;
 
-          /* points : +10 pour chaque 10 ou As du pli */
+          // Points du pli
           const points = cards.reduce(
             (acc, c) =>
               ["10", "A"].includes(splitCode(c).rank) ? acc + 10 : acc,
@@ -263,12 +291,12 @@ export const useGameStore = defineStore("game", () => {
             update[`scores.${winner}`] = (d.scores?.[winner] ?? 0) + points;
           }
 
-          /* réinitialise le pli */
+          // Réinitialise le pli
           update.trick = { cards: [], players: [] };
           update.exchangeTable = {};
           update.currentTurn = winner;
 
-          /* file de pioche si <9 cartes (winner puis loser) */
+          // File de pioche si <9 cartes (winner puis loser)
           const prospective = { ...d.hands, [myUid.value]: srvHand };
           const needs = (u: string) =>
             (prospective[u]?.length ?? 0) + (d.melds?.[u]?.length ?? 0) < 9;
@@ -276,12 +304,7 @@ export const useGameStore = defineStore("game", () => {
           if (needs(winner)) drawQueue.push(winner);
           if (needs(loser)) drawQueue.push(loser);
 
-          /* on garantit que le gagnant est toujours premier (même si son total cartes≥9 au moment du pli) */
-          if (!drawQueue.includes(winner)) {
-            drawQueue.unshift(winner);
-          }
-
-          /* on passe toujours en phase 'meld' (drawQueue peut être vide) */
+          // On passe toujours en phase 'meld' (drawQueue peut être vide)
           update.phase = "meld";
           update.drawQueue = drawQueue;
         }

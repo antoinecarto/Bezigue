@@ -176,7 +176,19 @@ export const useGameStore = defineStore("game", () => {
       drawInProgress.value = false;
     }
   }
+  /* ordre de force A > 10 > K > Q > J > 9 > 8 > 7 */
+  const RANK_VALUE: Record<Rank, number> = {
+    A: 8,
+    "10": 7,
+    K: 6,
+    Q: 5,
+    J: 4,
+    "9": 3,
+    "8": 2,
+    "7": 1,
+  };
 
+  /** Renvoie l’uid du vainqueur du pli */
   function resolveTrick(
     first: string,
     second: string,
@@ -186,17 +198,17 @@ export const useGameStore = defineStore("game", () => {
   ): string {
     const a = splitCode(first); // { rank, suit }
     const b = splitCode(second);
+    const lead = a.suit;
 
-    // 1) même couleur → plus haute l’emporte
-    if (a.suit === b.suit) {
-      return RANK_ORDER[a.rank] >= RANK_ORDER[b.rank] ? firstUid : secondUid;
-    }
+    // même couleur  ➜ carte la plus forte
+    if (a.suit === b.suit)
+      return RANK_VALUE[a.rank] >= RANK_VALUE[b.rank] ? firstUid : secondUid;
 
-    // 2) couleurs diff. : atout > non‑atout
+    // une seule est atout
     if (a.suit === trump && b.suit !== trump) return firstUid;
     if (b.suit === trump && a.suit !== trump) return secondUid;
 
-    // 3) couleurs diff., pas d’atout → le meneur gagne
+    // couleurs diff. sans atout ➜ le meneur gagne
     return firstUid;
   }
 
@@ -241,15 +253,13 @@ export const useGameStore = defineStore("game", () => {
         if (cards.length === 1) {
           update.currentTurn = opponent;
         } else {
-          /* ───────── 2e carte : on résout le pli ───────── */
-          // trump est le dernier caractère de trumpCard, ex. "♣", "♦", …
-          const trumpSuit = d.trumpCard.slice(-1) as Suit;
+        /* ───────── 2e carte : on résout le pli ───────── */
           const winner = resolveTrick(
             cards[0],
             cards[1],
             players[0],
             players[1],
-            trumpSuit
+            d.trumpSuit as Suit
           );
           const loser = players.find((p) => p !== winner)!;
 
@@ -275,11 +285,6 @@ export const useGameStore = defineStore("game", () => {
           const drawQueue: string[] = [];
           if (needs(winner)) drawQueue.push(winner);
           if (needs(loser)) drawQueue.push(loser);
-
-          /* on garantit que le gagnant est toujours premier (même si son total cartes≥9 au moment du pli) */
-          if (!drawQueue.includes(winner)) {
-            drawQueue.unshift(winner);
-          }
 
           /* on passe toujours en phase 'meld' (drawQueue peut être vide) */
           update.phase = "meld";
@@ -358,6 +363,30 @@ export const useGameStore = defineStore("game", () => {
   function parseCard(code: string): ParsedCard {
     const [rankStr, suit] = code.split("_") as [string, ParsedCard["suit"]];
     return { suit, rank: RANK_ORDER[rankStr] };
+  }
+
+  function resolveTrick(
+    firstCard: string,
+    secondCard: string,
+    firstUid: string,
+    secondUid: string,
+    trumpSuit: ParsedCard["suit"]
+  ): string {
+    const A = parseCard(firstCard);
+    const B = parseCard(secondCard);
+
+    const trumpA = A.suit === trumpSuit;
+    const trumpB = B.suit === trumpSuit;
+
+    // même couleur (atout ou non) → plus forte carte
+    if (A.suit === B.suit) return A.rank >= B.rank ? firstUid : secondUid;
+
+    // une seule carte est atout → l'atout gagne
+    if (trumpA) return firstUid;
+    if (trumpB) return secondUid;
+
+    // couleurs différentes, pas d'atout → le meneur gagne
+    return firstUid;
   }
 
   /* ───────── expose ───────── */

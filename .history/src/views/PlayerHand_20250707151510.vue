@@ -1,14 +1,14 @@
 <template>
-  <!-- main draggable hand: toujours ré‑ordonnable, mais on ne peut sortir
-       une carte vers la MeldZone que si canDragOut === true -->
   <draggable
     v-model="cards"
     :item-key="cardKey"
-    class="player-hand"
     :animation="200"
-    :group="{ name: 'cards', pull: canDragOut, put: false }"
+    class="player-hand"
+    :group="{ name: 'cards' }"
     @end="onEnd"
+    :disabled="!isMyTurn"
   >
+    <!-- element = string "A♠_1"  -->
     <template #item="{ element }">
       <PlayingCard
         :code="element"
@@ -21,7 +21,7 @@
     </template>
   </draggable>
 
-  <!-- Popup tour adverse -->
+  <!-- Popup simple -->
   <div v-if="showNotYourTurn" class="popup">
     Ce n'est pas votre tour !
     <button @click="showNotYourTurn = false">OK</button>
@@ -30,33 +30,36 @@
 
 <script setup lang="ts">
 import draggable from "vuedraggable";
-import { ref, computed, watch } from "vue";
-import { useGameStore } from "@/stores/game";
+import { ref, watch, computed } from "vue";
+import { useGameStore } from "@/stores/game.ts";
 import { storeToRefs } from "pinia";
 import PlayingCard from "@/views/components/PlayingCard.vue";
 
 const game = useGameStore();
 const { myUid, hand, currentTurn } = storeToRefs(game);
-const room = computed(() => game.room);
 
-/* ---------------- cartes locales pour vuedraggable ------------- */
 const cards = ref<string[]>([]);
-watch(hand, (h) => (cards.value = [...h]), { immediate: true });
+
+watch(
+  hand,
+  (newHand) => {
+    cards.value = newHand ?? [];
+  },
+  { immediate: true }
+);
 
 const cardKey = (c: string) => c;
 
-/* ---------------- états UI ---------------- */
 const showNotYourTurn = ref(false);
 const playing = ref(false);
 
+// Calcul du tour du joueur
 const isMyTurn = computed(() => currentTurn.value === myUid.value);
-const canDragOut = computed(
+const canDragMeld = computed(
   () => isMyTurn.value && room.value?.phase === "meld"
-);
+);myUid.value);
 
-/* -------------------------------------------------------------- */
 function onEnd() {
-  // réenregistre l'ordre local dans Firestore
   game.updateHand(cards.value);
 }
 
@@ -65,13 +68,15 @@ function onCardClick(code: string) {
     showNotYourTurn.value = true;
     return;
   }
-  if (playing.value) return; // already playing
+  if (playing.value) return; // déjà une carte en cours
 
+  // enlève immédiatement du hand local
   const idx = hand.value.indexOf(code);
   if (idx !== -1) hand.value.splice(idx, 1);
 
   game.playCard(code).catch((err) => {
-    hand.value.splice(idx, 0, code); // rollback en cas d'erreur
+    // si la TX échoue, on remet la carte
+    hand.value.splice(idx, 0, code);
     console.error(err);
   });
 }
@@ -99,5 +104,11 @@ function onCardClick(code: string) {
   padding: 1em 2em;
   z-index: 100;
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+}
+
+.disabled {
+  opacity: 0.5;
+  pointer-events: none; /* pour que le clic ne passe pas */
+  cursor: not-allowed;
 }
 </style>

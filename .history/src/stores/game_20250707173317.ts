@@ -242,15 +242,7 @@ export const useGameStore = defineStore("game", () => {
           update.currentTurn = opponent;
         } else {
           /* ───────── 2e carte : on résout le pli ───────── */
-          // trump est le dernier caractère de trumpCard, ex. "♣", "♦", …
-          const trumpSuit = d.trumpCard.slice(-1) as Suit;
-          const winner = resolveTrick(
-            cards[0],
-            cards[1],
-            players[0],
-            players[1],
-            trumpSuit
-          );
+
           const loser = players.find((p) => p !== winner)!;
 
           /* points : +10 pour chaque 10 ou As du pli */
@@ -275,11 +267,6 @@ export const useGameStore = defineStore("game", () => {
           const drawQueue: string[] = [];
           if (needs(winner)) drawQueue.push(winner);
           if (needs(loser)) drawQueue.push(loser);
-
-          /* on garantit que le gagnant est toujours premier (même si son total cartes≥9 au moment du pli) */
-          if (!drawQueue.includes(winner)) {
-            drawQueue.unshift(winner);
-          }
 
           /* on passe toujours en phase 'meld' (drawQueue peut être vide) */
           update.phase = "meld";

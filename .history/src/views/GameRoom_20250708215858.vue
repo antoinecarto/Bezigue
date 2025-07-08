@@ -19,7 +19,7 @@ import GameChat from "./GameChat.vue";
 
 const route = useRoute();
 const game = useGameStore();
-const myUid = game.myUid;
+const myUid = game.myUid);
 const room = computed(() => game.room);
 
 const opponentUid = computed(() => {

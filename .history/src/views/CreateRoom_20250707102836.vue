@@ -125,7 +125,6 @@ async function createRoom() {
       scores: { [uid]: 0 },
       currentTurn: uid,
       currentMeneIndex: 0,
-      combos: {},
     });
 
     /* 5. sous‑collection « menes/0 » */

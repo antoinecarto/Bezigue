@@ -1,7 +1,6 @@
 import type { Suit } from "@/game/models/Card";
 import { ref } from "vue";
-// import type { Combination } from "@/game/BezigueGame.ts";
-import type { Combination } from "@/core/rules/detectCombinations";
+import type { Combination } from "@/game/BezigueGame.ts";
 
 export interface RoomDoc {
   players: string[];

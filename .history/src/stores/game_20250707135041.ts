@@ -5,8 +5,7 @@ import { doc, onSnapshot, runTransaction, updateDoc } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import type { RoomDoc, RoomState } from "@/types/firestore";
 import type { Suit } from "@/game/models/Card";
-// import type { Combination } from "@/game/BezigueGame";
-import type { Combination } from "@/core/rules/detectCombinations";
+import type { Combination } from "@/game/BezigueGame";
 
 /* ───────── helpers rang & couleur ───────── */
 const RANK_ORDER: Record<string, number> = {
@@ -39,6 +38,16 @@ function splitCode(code: string) {
     rank: rankSuit.slice(0, -1),
     suit: rankSuit.slice(-1) as Suit,
   } as const;
+}
+function compareCards(a: string, b: string, trump: Suit, lead: Suit) {
+  const ca = splitCode(a);
+  const cb = splitCode(b);
+  if (ca.suit === cb.suit) return RANK_ORDER[ca.rank] - RANK_ORDER[cb.rank];
+  if (ca.suit === trump && cb.suit !== trump) return 1;
+  if (cb.suit === trump && ca.suit !== trump) return -1;
+  if (ca.suit === lead && cb.suit !== lead) return 1;
+  if (cb.suit === lead && ca.suit !== lead) return -1;
+  return 0;
 }
 
 export const useGameStore = defineStore("game", () => {
@@ -101,41 +110,26 @@ export const useGameStore = defineStore("game", () => {
     hand.value = [...newHand];
   }
 
-  // src/stores/game.ts
   async function addToMeld(uid: string, code: string) {
     if (!room.value || room.value.phase !== "meld") return;
-
-    /* 🔸 1. MISE À JOUR LOCALE IMMÉDIATE ----------------------- */
-    const localHand = hand.value;
-    const i = localHand.indexOf(code);
-    if (i !== -1) localHand.splice(i, 1); // retire de la main
-
-    if (!melds.value[uid]) melds.value[uid] = [];
-    melds.value[uid].push(code); // ajoute dans la meld
-    /* --------------------------------------------------------- */
-
     const roomRef = doc(db, "rooms", room.value.id);
+
     await runTransaction(db, async (tx) => {
       const snap = await tx.get(roomRef);
       if (!snap.exists()) throw new Error("Room not found");
       const d = snap.data() as RoomDoc;
 
-      /* sécurité côté serveur */
-      const srvHand = [...(d.hands[uid] ?? [])];
-      const idx = srvHand.indexOf(code);
-      if (idx === -1) return; // carte déjà enlevée ailleurs
+      const hand = [...(d.hands[uid] ?? [])];
+      const idx = hand.indexOf(code);
+      if (idx === -1) throw new Error("Card not in hand");
+      hand.splice(idx, 1);
 
-      srvHand.splice(idx, 1);
-      const srvMeld = [...(d.melds?.[uid] ?? []), code];
+      const newMeld = [...(d.melds?.[uid] ?? []), code];
 
       tx.update(roomRef, {
-        [`hands.${uid}`]: srvHand,
-        [`melds.${uid}`]: srvMeld,
+        [`hands.${uid}`]: hand,
+        [`melds.${uid}`]: newMeld,
       });
-    }).catch(() => {
-      /* rollback local en cas d’erreur */
-      melds.value[uid] = melds.value[uid].filter((c) => c !== code);
-      hand.value.splice(i === -1 ? 0 : i, 0, code);
     });
   }
 
@@ -176,39 +170,15 @@ export const useGameStore = defineStore("game", () => {
       drawInProgress.value = false;
     }
   }
-
-  function resolveTrick(
-    first: string,
-    second: string,
-    firstUid: string,
-    secondUid: string,
-    trump: Suit
-  ): string {
-    const a = splitCode(first); // { rank, suit }
-    const b = splitCode(second);
-
-    // 1) même couleur → plus haute l’emporte
-    if (a.suit === b.suit) {
-      return RANK_ORDER[a.rank] >= RANK_ORDER[b.rank] ? firstUid : secondUid;
-    }
-
-    // 2) couleurs diff. : atout > non‑atout
-    if (a.suit === trump && b.suit !== trump) return firstUid;
-    if (b.suit === trump && a.suit !== trump) return secondUid;
-
-    // 3) couleurs diff., pas d’atout → le meneur gagne
-    return firstUid;
-  }
-
   async function playCard(code: string) {
     if (
       playing.value ||
       !room.value ||
       room.value.phase !== "play" ||
-      !myUid.value ||
-      room.value.currentTurn !== myUid.value
+      !myUid.value
     )
       return;
+    if (room.value.currentTurn !== myUid.value) return;
 
     const roomRef = doc(db, "rooms", room.value.id);
     playing.value = true;
@@ -219,71 +189,80 @@ export const useGameStore = defineStore("game", () => {
         if (!snap.exists()) throw new Error("Room missing");
         const d = snap.data() as RoomDoc;
 
+        // Vérifie que le pli n'est pas complet
         if ((d.trick.cards?.length ?? 0) >= 2) throw new Error("Trick full");
 
-        /* ─── enlève la carte de la main serveur ─── */
+        // Supprime la carte jouée de la main côté serveur
         const srvHand = [...(d.hands[myUid.value] ?? [])];
-        const pos = srvHand.indexOf(code);
-        if (pos === -1) throw new Error("Card not in hand server");
-        srvHand.splice(pos, 1);
+        const idx = srvHand.indexOf(code);
+        if (idx === -1) throw new Error("Card not in hand server");
+        srvHand.splice(idx, 1);
 
+        // Met à jour cartes et joueurs dans le pli en cours
         const cards = [...(d.trick.cards ?? []), code];
         const players = [...(d.trick.players ?? []), myUid.value];
+
+        // Trouve l'adversaire
         const opponent = d.players.find((p) => p !== myUid.value)!;
 
+        // Prépare update partiel
         const update: Record<string, any> = {
           [`hands.${myUid.value}`]: srvHand,
           trick: { cards, players },
           exchangeTable: { ...(d.exchangeTable ?? {}), [myUid.value]: code },
         };
 
-        /* ───────── 1re carte ───────── */
         if (cards.length === 1) {
+          // Premier joueur a joué : c'est au tour de l'adversaire
           update.currentTurn = opponent;
-        } else {
-          /* ───────── 2e carte : on résout le pli ───────── */
-          // trump est le dernier caractère de trumpCard, ex. "♣", "♦", …
-          const trumpSuit = d.trumpCard.slice(-1) as Suit;
+        } else if (cards.length === 2) {
+          // Deuxième joueur a joué : on détermine le gagnant du pli
+
+          // ATTENTION : Assure-toi que cards[0] est la carte de players[0], idem pour cards[1]
           const winner = resolveTrick(
             cards[0],
             cards[1],
             players[0],
             players[1],
-            trumpSuit
+            d.trumpSuit as Suit
           );
+
           const loser = players.find((p) => p !== winner)!;
 
-          /* points : +10 pour chaque 10 ou As du pli */
-          const points = cards.reduce(
-            (acc, c) =>
-              ["10", "A"].includes(splitCode(c).rank) ? acc + 10 : acc,
-            0
-          );
+          // Calcule les points du pli
+          const points = cards.reduce((acc, c) => {
+            const rk = splitCode(c).rank; // '7','8','9','10','J','Q','K','A'
+            return HIGH_SCORE_RANKS.has(rk) ? acc + 10 : acc;
+          }, 0);
+
           if (points) {
             update[`scores.${winner}`] = (d.scores?.[winner] ?? 0) + points;
           }
 
-          /* réinitialise le pli */
+          // Reset pli et zone d'échange
           update.trick = { cards: [], players: [] };
           update.exchangeTable = {};
+
+          // Le gagnant joue le prochain tour
           update.currentTurn = winner;
 
-          /* file de pioche si <9 cartes (winner puis loser) */
-          const prospective = { ...d.hands, [myUid.value]: srvHand };
-          const needs = (u: string) =>
-            (prospective[u]?.length ?? 0) + (d.melds?.[u]?.length ?? 0) < 9;
-          const drawQueue: string[] = [];
-          if (needs(winner)) drawQueue.push(winner);
-          if (needs(loser)) drawQueue.push(loser);
+          // Vérifie si les joueurs doivent piocher (moins de 9 cartes)
+          const prospectiveHands = { ...d.hands, [myUid.value]: srvHand };
+          const needsCard = (u: string) =>
+            (prospectiveHands[u]?.length ?? 0) + (d.melds?.[u]?.length ?? 0) <
+            9;
 
-          /* on garantit que le gagnant est toujours premier (même si son total cartes≥9 au moment du pli) */
-          if (!drawQueue.includes(winner)) {
-            drawQueue.unshift(winner);
+          const newQueue: string[] = [];
+          if (needsCard(winner)) newQueue.push(winner);
+          if (needsCard(loser)) newQueue.push(loser);
+
+          if (newQueue.length && d.deck.length) {
+            update.phase = "draw";
+            update.drawQueue = newQueue; // ordre gagnant puis perdant
+          } else {
+            // Sinon on reste en phase "play"
+            update.phase = "play";
           }
-
-          /* on passe toujours en phase 'meld' (drawQueue peut être vide) */
-          update.phase = "meld";
-          update.drawQueue = drawQueue;
         }
 
         tx.update(roomRef, update);
@@ -292,6 +271,85 @@ export const useGameStore = defineStore("game", () => {
       playing.value = false;
     }
   }
+
+  //
+
+  // async function playCard(code: string) {
+  //   if (
+  //     playing.value ||
+  //     !room.value ||
+  //     room.value.phase !== "play" ||
+  //     !myUid.value
+  //   )
+  //     return;
+  //   if (room.value.currentTurn !== myUid.value) return;
+
+  //   const uid = myUid.value;
+  //   const roomRef = doc(db, "rooms", room.value.id);
+  //   playing.value = true;
+  //   try {
+  //     await runTransaction(db, async (tx) => {
+  //       const snap = await tx.get(roomRef);
+  //       if (!snap.exists()) throw new Error("Room missing");
+  //       const d = snap.data() as RoomDoc;
+  //       if ((d.trick.cards?.length ?? 0) >= 2) throw new Error("Trick full");
+
+  //       const srvHand = [...(d.hands[uid] ?? [])];
+  //       const idxSrv = srvHand.findIndex(
+  //         (c) => c.split("_")[0] === code.split("_")[0]
+  //       );
+  //       if (idxSrv === -1) throw new Error("Card not in hand server");
+  //       const serverCard = srvHand[idxSrv];
+  //       srvHand.splice(idxSrv, 1);
+
+  //       const cards = [...(d.trick.cards ?? []), serverCard];
+  //       const players = [...(d.trick.players ?? []), uid];
+  //       const opponent = d.players.find((p) => p !== uid);
+
+  //       const update: Record<string, any> = {
+  //         [`hands.${uid}`]: srvHand,
+  //         trick: { cards, players },
+  //         exchangeTable: { ...(d.exchangeTable ?? {}), [uid]: serverCard },
+  //       };
+
+  //       if (cards.length === 1 && opponent) {
+  //         update.currentTurn = opponent; // adversaire joue la 2ᵉ carte
+  //       }
+
+  //       if (cards.length === 2) {
+  //         const leadSuit = splitCode(cards[0]).suit;
+  //         const winner =
+  //           compareCards(cards[0], cards[1], leadSuit, d.trumpSuit as Suit) >= 0
+  //             ? players[0]
+  //             : players[1];
+  //         const loser = players.find((p) => p !== winner);
+
+  //         update.currentTurn = winner;
+  //         update.trick = { cards: [], players: [] };
+  //         update.exchangeTable = {}; // reset table
+
+  //         // ---------------- PI O C H E -------------------------------------------
+  //         const prospectiveHands = { ...d.hands, [uid]: srvHand }; // main après retrait
+
+  //         const needsCard = (u: string) =>
+  //           (prospectiveHands[u]?.length ?? 0) + (d.melds?.[u]?.length ?? 0) <
+  //           9;
+
+  //         const newQueue: string[] = [];
+  //         if (needsCard(winner)) newQueue.push(winner);
+  //         if (loser && needsCard(loser)) newQueue.push(loser);
+
+  //         if (newQueue.length && d.deck.length) {
+  //           update.phase = "draw";
+  //           update.drawQueue = newQueue; // winner pioche d’abord, puis loser
+  //         }
+  //       }
+  //       tx.update(roomRef, update);
+  //     });
+  //   } finally {
+  //     playing.value = false;
+  //   }
+  // }
 
   async function joinRoom(roomId: string, uid: string, playerName: string) {
     myUid.value = uid;
@@ -358,6 +416,30 @@ export const useGameStore = defineStore("game", () => {
   function parseCard(code: string): ParsedCard {
     const [rankStr, suit] = code.split("_") as [string, ParsedCard["suit"]];
     return { suit, rank: RANK_ORDER[rankStr] };
+  }
+
+  function resolveTrick(
+    firstCard: string,
+    secondCard: string,
+    firstUid: string,
+    secondUid: string,
+    trumpSuit: ParsedCard["suit"]
+  ): string {
+    const A = parseCard(firstCard);
+    const B = parseCard(secondCard);
+
+    const trumpA = A.suit === trumpSuit;
+    const trumpB = B.suit === trumpSuit;
+
+    // même couleur (atout ou non) → plus forte carte
+    if (A.suit === B.suit) return A.rank >= B.rank ? firstUid : secondUid;
+
+    // une seule carte est atout → l'atout gagne
+    if (trumpA) return firstUid;
+    if (trumpB) return secondUid;
+
+    // couleurs différentes, pas d'atout → le meneur gagne
+    return firstUid;
   }
 
   /* ───────── expose ───────── */

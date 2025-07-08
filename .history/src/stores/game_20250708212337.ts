@@ -276,7 +276,8 @@ export const useGameStore = defineStore("game", () => {
           if (needs(winner)) drawQueue.push(winner);
           if (needs(loser)) drawQueue.push(loser);
 
-          /* on garantit que le gagnant est toujours premier (même si son total cartes≥9 au moment du pli) */
+          /* on garantit que le gagnant est toujours premier
+    (même si son total cartes≥9 au moment du pli) */
           if (!drawQueue.includes(winner)) {
             drawQueue.unshift(winner);
           }
