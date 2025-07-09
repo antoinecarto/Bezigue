@@ -28,6 +28,11 @@ interface ParsedCard {
   rankStr: string; // ← nouveau champ
 }
 
+function parseCard(code: string): ParsedCard {
+  const [rankStr, suit] = code.split("_") as [string, Suit];
+  return { suit, rank: RANK_ORDER[rankStr], rankStr }; // ← rankStr stocké
+}
+
 function splitCode(code: string) {
   const [rank, suit] = code.split("_") as [string, Suit];
   return { rank, suit } as const;
