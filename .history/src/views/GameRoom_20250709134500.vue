@@ -7,12 +7,11 @@
 -->
 <script setup lang="ts">
 import { onMounted, onUnmounted, computed } from "vue";
-import { storeToRefs } from "pinia"; // ← ①
 import { useRoute } from "vue-router";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import type { Unsubscribe } from "firebase/firestore";
 
-import { useGameStore } from "@/stores/game";
+import { useGameStore } from "@/stores/game.ts";
 import PlayerHand from "@/views/PlayerHand.vue";
 import MeldZone from "@/views/MeldZone.vue";
 import CenterBoard from "@/views/components/CenterBoard.vue";
@@ -20,42 +19,54 @@ import GameChat from "./GameChat.vue";
 
 const route = useRoute();
 const game = useGameStore();
-/* ① — les refs du store --------------------------------------------- */
-const { myUid, room, loading } = storeToRefs(game); // <- myUid et room sont VRAIS refs
+const myUid = game.myUid;
+const room = computed(() => game.room);
 
-/* ② — uid de l’adversaire ------------------------------------------- */
 const opponentUid = computed(() => {
-  if (!room.value || !myUid.value) return "";
-  return room.value.players.find((u) => u !== myUid.value) ?? "";
+  const r = room.value;
+  const me = myUid.value;
+  if (!r || !me) return ""; // ← chaîne vide plutôt que null
+  return r.players.find((uid) => uid !== me) ?? "";
 });
 
-/* ③ — nom de l’adversaire (optionnel) ------------------------------- */
+const player1Melds = computed(() => {
+  if (!room.value || !myUid.value) return [];
+  return room.value.melds?.[myUid.value] ?? [];
+});
+
+const player2Melds = computed(() => {
+  if (!room.value || !opponentUid.value) return [];
+  return room.value.melds?.[opponentUid.value] ?? [];
+});
+
 const opponentName = computed(() => {
   if (!room.value || !opponentUid.value) return "Adversaire";
   return room.value.playerNames[opponentUid.value] ?? "Adversaire";
 });
 
-/* ④ — tour de l’adversaire ? ---------------------------------------- */
 const isOpponentTurn = computed(() => {
-  if (!room.value || !room.value.currentTurn) return false;
+  if (!room.value || !myUid.value || !room.value.currentTurn) return false;
   return room.value.currentTurn === opponentUid.value;
 });
 
-/* ⑤ — libellé complet ---------------------------------------------- */
+/* libellé complet */
 const mainOpponentLabel = computed(() =>
   opponentUid.value
     ? `${game.deOuD(opponentName.value)}${opponentName.value}`
     : ""
 );
 
-/* ⑥ — gestion du cycle de vie -------------------------------------- */
 let unsubscribeRoom: Unsubscribe | null = null;
 
 onMounted(() => {
   const auth = getAuth();
   const stopAuth = onAuthStateChanged(auth, async (user) => {
-    if (!user) return;
+    if (!user) return; // non connecté
+
+    // annule l'abonnement précédent si existant
     unsubscribeRoom?.();
+
+    // attends la promesse joinRoom qui renvoie la fonction d'unsubscribe
     unsubscribeRoom = await game.joinRoom(
       route.params.roomId as string,
       user.uid,
@@ -71,14 +82,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <!-- écran de chargement -->
-  <section v-if="loading" class="flex items-center justify-center h-full">
+  <section v-if="game.loading" class="flex items-center justify-center h-full">
     Chargement…
   </section>
 
-  <!-- table de jeu -->
   <div v-else class="grid gap-4 min-h-[600px]">
-    <!-- statut main adversaire -->
+    <!-- *** ZONE STATUT MAIN DE L'ADVERSAIRE EN HAUT *** -->
     <div
       class="hand-status-top flex justify-end px-8 py-2 border-b border-gray-600"
     >
@@ -93,19 +102,18 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Meld adverse (lecture seule) -->
+    <!-- Zone des combinaisons / dépôt de l'adversaire -->
     <MeldZone v-if="opponentUid" :uid="opponentUid" :readonly="true" />
-
-    <!-- plateau central -->
+    <!-- Zone de score, d'échange, d'atout -->
     <CenterBoard />
 
-    <!-- Meld du joueur (interactive) -->
+    <!-- Zone des combinaisons / dépôt du joueur -->
     <MeldZone v-if="myUid" :uid="myUid" />
 
-    <!-- main du joueur -->
+    <!-- Main du joueur (draggable + sortable) -->
     <PlayerHand />
 
-    <!-- statut main joueur -->
+    <!-- *** ZONE STATUT DE VOTRE MAIN EN BAS *** -->
     <div
       class="hand-status-bottom flex justify-start px-8 py-4 border-t border-gray-600 mt-6"
     >
@@ -120,7 +128,6 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- chat -->
     <GameChat class="mt-4" />
   </div>
 </template>

@@ -14,7 +14,7 @@ import type { Unsubscribe } from "firebase/firestore";
 
 import { useGameStore } from "@/stores/game";
 import PlayerHand from "@/views/PlayerHand.vue";
-import MeldZone from "@/views/MeldZone.vue";
+import MeldZone from "@/views/components/MeldZone.vue";
 import CenterBoard from "@/views/components/CenterBoard.vue";
 import GameChat from "./GameChat.vue";
 
