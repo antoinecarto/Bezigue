@@ -3,8 +3,6 @@ import { ref, computed, watch } from "vue";
 import draggable from "vuedraggable";
 import { useGameStore } from "@/stores/game";
 import PlayingCard from "@/views/components/PlayingCard.vue";
-import { doc, updateDoc } from "firebase/firestore"; // ← ici
-import { db } from "@/services/firebase";
 
 const props = defineProps<{ uid: string; readonly?: boolean }>();
 
@@ -38,22 +36,6 @@ async function validateCards() {
   }
 
   validating.value = false;
-}
-
-/* ---------- actions ---------- */
-async function finishMeldPhase() {
-  // 1.  Seul le joueur maître, sans cartes en attente, peut finir
-  if (!isMine.value || pending.value.length) return;
-  if (!room.value) return;
-
-  try {
-    /* 2.  On passe la room en phase "draw" : la pioche s'ouvrira
-          (drawQueue a déjà été préparée dans playCard). */
-    const roomRef = doc(db, "rooms", room.value.id);
-    await updateDoc(roomRef, { phase: "draw" });
-  } catch (err) {
-    console.error("finishMeldPhase:", err);
-  }
 }
 
 /* ---------- UI helpers ---------- */
