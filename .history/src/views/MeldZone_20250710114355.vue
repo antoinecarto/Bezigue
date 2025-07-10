@@ -3,8 +3,8 @@ import { ref, computed, watch } from "vue";
 import draggable from "vuedraggable";
 import { useGameStore } from "@/stores/game";
 import PlayingCard from "@/views/components/PlayingCard.vue";
-import ComboChoicePopup from "@/views/components/ComboChoicePopup.vue"; // popup combo
-import { detectCombosInMeld, type Combo } from "@/game/comboUtils"; // détection combos
+import ComboChoicePopup from "@/components/ComboChoicePopup.vue"; // popup combo
+import { detectCombosInMeld } from "@/game/comboUtils"; // détection combos
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/services/firebase";
 

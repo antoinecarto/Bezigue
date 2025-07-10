@@ -20,6 +20,10 @@ const RANK_ORDER: Record<string, number> = {
   A: 8,
 };
 
+const trumpSuit = computed(
+  () => (room.value?.trumpCard.split("_")[1] as Suit) ?? "♠"
+);
+
 const HIGH_SCORE_RANKS = new Set(["10", "A"]);
 
 interface ParsedCard {
@@ -48,7 +52,9 @@ export const useGameStore = defineStore("game", () => {
   const playing = ref(false); // verrou anti double‑clic
 
   /* ──────────── getters ──────────── */
-
+  const trumpSuit = computed(
+    () => (room.value?.trumpCard.slice(-1) as Suit) ?? "♠"
+  );
   const currentTurn = computed(() => room.value?.currentTurn ?? null);
   const canDraw = computed(
     () =>
@@ -83,64 +89,12 @@ export const useGameStore = defineStore("game", () => {
   const getCombos = (uid: string) => combos.value[uid] ?? [];
 
   /* ──────────── actions ──────────── */
-
-  function getMeldTags(uid: string): Record<string, string[]> {
-    // Exemple simplifié : pour chaque carte dans meld, associe les combos où elle est utilisée
-    // à adapter selon ta structure Firestore et combos stockées
-    const tags: Record<string, string[]> = {};
-    const meldCombos = game.getMeldCombos(uid); // tu crées ça si besoin
-    meldCombos.forEach((combo) => {
-      combo.cards.forEach((card) => {
-        if (!tags[card]) tags[card] = [];
-        tags[card].push(combo.type);
-      });
-    });
-    return tags;
-  }
-
   async function updateHand(newHand: string[]) {
     if (!room.value || !myUid.value) return;
     await updateDoc(doc(db, "rooms", room.value.id), {
       [`hands.${myUid.value}`]: newHand,
     });
     hand.value = [...newHand];
-  }
-
-  interface Combo {
-    id: string;
-    type: string;
-    cards: string[];
-    points: number;
-  }
-
-  async function applyCombo(roomId: string, uid: string, combo: Combo) {
-    const roomRef = doc(db, "rooms", roomId);
-
-    await runTransaction(db, async (tx) => {
-      const snap = await tx.get(roomRef);
-      if (!snap.exists()) throw new Error("Room not found");
-      const data = snap.data();
-
-      // Mise à jour des tags sur les cartes dans melds
-      // Exemple : on suppose qu’il y a un champ `meldsTags` : { uid: { cardCode: tag } }
-      const meldsTags = { ...(data.meldsTags ?? {}) };
-      const playerTags = { ...(meldsTags[uid] ?? {}) };
-
-      combo.cards.forEach((cardCode) => {
-        playerTags[cardCode] = combo.type; // on tague chaque carte avec le type combo
-      });
-
-      meldsTags[uid] = playerTags;
-
-      // Mise à jour du score du joueur
-      const scores = { ...(data.scores ?? {}) };
-      scores[uid] = (scores[uid] || 0) + combo.points;
-
-      tx.update(roomRef, {
-        meldsTags,
-        scores,
-      });
-    });
   }
 
   /**
@@ -152,16 +106,14 @@ export const useGameStore = defineStore("game", () => {
   async function addToMeld(uid: string, code: string) {
     if (!room.value || room.value.phase !== "meld") return;
 
-    // Sécurité : la carte n’est plus dans la main ? Ne rien faire
-    if (!hand.value.includes(code)) return;
-
-    // ➤ Mise à jour locale (réactive)
+    /* ── 1. MAJ LOCALE réactive ─────────────────────────────── */
+    if (!hand.value.includes(code)) return; // déjà traité localement ?
     hand.value = hand.value.filter((c) => c !== code);
-    melds.value = {
-      ...melds.value,
-      [uid]: [...(melds.value[uid] ?? []), code],
-    };
 
+    const updated = [...(melds.value[uid] ?? []), code];
+    melds.value = { ...melds.value, [uid]: updated };
+
+    /* ── 2. MAJ FIRESTORE (idempotente) ─────────────────────── */
     const roomRef = doc(db, "rooms", room.value.id);
 
     try {
@@ -172,39 +124,31 @@ export const useGameStore = defineStore("game", () => {
 
         const srvHand = [...(d.hands[uid] ?? [])];
         const srvMeld = [...(d.melds?.[uid] ?? [])];
-        const srvScores = { ...(d.scores ?? {}) };
 
         const alreadyInMeld = srvMeld.includes(code);
         const idxInHand = srvHand.indexOf(code);
 
-        // Cas 1 : déjà en meld → rien à faire
+        // Cas 1 : carte déjà en meld côté serveur → rien à faire (idempotent)
         if (alreadyInMeld) return;
 
-        // Cas 2 : en main → on déplace vers meld
+        // Cas 2 : carte encore dans la main → on la déplace
         if (idxInHand !== -1) {
-          srvHand.splice(idxInHand, 1); // on retire de la main
-          srvMeld.push(code); // on ajoute au meld
-
-          // ➤ Calcul du score (à adapter)
-          const score = getCardPoints(code); // ou getMeldScore([...srvMeld]) si tu regroupes
-
-          srvScores[uid] = (srvScores[uid] ?? 0) + score;
+          srvHand.splice(idxInHand, 1);
+          srvMeld.push(code);
 
           tx.update(roomRef, {
             [`hands.${uid}`]: srvHand,
             [`melds.${uid}`]: srvMeld,
-            [`scores.${uid}`]: srvScores[uid],
           });
           return;
         }
 
-        // Cas 3 : incohérence → rollback
-        throw new Error("Card missing in server hand");
+        // Cas 3 : ni dans la main, ni dans la meld → incohérence, rollback local
+        throw new Error("Card missing on server");
       });
     } catch (err) {
       console.error(err);
-
-      // ➤ Rollback local propre
+      // Rollback local propre
       hand.value = [...hand.value, code];
       melds.value = {
         ...melds.value,
@@ -317,13 +261,7 @@ export const useGameStore = defineStore("game", () => {
         } else {
           /* ───────── 2e carte : on résout le pli ───────── */
           // trump est le dernier caractère de trumpCard, ex. "♣", "♦", …
-
-          function getSuit(card: string): string {
-            // Exemple : "KH_1" → "H"
-            return card.slice(-4, -3);
-          }
-          const trumpSuit = getSuit(d.trumpCard);
-
+          const trumpSuit = d.trumpCard.slice(-1) as Suit;
           const winner = resolveTrick(
             cards[0],
             cards[1],
@@ -470,7 +408,5 @@ export const useGameStore = defineStore("game", () => {
     deOuD,
     getMeld,
     resolveTrick,
-    applyCombo,
-    getMeldTags,
   };
 });

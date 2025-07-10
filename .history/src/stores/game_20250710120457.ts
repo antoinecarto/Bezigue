@@ -317,13 +317,7 @@ export const useGameStore = defineStore("game", () => {
         } else {
           /* ───────── 2e carte : on résout le pli ───────── */
           // trump est le dernier caractère de trumpCard, ex. "♣", "♦", …
-
-          function getSuit(card: string): string {
-            // Exemple : "KH_1" → "H"
-            return card.slice(-4, -3);
-          }
-          const trumpSuit = getSuit(d.trumpCard);
-
+          const trumpSuit = d.trumpCard.slice(-1) as Suit;
           const winner = resolveTrick(
             cards[0],
             cards[1],

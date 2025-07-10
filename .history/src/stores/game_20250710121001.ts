@@ -322,8 +322,8 @@ export const useGameStore = defineStore("game", () => {
             // Exemple : "KH_1" → "H"
             return card.slice(-4, -3);
           }
-          const trumpSuit = getSuit(d.trumpCard);
 
+          const trumpSuit = getSuit(d.trumpCard);
           const winner = resolveTrick(
             cards[0],
             cards[1],

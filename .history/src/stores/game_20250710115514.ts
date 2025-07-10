@@ -20,6 +20,10 @@ const RANK_ORDER: Record<string, number> = {
   A: 8,
 };
 
+const trumpSuit = computed(
+  () => (room.value?.trumpCard.split("_")[1] as Suit) ?? "♠"
+);
+
 const HIGH_SCORE_RANKS = new Set(["10", "A"]);
 
 interface ParsedCard {
@@ -48,7 +52,9 @@ export const useGameStore = defineStore("game", () => {
   const playing = ref(false); // verrou anti double‑clic
 
   /* ──────────── getters ──────────── */
-
+  const trumpSuit = computed(
+    () => (room.value?.trumpCard.slice(-1) as Suit) ?? "♠"
+  );
   const currentTurn = computed(() => room.value?.currentTurn ?? null);
   const canDraw = computed(
     () =>
@@ -317,13 +323,7 @@ export const useGameStore = defineStore("game", () => {
         } else {
           /* ───────── 2e carte : on résout le pli ───────── */
           // trump est le dernier caractère de trumpCard, ex. "♣", "♦", …
-
-          function getSuit(card: string): string {
-            // Exemple : "KH_1" → "H"
-            return card.slice(-4, -3);
-          }
-          const trumpSuit = getSuit(d.trumpCard);
-
+          const trumpSuit = d.trumpCard.slice(-1) as Suit;
           const winner = resolveTrick(
             cards[0],
             cards[1],
