@@ -31,7 +31,6 @@ function splitCode(code: string) {
   const [raw, _] = code.split("_"); // raw = "7C", "10D", etc.
   const rank = raw.slice(0, -1); // Tout sauf le dernier caractère
   const suit = raw.slice(-1) as Suit; // Dernier caractère (C, D, H, S)
-  console.log("suit dans splitCode dans game.ts : ", suit);
   return { rank, suit } as const;
 }
 
@@ -263,7 +262,6 @@ export const useGameStore = defineStore("game", () => {
     const a = splitCode(first); // { rank, suit }
     console.log("a : ", a);
     console.log("a.suit : ", a.suit);
-    console.log("trumpSuit : ", trump);
 
     const b = splitCode(second);
     console.log("b : ", b);
@@ -276,8 +274,6 @@ export const useGameStore = defineStore("game", () => {
     // 2) couleurs diff. : atout > non‑atout
     if (a.suit === trump && b.suit !== trump) return firstUid;
     if (b.suit === trump && a.suit !== trump) return secondUid;
-
-    console.log("trump : ", trump);
 
     // 3) couleurs diff., pas d’atout → le meneur gagne
     return firstUid;
@@ -328,12 +324,11 @@ export const useGameStore = defineStore("game", () => {
           // trump est le dernier caractère de trumpCard, ex. "♣", "♦", …
 
           function getSuit(card: string): string {
-            const [raw] = card.split("_"); // "KH"
-            return raw.slice(-1); // Dernier caractère = la couleur
+            // Exemple : "KH_1" → "H"
+            return card.slice(-4, -3);
           }
           const trumpSuit = getSuit(d.trumpCard);
-          console.log("trumpSuit avec getSuit : ", trumpSuit);
-          console.log("d.trumpCard : ", d.trumpCard);
+
           const winner = resolveTrick(
             cards[0],
             cards[1],

@@ -27,11 +27,9 @@ interface ParsedCard {
   rank: number;
   rankStr: string; // ← nouveau champ
 }
+
 function splitCode(code: string) {
-  const [raw, _] = code.split("_"); // raw = "7C", "10D", etc.
-  const rank = raw.slice(0, -1); // Tout sauf le dernier caractère
-  const suit = raw.slice(-1) as Suit; // Dernier caractère (C, D, H, S)
-  console.log("suit dans splitCode dans game.ts : ", suit);
+  const [rank, suit] = code.split("_") as [string, Suit]; // Suit = "C"|"D"|"H"|"S"
   return { rank, suit } as const;
 }
 
@@ -261,13 +259,8 @@ export const useGameStore = defineStore("game", () => {
     trump: Suit
   ): string {
     const a = splitCode(first); // { rank, suit }
-    console.log("a : ", a);
-    console.log("a.suit : ", a.suit);
-    console.log("trumpSuit : ", trump);
-
     const b = splitCode(second);
-    console.log("b : ", b);
-    console.log("b.suit : ", b.suit);
+
     // 1) même couleur → plus haute l’emporte
     if (a.suit === b.suit) {
       return RANK_ORDER[a.rank] >= RANK_ORDER[b.rank] ? firstUid : secondUid;
@@ -277,12 +270,9 @@ export const useGameStore = defineStore("game", () => {
     if (a.suit === trump && b.suit !== trump) return firstUid;
     if (b.suit === trump && a.suit !== trump) return secondUid;
 
-    console.log("trump : ", trump);
-
     // 3) couleurs diff., pas d’atout → le meneur gagne
     return firstUid;
   }
-
   async function playCard(code: string) {
     if (
       playing.value ||
@@ -304,7 +294,7 @@ export const useGameStore = defineStore("game", () => {
 
         if ((d.trick.cards?.length ?? 0) >= 2) throw new Error("Trick full");
 
-        /* ─── enlève la carte de la main serveur ─── */
+        /* enlève la carte de la main serveur */
         const srvHand = [...(d.hands[myUid.value] ?? [])];
         const pos = srvHand.indexOf(code);
         if (pos === -1) throw new Error("Card not in hand server");
@@ -320,20 +310,12 @@ export const useGameStore = defineStore("game", () => {
           exchangeTable: { ...(d.exchangeTable ?? {}), [myUid.value]: code },
         };
 
-        /* ───────── 1re carte ───────── */
         if (cards.length === 1) {
           update.currentTurn = opponent;
         } else {
-          /* ───────── 2e carte : on résout le pli ───────── */
-          // trump est le dernier caractère de trumpCard, ex. "♣", "♦", …
+          // Récupère l'atout de façon fiable
+          const trumpSuit = splitCode(d.trumpCard).suit;
 
-          function getSuit(card: string): string {
-            const [raw] = card.split("_"); // "KH"
-            return raw.slice(-1); // Dernier caractère = la couleur
-          }
-          const trumpSuit = getSuit(d.trumpCard);
-          console.log("trumpSuit avec getSuit : ", trumpSuit);
-          console.log("d.trumpCard : ", d.trumpCard);
           const winner = resolveTrick(
             cards[0],
             cards[1],
@@ -343,41 +325,29 @@ export const useGameStore = defineStore("game", () => {
           );
           const loser = players.find((p) => p !== winner)!;
 
-          /* points : +10 pour chaque 10 ou As du pli */
-          const points = cards.reduce(
-            (acc, c) =>
-              ["10", "A"].includes(splitCode(c).rank) ? acc + 10 : acc,
-            0
+          // Calcul des points du pli
+          const points = cards.reduce((acc, c) =>
+            HIGH_SCORE_RANKS.has(splitCode(c).rank) ? acc + 10 : acc
           );
+
           if (points) {
             update[`scores.${winner}`] = (d.scores?.[winner] ?? 0) + points;
           }
 
-          /* réinitialise le pli */
+          // Réinitialise le pli
           update.trick = { cards: [], players: [] };
-          update.exchangeTable = {};
+
+          // Met à jour le tour
           update.currentTurn = winner;
-
-          /* file de pioche si <9 cartes (winner puis loser) */
-          const prospective = { ...d.hands, [myUid.value]: srvHand };
-          const needs = (u: string) =>
-            (prospective[u]?.length ?? 0) + (d.melds?.[u]?.length ?? 0) < 9;
-          const drawQueue: string[] = [];
-          if (needs(winner)) drawQueue.push(winner);
-          if (needs(loser)) drawQueue.push(loser);
-
-          /* on garantit que le gagnant est toujours premier (même si son total cartes≥9 au moment du pli) */
-          if (!drawQueue.includes(winner)) {
-            drawQueue.unshift(winner);
-          }
-
-          /* on passe toujours en phase 'meld' (drawQueue peut être vide) */
-          update.phase = "meld";
-          update.drawQueue = drawQueue;
         }
 
         tx.update(roomRef, update);
+
+        // Mise à jour locale optimiste
+        hand.value = srvHand;
       });
+    } catch (err) {
+      console.error(err);
     } finally {
       playing.value = false;
     }

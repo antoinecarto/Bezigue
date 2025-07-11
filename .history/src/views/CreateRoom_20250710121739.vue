@@ -112,7 +112,7 @@ async function createRoom() {
 
       /* cartes & état de jeu */
       trumpCard: trumpCardStr,
-      trumpSuit: trumpCardStr.match(/([a-zA-Z])_(?:1|2)$/)?.[1] ?? null,
+      trumpSuit: trumpCardStr.slice(-3, -2),
       trumpTaken: false,
       deck: arrayToStr(distrib.drawPile),
       hands: { [uid]: hostHand },
