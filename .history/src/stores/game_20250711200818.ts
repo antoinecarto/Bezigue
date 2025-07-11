@@ -7,7 +7,24 @@ import type { RoomDoc, RoomState } from "@/types/firestore";
 import type { Suit } from "@/game/models/Card";
 
 /* ── RANG UNIQUE & PARTAGÉ ─────────────────────────────────────────── */
+const RANK_ORDER: Record<string, number> = {
+  "7": 1,
+  "8": 2,
+  "9": 3,
+  J: 4,
+  Q: 5,
+  K: 6,
+  "10": 7,
+  A: 8,
+};
 
+const HIGH_SCORE_RANKS = new Set(["10", "A"]);
+
+interface ParsedCard {
+  suit: Suit;
+  rank: number;
+  rankStr: string; // ← nouveau champ
+}
 function splitCode(code: string) {
   const [raw, _] = code.split("_"); // raw = "7C", "10D", etc.
   const rank = raw.slice(0, -1); // Tout sauf le dernier caractère
@@ -23,6 +40,7 @@ export const useGameStore = defineStore("game", () => {
   const melds = ref<Record<string, string[]>>({});
   const exchangeTable = ref<Record<string, string>>({});
   const scores = ref<Record<string, number>>({});
+  const combos = ref<Record<string, Combination[]>>({});
 
   const loading = ref(true);
   const drawInProgress = ref(false);
@@ -38,6 +56,8 @@ export const useGameStore = defineStore("game", () => {
       !drawInProgress.value
   );
 
+  //const getMeldArea = (uid: string) => melds.value[uid] ?? [];
+  //const getMeld = (uid: string) => melds.value[uid] ?? [];
   const getExchange = computed(() => exchangeTable.value);
   const getScore = (uid: string) => scores.value[uid] ?? 0;
 
@@ -52,9 +72,10 @@ export const useGameStore = defineStore("game", () => {
       const data = snap.data() as RoomDoc;
       room.value = { id: snap.id, ...data };
       if (myUid.value) hand.value = data.hands?.[myUid.value] ?? [];
-      // melds.value = { ...data.melds };
+      melds.value = { ...data.melds };
       exchangeTable.value = { ...(data.exchangeTable ?? {}) };
       scores.value = { ...(data.scores ?? {}) };
+      combos.value = { ...(data.combos ?? {}) };
     });
   }
 
@@ -72,18 +93,66 @@ export const useGameStore = defineStore("game", () => {
    * - Déclenche la réactivité Vue 3 (nouveaux tableau + objet).
    * - Annule proprement en cas d'erreur Firestore.
    */
-  function addToMeld(uid: string, code: string) {
-    if (!room.value) return;
+  async function addToMeld(uid: string, code: string) {
+    if (!room.value || room.value.phase !== "meld") return;
+
+    // Sécurité : la carte n’est plus dans la main ? Ne rien faire
     if (!hand.value.includes(code)) return;
 
-    // Mise à jour locale : on retire la carte de la main
+    // ➤ Mise à jour locale (réactive)
     hand.value = hand.value.filter((c) => c !== code);
-
-    // Et on l'ajoute au meld visible
     melds.value = {
       ...melds.value,
       [uid]: [...(melds.value[uid] ?? []), code],
     };
+
+    const roomRef = doc(db, "rooms", room.value.id);
+
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(roomRef);
+        if (!snap.exists()) throw new Error("Room not found");
+        const d = snap.data() as RoomDoc;
+
+        const srvHand = [...(d.hands[uid] ?? [])];
+        const srvMeld = [...(d.melds?.[uid] ?? [])];
+        const srvScores = { ...(d.scores ?? {}) };
+        console.log("Transaction start:", { srvHand, srvMeld, code });
+
+        const alreadyInMeld = srvMeld.includes(code);
+        const idxInHand = srvHand.indexOf(code);
+
+        // Cas 1 : déjà en meld → rien à faire
+        if (alreadyInMeld) return;
+
+        // Cas 2 : en main → on déplace vers meld
+        if (idxInHand !== -1) {
+          srvHand.splice(idxInHand, 1); // on retire de la main
+          srvMeld.push(code); // on ajoute au meld
+
+          tx.update(roomRef, {
+            [`hands.${uid}`]: srvHand,
+            [`melds.${uid}`]: srvMeld,
+            [`scores.${uid}`]: srvScores[uid],
+          });
+          return;
+        }
+
+        // Cas 3 : incohérence → rollback
+        throw new Error("Card missing in server hand");
+      });
+    } catch (err) {
+      console.log("Transaction dans catch : ", { code });
+
+      console.error(err);
+
+      // ➤ Rollback local propre
+      hand.value = [...hand.value, code];
+      melds.value = {
+        ...melds.value,
+        [uid]: (melds.value[uid] ?? []).filter((c) => c !== code),
+      };
+    }
   }
 
   async function drawCard() {
@@ -95,7 +164,7 @@ export const useGameStore = defineStore("game", () => {
         const snap = await tx.get(roomRef);
         if (!snap.exists()) throw new Error("Room missing");
         const d = snap.data() as RoomDoc;
-        if (d.phase !== "play" || d.drawQueue[0] !== myUid.value)
+        if (d.phase !== "draw" || d.drawQueue[0] !== myUid.value)
           throw new Error("Not your draw turn");
 
         const deck = [...d.deck];
@@ -137,6 +206,7 @@ export const useGameStore = defineStore("game", () => {
     if (a.suit === b.suit) {
       return RANK_ORDER[a.rank] >= RANK_ORDER[b.rank] ? firstUid : secondUid;
     }
+
     // 2) couleurs diff. : atout > non‑atout
     if (a.suit === trump && b.suit !== trump) return firstUid;
     if (b.suit === trump && a.suit !== trump) return secondUid;
@@ -218,6 +288,23 @@ export const useGameStore = defineStore("game", () => {
           update.trick = { cards: [], players: [] };
           update.exchangeTable = {};
           update.currentTurn = winner;
+
+          /* file de pioche si <9 cartes (winner puis loser) */
+          const prospective = { ...d.hands, [myUid.value]: srvHand };
+          const needs = (u: string) =>
+            (prospective[u]?.length ?? 0) + (d.melds?.[u]?.length ?? 0) < 9;
+          const drawQueue: string[] = [];
+          if (needs(winner)) drawQueue.push(winner);
+          if (needs(loser)) drawQueue.push(loser);
+
+          /* on garantit que le gagnant est toujours premier (même si son total cartes≥9 au moment du pli) */
+          if (!drawQueue.includes(winner)) {
+            drawQueue.unshift(winner);
+          }
+
+          /* on passe toujours en phase 'meld' (drawQueue peut être vide) */
+          update.phase = "meld";
+          update.drawQueue = drawQueue;
         }
 
         tx.update(roomRef, update);

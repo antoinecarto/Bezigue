@@ -6,6 +6,9 @@ import PlayingCard from "@/views/components/PlayingCard.vue";
 
 const props = defineProps<{ uid: string; readonly?: boolean }>();
 
+/* ---------- état global ---------- */
+const game = useGameStore();
+
 /* ---------- état local ---------- */
 const pending = ref<string[]>([]); // cartes en attente dans la zone verte
 

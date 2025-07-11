@@ -73,7 +73,7 @@ export const useGameStore = defineStore("game", () => {
    * - Annule proprement en cas d'erreur Firestore.
    */
   function addToMeld(uid: string, code: string) {
-    if (!room.value) return;
+    if (!room.value || room.value.phase !== "meld") return;
     if (!hand.value.includes(code)) return;
 
     // Mise à jour locale : on retire la carte de la main
@@ -95,7 +95,7 @@ export const useGameStore = defineStore("game", () => {
         const snap = await tx.get(roomRef);
         if (!snap.exists()) throw new Error("Room missing");
         const d = snap.data() as RoomDoc;
-        if (d.phase !== "play" || d.drawQueue[0] !== myUid.value)
+        if (d.phase !== "draw" || d.drawQueue[0] !== myUid.value)
           throw new Error("Not your draw turn");
 
         const deck = [...d.deck];

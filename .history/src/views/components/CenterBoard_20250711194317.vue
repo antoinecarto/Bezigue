@@ -7,7 +7,7 @@ import ExchangeDialog from "./Exchange7Dialog.vue";
 import PlayingCard from "@/views/components/PlayingCard.vue";
 
 import { doc, updateDoc } from "firebase/firestore";
-import { db } from "@/services/firebase"; // ou ajuste selon ton chemin
+import { db } from "@/firebase"; // ou ajuste selon ton chemin
 
 const game = useGameStore();
 
@@ -68,10 +68,7 @@ async function addScore() {
       <!-- Sélecteur simple de score -->
       <div class="mt-4 text-white">
         <label class="block mb-1">Ajouter des points :</label>
-        <select
-          v-model="selectedScore"
-          class="px-2 py-1 rounded text-black block"
-        >
+        <select v-model="selectedScore" class="px-2 py-1 rounded text-black">
           <option disabled selected value="">-- Choisir un score --</option>
           <option
             v-for="val in [20, 40, 60, 80, 100, 150, 250, 500]"
@@ -82,7 +79,7 @@ async function addScore() {
           </option>
         </select>
         <button
-          class="mt-2 block px-3 py-1 bg-green-600 text-white rounded disabled:opacity-50"
+          class="mt-2 px-3 py-1 bg-green-600 text-white rounded disabled:opacity-50"
           :disabled="!selectedScore"
           @click="addScore"
         >

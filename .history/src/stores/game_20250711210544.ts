@@ -20,7 +20,6 @@ export const useGameStore = defineStore("game", () => {
   const room = ref<RoomState | null>(null);
   const myUid = ref<string | null>(null);
   const hand = ref<string[]>([]);
-  const melds = ref<Record<string, string[]>>({});
   const exchangeTable = ref<Record<string, string>>({});
   const scores = ref<Record<string, number>>({});
 
@@ -38,6 +37,8 @@ export const useGameStore = defineStore("game", () => {
       !drawInProgress.value
   );
 
+  //const getMeldArea = (uid: string) => melds.value[uid] ?? [];
+  //const getMeld = (uid: string) => melds.value[uid] ?? [];
   const getExchange = computed(() => exchangeTable.value);
   const getScore = (uid: string) => scores.value[uid] ?? 0;
 
@@ -52,9 +53,10 @@ export const useGameStore = defineStore("game", () => {
       const data = snap.data() as RoomDoc;
       room.value = { id: snap.id, ...data };
       if (myUid.value) hand.value = data.hands?.[myUid.value] ?? [];
-      // melds.value = { ...data.melds };
+      melds.value = { ...data.melds };
       exchangeTable.value = { ...(data.exchangeTable ?? {}) };
       scores.value = { ...(data.scores ?? {}) };
+      combos.value = { ...(data.combos ?? {}) };
     });
   }
 
@@ -72,18 +74,58 @@ export const useGameStore = defineStore("game", () => {
    * - Déclenche la réactivité Vue 3 (nouveaux tableau + objet).
    * - Annule proprement en cas d'erreur Firestore.
    */
-  function addToMeld(uid: string, code: string) {
-    if (!room.value) return;
+  async function addToMeld(uid: string, code: string) {
+    if (!room.value || room.value.phase !== "meld") return;
+
     if (!hand.value.includes(code)) return;
 
-    // Mise à jour locale : on retire la carte de la main
     hand.value = hand.value.filter((c) => c !== code);
-
-    // Et on l'ajoute au meld visible
     melds.value = {
       ...melds.value,
       [uid]: [...(melds.value[uid] ?? []), code],
     };
+
+    const roomRef = doc(db, "rooms", room.value.id);
+
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(roomRef);
+        if (!snap.exists()) throw new Error("Room not found");
+        const d = snap.data() as RoomDoc;
+
+        const srvHand = [...(d.hands[uid] ?? [])];
+        const srvMeld = [...(d.melds?.[uid] ?? [])];
+
+        const alreadyInMeld = srvMeld.includes(code);
+        const idxInHand = srvHand.indexOf(code);
+
+        if (alreadyInMeld) return;
+
+        if (idxInHand !== -1) {
+          srvHand.splice(idxInHand, 1);
+          srvMeld.push(code);
+
+          tx.update(roomRef, {
+            [`hands.${uid}`]: srvHand,
+            [`melds.${uid}`]: srvMeld,
+          });
+          return;
+        }
+
+        // Tu peux choisir soit l’option 1 (robuste) :
+        console.warn("Card not found in server hand:", code);
+        return;
+      });
+    } catch (err) {
+      console.log("Transaction dans catch : ", { code });
+      console.error(err);
+
+      hand.value = [...hand.value, code];
+      melds.value = {
+        ...melds.value,
+        [uid]: (melds.value[uid] ?? []).filter((c) => c !== code),
+      };
+    }
   }
 
   async function drawCard() {
@@ -95,7 +137,7 @@ export const useGameStore = defineStore("game", () => {
         const snap = await tx.get(roomRef);
         if (!snap.exists()) throw new Error("Room missing");
         const d = snap.data() as RoomDoc;
-        if (d.phase !== "play" || d.drawQueue[0] !== myUid.value)
+        if (d.phase !== "draw" || d.drawQueue[0] !== myUid.value)
           throw new Error("Not your draw turn");
 
         const deck = [...d.deck];
@@ -137,6 +179,7 @@ export const useGameStore = defineStore("game", () => {
     if (a.suit === b.suit) {
       return RANK_ORDER[a.rank] >= RANK_ORDER[b.rank] ? firstUid : secondUid;
     }
+
     // 2) couleurs diff. : atout > non‑atout
     if (a.suit === trump && b.suit !== trump) return firstUid;
     if (b.suit === trump && a.suit !== trump) return secondUid;
@@ -218,6 +261,23 @@ export const useGameStore = defineStore("game", () => {
           update.trick = { cards: [], players: [] };
           update.exchangeTable = {};
           update.currentTurn = winner;
+
+          /* file de pioche si <9 cartes (winner puis loser) */
+          const prospective = { ...d.hands, [myUid.value]: srvHand };
+          const needs = (u: string) =>
+            (prospective[u]?.length ?? 0) + (d.melds?.[u]?.length ?? 0) < 9;
+          const drawQueue: string[] = [];
+          if (needs(winner)) drawQueue.push(winner);
+          if (needs(loser)) drawQueue.push(loser);
+
+          /* on garantit que le gagnant est toujours premier (même si son total cartes≥9 au moment du pli) */
+          if (!drawQueue.includes(winner)) {
+            drawQueue.unshift(winner);
+          }
+
+          /* on passe toujours en phase 'meld' (drawQueue peut être vide) */
+          //update.phase = "meld";
+          //update.drawQueue = drawQueue;
         }
 
         tx.update(roomRef, update);

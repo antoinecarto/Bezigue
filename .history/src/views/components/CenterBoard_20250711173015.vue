@@ -1,13 +1,10 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { computed } from "vue";
 import { useGameStore } from "@/stores/game";
 import TargetSelector from "./TargetSelector.vue";
 import TrumpCardPile from "./TrumpCardPile.vue";
 import ExchangeDialog from "./Exchange7Dialog.vue";
 import PlayingCard from "@/views/components/PlayingCard.vue";
-
-import { doc, updateDoc } from "firebase/firestore";
-import { db } from "@/services/firebase"; // ou ajuste selon ton chemin
 
 const game = useGameStore();
 
@@ -29,25 +26,6 @@ const playerNames = computed(() => {
 
 /* cartes jouées -------------------------------------------------- */
 const exchangeTable = computed(() => game.room?.exchangeTable ?? {});
-
-/* Ajout de score -------------------------------------------------- */
-const selectedScore = ref<number | null>(null);
-
-async function addScore() {
-  const room = game.room;
-  const uid = game.myUid;
-  if (!room || !uid || !selectedScore.value) return;
-
-  const roomRef = doc(db, "rooms", room.id);
-  const currentScore = room.scores?.[uid] ?? 0;
-  const newScore = currentScore + selectedScore.value;
-
-  await updateDoc(roomRef, {
-    [`scores.${uid}`]: newScore,
-  });
-
-  selectedScore.value = null; // reset le select
-}
 </script>
 
 <template>
@@ -68,10 +46,7 @@ async function addScore() {
       <!-- Sélecteur simple de score -->
       <div class="mt-4 text-white">
         <label class="block mb-1">Ajouter des points :</label>
-        <select
-          v-model="selectedScore"
-          class="px-2 py-1 rounded text-black block"
-        >
+        <select class="px-2 py-1 rounded text-black">
           <option disabled selected value="">-- Choisir un score --</option>
           <option
             v-for="val in [20, 40, 60, 80, 100, 150, 250, 500]"
@@ -81,13 +56,6 @@ async function addScore() {
             {{ val }} points
           </option>
         </select>
-        <button
-          class="mt-2 block px-3 py-1 bg-green-600 text-white rounded disabled:opacity-50"
-          :disabled="!selectedScore"
-          @click="addScore"
-        >
-          Ajouter au score
-        </button>
       </div>
 
       <TargetSelector />
@@ -125,6 +93,6 @@ async function addScore() {
 }
 
 .center-cards {
-  padding-top: 60px;
+  padding-top: 60px; /* descend un peu la colonne */
 }
 </style>

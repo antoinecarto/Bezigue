@@ -95,7 +95,7 @@ export const useGameStore = defineStore("game", () => {
         const snap = await tx.get(roomRef);
         if (!snap.exists()) throw new Error("Room missing");
         const d = snap.data() as RoomDoc;
-        if (d.phase !== "play" || d.drawQueue[0] !== myUid.value)
+        if (d.phase !== "draw" || d.drawQueue[0] !== myUid.value)
           throw new Error("Not your draw turn");
 
         const deck = [...d.deck];

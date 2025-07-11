@@ -3,13 +3,38 @@ import { ref, computed, watch } from "vue";
 import draggable from "vuedraggable";
 import { useGameStore } from "@/stores/game";
 import PlayingCard from "@/views/components/PlayingCard.vue";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "@/services/firebase";
 
 const props = defineProps<{ uid: string; readonly?: boolean }>();
+
+/* ---------- état global ---------- */
+const game = useGameStore();
+const room = computed(() => game.room);
+const isMine = computed(() => props.uid === game.myUid);
 
 /* ---------- état local ---------- */
 const pending = ref<string[]>([]); // cartes en attente dans la zone verte
 
+async function finishMeldPhase() {
+  if (!isMine.value || pending.value.length) return;
+  if (!room.value) return;
+
+  try {
+    const roomRef = doc(db, "rooms", room.value.id);
+    await updateDoc(roomRef, { phase: "draw" });
+  } catch (err) {
+    console.error("finishMeldPhase:", err);
+  }
+}
+
 /* ---------- reset en changeant de phase ---------- */
+watch(
+  () => room.value?.phase,
+  (phase) => {
+    if (phase !== "meld") pending.value = [];
+  }
+);
 </script>
 
 <template>
@@ -30,4 +55,13 @@ const pending = ref<string[]>([]); // cartes en attente dans la zone verte
       <PlayingCard :code="element" :key="element" />
     </template>
   </draggable>
+
+  <!-- bouton Terminer la pose (pioche) -->
+  <button
+    v-if="isMine && room?.phase === 'meld' && !pending.length"
+    class="btn mt-4"
+    @click="finishMeldPhase"
+  >
+    Terminer la pose
+  </button>
 </template>

@@ -3,13 +3,48 @@ import { ref, computed, watch } from "vue";
 import draggable from "vuedraggable";
 import { useGameStore } from "@/stores/game";
 import PlayingCard from "@/views/components/PlayingCard.vue";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "@/services/firebase";
 
 const props = defineProps<{ uid: string; readonly?: boolean }>();
+
+/* ---------- état global ---------- */
+const game = useGameStore();
+const room = computed(() => game.room);
+const isMine = computed(() => props.uid === game.myUid);
 
 /* ---------- état local ---------- */
 const pending = ref<string[]>([]); // cartes en attente dans la zone verte
 
 /* ---------- reset en changeant de phase ---------- */
+watch(
+  () => room.value?.phase,
+  (phase) => {
+    if (phase !== "meld") pending.value = [];
+  }
+);
+
+watch(pending, async (newMeld) => {
+  if (!room.value || !isMine.value) return;
+
+  try {
+    const roomRef = doc(db, "rooms", room.value.id);
+    await updateDoc(roomRef, {
+      [`melds.${props.uid}`]: newMeld,
+    });
+  } catch (err) {
+    console.error("update melds:", err);
+  }
+});
+
+// maj locale quand l'autre joueur joue
+watch(
+  () => room.value?.melds?.[props.uid] ?? [],
+  (meldFromDb) => {
+    if (!isMine.value) pending.value = meldFromDb;
+  },
+  { immediate: true }
+);
 </script>
 
 <template>

@@ -52,9 +52,10 @@ export const useGameStore = defineStore("game", () => {
       const data = snap.data() as RoomDoc;
       room.value = { id: snap.id, ...data };
       if (myUid.value) hand.value = data.hands?.[myUid.value] ?? [];
-      // melds.value = { ...data.melds };
+      melds.value = { ...data.melds };
       exchangeTable.value = { ...(data.exchangeTable ?? {}) };
       scores.value = { ...(data.scores ?? {}) };
+      combos.value = { ...(data.combos ?? {}) };
     });
   }
 
@@ -73,7 +74,7 @@ export const useGameStore = defineStore("game", () => {
    * - Annule proprement en cas d'erreur Firestore.
    */
   function addToMeld(uid: string, code: string) {
-    if (!room.value) return;
+    if (!room.value || room.value.phase !== "meld") return;
     if (!hand.value.includes(code)) return;
 
     // Mise à jour locale : on retire la carte de la main
@@ -95,7 +96,7 @@ export const useGameStore = defineStore("game", () => {
         const snap = await tx.get(roomRef);
         if (!snap.exists()) throw new Error("Room missing");
         const d = snap.data() as RoomDoc;
-        if (d.phase !== "play" || d.drawQueue[0] !== myUid.value)
+        if (d.phase !== "draw" || d.drawQueue[0] !== myUid.value)
           throw new Error("Not your draw turn");
 
         const deck = [...d.deck];
@@ -137,6 +138,7 @@ export const useGameStore = defineStore("game", () => {
     if (a.suit === b.suit) {
       return RANK_ORDER[a.rank] >= RANK_ORDER[b.rank] ? firstUid : secondUid;
     }
+
     // 2) couleurs diff. : atout > non‑atout
     if (a.suit === trump && b.suit !== trump) return firstUid;
     if (b.suit === trump && a.suit !== trump) return secondUid;
@@ -218,6 +220,23 @@ export const useGameStore = defineStore("game", () => {
           update.trick = { cards: [], players: [] };
           update.exchangeTable = {};
           update.currentTurn = winner;
+
+          /* file de pioche si <9 cartes (winner puis loser) */
+          const prospective = { ...d.hands, [myUid.value]: srvHand };
+          const needs = (u: string) =>
+            (prospective[u]?.length ?? 0) + (d.melds?.[u]?.length ?? 0) < 9;
+          const drawQueue: string[] = [];
+          if (needs(winner)) drawQueue.push(winner);
+          if (needs(loser)) drawQueue.push(loser);
+
+          /* on garantit que le gagnant est toujours premier (même si son total cartes≥9 au moment du pli) */
+          if (!drawQueue.includes(winner)) {
+            drawQueue.unshift(winner);
+          }
+
+          /* on passe toujours en phase 'meld' (drawQueue peut être vide) */
+          //update.phase = "meld";
+          //update.drawQueue = drawQueue;
         }
 
         tx.update(roomRef, update);
