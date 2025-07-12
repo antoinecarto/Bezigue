@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref } from "vue";
 import draggable from "vuedraggable";
 import PlayingCard from "@/views/components/PlayingCard.vue";
 
@@ -8,31 +8,10 @@ const props = defineProps<{
   readonly?: boolean;
   cards?: string[];
 }>();
-
-const emit = defineEmits<{
-  (e: "update", newCards: string[]): void;
-}>();
-
 /* ---------- état local ---------- */
-const pending = ref<string[]>([]);
+const pending = ref<string[]>([]); // cartes en attente dans la zone verte
 
-/* ---------- synchronisation avec props.cards ---------- */
-watch(
-  () => props.cards,
-  (cards) => {
-    if (cards) {
-      pending.value = [...cards];
-    } else {
-      pending.value = [];
-    }
-  },
-  { immediate: true }
-);
-
-/* ---------- valider la mise à jour ---------- */
-function validateMeld() {
-  emit("update", [...pending.value]);
-}
+/* ---------- reset en changeant de phase ---------- */
 </script>
 
 <template>
@@ -53,12 +32,4 @@ function validateMeld() {
       <PlayingCard :code="element" :key="element" />
     </template>
   </draggable>
-
-  <button
-    v-if="!props.readonly"
-    @click="validateMeld"
-    class="mt-2 px-3 py-1 bg-blue-600 text-white rounded"
-  >
-    Valider les cartes
-  </button>
 </template>

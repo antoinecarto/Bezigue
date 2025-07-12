@@ -11,8 +11,6 @@ import { storeToRefs } from "pinia"; // ← ①
 import { useRoute } from "vue-router";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import type { Unsubscribe } from "firebase/firestore";
-import { updateDoc, doc } from "firebase/firestore";
-import { db } from "@/services/firebase";
 
 import { useGameStore } from "@/stores/game";
 import PlayerHand from "@/views/PlayerHand.vue";
@@ -82,19 +80,6 @@ onMounted(() => {
     unsubscribeRoom?.();
   });
 });
-
-/* fonction de mise à jour dans Firestore */
-async function updateMelds(uid: string, newCards: string[]) {
-  if (!room.value) return;
-  const roomRef = doc(db, "rooms", room.value.id);
-  try {
-    await updateDoc(roomRef, {
-      [`melds.${uid}`]: newCards,
-    });
-  } catch (error) {
-    console.error("Erreur mise à jour melds Firestore:", error);
-  }
-}
 </script>
 
 <template>
@@ -131,16 +116,7 @@ async function updateMelds(uid: string, newCards: string[]) {
     <CenterBoard />
 
     <!-- Meld du joueur (interactive) -->
-    <MeldZone
-      v-if="myUid"
-      :uid="myUid"
-      :cards="room?.melds?.[myUid]"
-      @update="
-        (newCards) => {
-          if (myUid) updateMelds(myUid, newCards);
-        }
-      "
-    />
+    <MeldZone v-if="myUid" :uid="myUid" :cards="myMeld" />
 
     <!-- main du joueur -->
     <PlayerHand />

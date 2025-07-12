@@ -133,11 +133,11 @@ async function updateMelds(uid: string, newCards: string[]) {
     <!-- Meld du joueur (interactive) -->
     <MeldZone
       v-if="myUid"
-      :uid="myUid"
-      :cards="room?.melds?.[myUid]"
+      :uid="myUid.value"
+      :cards="room?.melds?.[myUid.value]"
       @update="
         (newCards) => {
-          if (myUid) updateMelds(myUid, newCards);
+          if (myUid.value) updateMelds(myUid.value, newCards);
         }
       "
     />

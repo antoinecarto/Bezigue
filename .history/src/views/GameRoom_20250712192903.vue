@@ -131,16 +131,7 @@ async function updateMelds(uid: string, newCards: string[]) {
     <CenterBoard />
 
     <!-- Meld du joueur (interactive) -->
-    <MeldZone
-      v-if="myUid"
-      :uid="myUid"
-      :cards="room?.melds?.[myUid]"
-      @update="
-        (newCards) => {
-          if (myUid) updateMelds(myUid, newCards);
-        }
-      "
-    />
+    <MeldZone v-if="myUid" :uid="myUid" :cards="myMeld" />
 
     <!-- main du joueur -->
     <PlayerHand />

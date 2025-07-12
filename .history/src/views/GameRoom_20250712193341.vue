@@ -135,11 +135,7 @@ async function updateMelds(uid: string, newCards: string[]) {
       v-if="myUid"
       :uid="myUid"
       :cards="room?.melds?.[myUid]"
-      @update="
-        (newCards) => {
-          if (myUid) updateMelds(myUid, newCards);
-        }
-      "
+      @update="(newCards) => updateMelds(myUid, newCards)"
     />
 
     <!-- main du joueur -->

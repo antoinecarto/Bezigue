@@ -41,10 +41,12 @@ async function addScore() {
   const roomRef = doc(db, "rooms", room.id);
   const currentScore = room.scores?.[uid] ?? 0;
   const newScore = currentScore + selectedScore.value;
+  const meldCards = room.melds?.[uid] ?? [];
 
   try {
     await updateDoc(roomRef, {
       [`scores.${uid}`]: newScore,
+      [`melds.${uid}`]: meldCards,
     });
   } catch (error) {
     console.error("Firestore update failed:", error);
