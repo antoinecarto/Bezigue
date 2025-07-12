@@ -20,7 +20,7 @@ const remaining = computed(() => game.room?.deck.length ?? 0);
     />
 
     <button
-      :disabled="!game.canDraw()"
+      :disabled="!game.canDraw"
       @click="game.drawCard"
       class="bg-green-600 text-white px-3 py-1 rounded disabled:opacity-40"
     >

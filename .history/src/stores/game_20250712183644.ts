@@ -85,40 +85,47 @@ export const useGameStore = defineStore("game", () => {
     };
   }
   async function drawCard() {
-    if (!room.value || !myUid.value) return;
-    if (!canDraw()) return;
-
+    if (!canDraw.value || !room.value || !myUid.value) return;
     const roomRef = doc(db, "rooms", room.value.id);
+    drawInProgress.value = true;
 
-    await runTransaction(db, async (tx) => {
-      const snap = await tx.get(roomRef);
-      if (!snap.exists()) throw new Error("Room missing");
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(roomRef);
+        if (!snap.exists()) throw new Error("Room missing");
+        const d = snap.data() as RoomDoc;
 
-      const d = snap.data() as RoomDoc;
-      const dq = d.drawQueue ?? [];
+        if (d.drawQueue[0] !== myUid.value)
+          throw new Error("Not your draw turn");
 
-      if (dq[0] !== myUid.value) throw new Error("Not your turn to draw");
+        const deck = [...d.deck];
+        if (deck.length === 0) throw new Error("Deck empty");
 
-      const hand = [...(d.hands[myUid.value] ?? [])];
-      const meld = d.melds?.[myUid.value] ?? [];
-      if (hand.length + meld.length >= 9) throw new Error("Hand full");
+        const card = deck.shift()!;
+        const newHand = [...(d.hands[myUid.value] ?? []), card];
 
-      const deck = [...(d.deck ?? [])];
-      if (!deck.length) throw new Error("Deck is empty");
+        // Mise à jour de la queue : si plus d’un joueur reste, on enlève le premier, sinon on garde la queue telle quelle
+        const newQueue =
+          d.drawQueue.length > 1 ? d.drawQueue.slice(1) : d.drawQueue;
 
-      const card = deck.shift()!;
-      hand.push(card);
+        const update: Record<string, any> = {
+          deck,
+          [`hands.${myUid.value}`]: newHand,
+          drawQueue: newQueue,
+        };
 
-      const newQueue = dq.slice(1); // on retire le joueur qui vient de piocher
+        if (newQueue.length === 0) {
+          update.currentTurn = d.currentTurn; // force le tour correct si plus personne à piocher
+        }
 
-      const update: Record<string, any> = {
-        [`hands.${myUid.value}`]: hand,
-        deck,
-        drawQueue: newQueue,
-      };
+        tx.update(roomRef, update);
 
-      tx.update(roomRef, update);
-    });
+        // mise à jour locale optimiste
+        hand.value = newHand;
+      });
+    } finally {
+      drawInProgress.value = false;
+    }
   }
 
   function resolveTrick(
@@ -283,20 +290,16 @@ export const useGameStore = defineStore("game", () => {
   function canDraw(): boolean {
     if (!room.value || !myUid.value) return false;
 
-    const d = room.value;
+    const dq = room.value.drawQueue ?? [];
+    const hasToDraw = dq[0] === myUid.value;
 
-    // 1. Vérifie que le pli est terminé
-    const trickDone = (d.trick.cards?.length ?? 0) === 0;
+    const myHand = room.value.hands[myUid.value] ?? [];
+    const myMeld = room.value.melds?.[myUid.value] ?? [];
 
-    // 2. Vérifie que c'est bien à ce joueur de piocher
-    const isInDrawQueue = d.drawQueue?.[0] === myUid.value;
+    const cardCount = myHand.length + myMeld.length;
+    const spaceAvailable = cardCount < 9;
 
-    // 3. Vérifie la taille de la main + meld <= 9
-    const hand = d.hands?.[myUid.value] ?? [];
-    const meld = d.melds?.[myUid.value] ?? [];
-    const cardCountOk = hand.length + meld.length < 9;
-
-    return trickDone && isInDrawQueue && cardCountOk;
+    return hasToDraw && spaceAvailable;
   }
 
   function cancelExchange() {

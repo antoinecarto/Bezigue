@@ -283,20 +283,16 @@ export const useGameStore = defineStore("game", () => {
   function canDraw(): boolean {
     if (!room.value || !myUid.value) return false;
 
-    const d = room.value;
+    const dq = room.value.drawQueue ?? [];
+    const hasToDraw = dq[0] === myUid.value;
 
-    // 1. Vérifie que le pli est terminé
-    const trickDone = (d.trick.cards?.length ?? 0) === 0;
+    const myHand = room.value.hands[myUid.value] ?? [];
+    const myMeld = room.value.melds?.[myUid.value] ?? [];
 
-    // 2. Vérifie que c'est bien à ce joueur de piocher
-    const isInDrawQueue = d.drawQueue?.[0] === myUid.value;
+    const cardCount = myHand.length + myMeld.length;
+    const spaceAvailable = cardCount < 9;
 
-    // 3. Vérifie la taille de la main + meld <= 9
-    const hand = d.hands?.[myUid.value] ?? [];
-    const meld = d.melds?.[myUid.value] ?? [];
-    const cardCountOk = hand.length + meld.length < 9;
-
-    return trickDone && isInDrawQueue && cardCountOk;
+    return hasToDraw && spaceAvailable;
   }
 
   function cancelExchange() {

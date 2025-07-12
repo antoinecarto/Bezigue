@@ -1,6 +1,6 @@
 // src/stores/game.ts
 import { defineStore } from "pinia";
-import { ref, computed, watchEffect } from "vue";
+import { ref, computed } from "vue";
 import { doc, onSnapshot, runTransaction, updateDoc } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import type { RoomDoc, RoomState } from "@/types/firestore";
@@ -27,16 +27,13 @@ export const useGameStore = defineStore("game", () => {
   const loading = ref(true);
   const drawInProgress = ref(false);
   const playing = ref(false); // verrou anti double‑clic
-  const showExchange = ref(false);
 
   /* ──────────── getters ──────────── */
 
-  watchEffect(() => {
-    if (!room.value) return;
-    console.log("drawQueue:", room.value.drawQueue);
-  });
-
   const currentTurn = computed(() => room.value?.currentTurn ?? null);
+  const canDraw = computed(
+    () => room.value.drawQueue?.[0] === myUid.value && !drawInProgress.value
+  );
 
   const getExchange = computed(() => exchangeTable.value);
   const getScore = (uid: string) => scores.value[uid] ?? 0;
@@ -68,6 +65,7 @@ export const useGameStore = defineStore("game", () => {
 
   /**
    * Déplace `code` de la main de `uid` vers sa meld.
+   * - Fonctionne uniquement si la phase est encore "meld".
    * - Déclenche la réactivité Vue 3 (nouveaux tableau + objet).
    * - Annule proprement en cas d'erreur Firestore.
    */
@@ -84,41 +82,43 @@ export const useGameStore = defineStore("game", () => {
       [uid]: [...(melds.value[uid] ?? []), code],
     };
   }
+
   async function drawCard() {
-    if (!room.value || !myUid.value) return;
-    if (!canDraw()) return;
-
+    if (!canDraw.value || !room.value || !myUid.value) return;
     const roomRef = doc(db, "rooms", room.value.id);
+    drawInProgress.value = true;
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(roomRef);
+        if (!snap.exists()) throw new Error("Room missing");
+        const d = snap.data() as RoomDoc;
+        if (d.drawQueue[0] !== myUid.value)
+          throw new Error("Not your draw turn");
 
-    await runTransaction(db, async (tx) => {
-      const snap = await tx.get(roomRef);
-      if (!snap.exists()) throw new Error("Room missing");
+        const deck = [...d.deck];
+        if (!deck.length) throw new Error("Deck empty");
+        const card = deck.shift()!;
+        const newHand = [...(d.hands[myUid.value] ?? []), card];
+        const newQueue = d.drawQueue.slice(1);
+        //
+        /* drawCard ------------------------------------------------------------ */
+        const update: Record<string, any> = {
+          deck,
+          [`hands.${myUid.value}`]: newHand,
+          drawQueue: newQueue,
+        };
+        if (!newQueue.length) {
+          update.phase = "play";
+          update.currentTurn = d.currentTurn; // ↩︎ force le tour correct
+        }
+        tx.update(roomRef, update);
 
-      const d = snap.data() as RoomDoc;
-      const dq = d.drawQueue ?? [];
-
-      if (dq[0] !== myUid.value) throw new Error("Not your turn to draw");
-
-      const hand = [...(d.hands[myUid.value] ?? [])];
-      const meld = d.melds?.[myUid.value] ?? [];
-      if (hand.length + meld.length >= 9) throw new Error("Hand full");
-
-      const deck = [...(d.deck ?? [])];
-      if (!deck.length) throw new Error("Deck is empty");
-
-      const card = deck.shift()!;
-      hand.push(card);
-
-      const newQueue = dq.slice(1); // on retire le joueur qui vient de piocher
-
-      const update: Record<string, any> = {
-        [`hands.${myUid.value}`]: hand,
-        deck,
-        drawQueue: newQueue,
-      };
-
-      tx.update(roomRef, update);
-    });
+        // mise à jour optimiste localement
+        hand.value = [...newHand];
+      });
+    } finally {
+      drawInProgress.value = false;
+    }
   }
 
   function resolveTrick(
@@ -141,26 +141,20 @@ export const useGameStore = defineStore("game", () => {
     return firstUid;
   }
 
-  // delay utilitaire
-  function delay(ms: number) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
   async function playCard(code: string) {
     if (
       playing.value ||
       !room.value ||
+      room.value.phase !== "play" ||
       !myUid.value ||
       room.value.currentTurn !== myUid.value
     )
       return;
 
+    const roomRef = doc(db, "rooms", room.value.id);
     playing.value = true;
 
-    const roomRef = doc(db, "rooms", room.value.id);
-
     try {
-      // 1ère transaction : poser la carte dans trick.cards
       await runTransaction(db, async (tx) => {
         const snap = await tx.get(roomRef);
         if (!snap.exists()) throw new Error("Room missing");
@@ -168,6 +162,7 @@ export const useGameStore = defineStore("game", () => {
 
         if ((d.trick.cards?.length ?? 0) >= 2) throw new Error("Trick full");
 
+        /* ─── enlève la carte de la main serveur ─── */
         const srvHand = [...(d.hands[myUid.value] ?? [])];
         const pos = srvHand.indexOf(code);
         if (pos === -1) throw new Error("Card not in hand server");
@@ -183,124 +178,50 @@ export const useGameStore = defineStore("game", () => {
           exchangeTable: { ...(d.exchangeTable ?? {}), [myUid.value]: code },
         };
 
+        /* ───────── 1re carte ───────── */
         if (cards.length === 1) {
           update.currentTurn = opponent;
         } else {
-          // On ne résout PAS encore ici !
-          // Juste on garde la deuxième carte posée côté serveur
+          /* ───────── 2e carte : on résout le pli ───────── */
+          // trump est le dernier caractère de trumpCard, ex. "♣", "♦", …
+
+          function getSuit(card: string): string {
+            const [raw] = card.split("_"); // "KH"
+            return raw.slice(-1); // Dernier caractère = la couleur
+          }
+          const trumpSuit = getSuit(d.trumpCard);
+          console.log("trumpSuit avec getSuit : ", trumpSuit);
+          console.log("d.trumpCard : ", d.trumpCard);
+          const winner = resolveTrick(
+            cards[0],
+            cards[1],
+            players[0],
+            players[1],
+            trumpSuit
+          );
+          const loser = players.find((p) => p !== winner)!;
+
+          /* points : +10 pour chaque 10 ou As du pli */
+          const points = cards.reduce(
+            (acc, c) =>
+              ["10", "A"].includes(splitCode(c).rank) ? acc + 10 : acc,
+            0
+          );
+          if (points) {
+            update[`scores.${winner}`] = (d.scores?.[winner] ?? 0) + points;
+          }
+
+          /* réinitialise le pli */
+          update.trick = { cards: [], players: [] };
+          update.exchangeTable = {};
+          update.currentTurn = winner;
         }
 
         tx.update(roomRef, update);
       });
-
-      // Maintenant on attend 3 secondes si on vient de poser la 2e carte
-      if ((room.value.trick.cards?.length ?? 0) + 1 === 2) {
-        // +1 car on vient de poser la carte mais la donnée room.value n'est pas encore mise à jour localement
-        await delay(3000);
-        await resolveTrickOnServer();
-      }
     } finally {
       playing.value = false;
     }
-  }
-
-  async function resolveTrickOnServer() {
-    if (!room.value) return;
-
-    const roomRef = doc(db, "rooms", room.value.id);
-
-    await runTransaction(db, async (tx) => {
-      const snap = await tx.get(roomRef);
-      if (!snap.exists()) throw new Error("Room missing");
-      const d = snap.data() as RoomDoc;
-
-      const cards = d.trick.cards ?? [];
-      const players = d.trick.players ?? [];
-      if (cards.length !== 2) throw new Error("Trick not full");
-
-      // Code pour déterminer le gagnant, points, etc (idem dans playCard)
-
-      function getSuit(card: string): string {
-        const [raw] = card.split("_");
-        return raw.slice(-1);
-      }
-      const trumpSuit = getSuit(d.trumpCard);
-      const winner = resolveTrick(
-        cards[0],
-        cards[1],
-        players[0],
-        players[1],
-        trumpSuit
-      );
-      const loser = players.find((p) => p !== winner)!;
-
-      const points = cards.reduce(
-        (acc, c) => (["10", "A"].includes(splitCode(c).rank) ? acc + 10 : acc),
-        0
-      );
-
-      const update: Record<string, any> = {
-        trick: { cards: [], players: [] },
-        exchangeTable: {},
-        currentTurn: winner,
-        drawQueue: [winner, loser],
-      };
-
-      if (points) {
-        update[`scores.${winner}`] = (d.scores?.[winner] ?? 0) + points;
-      }
-
-      tx.update(roomRef, update);
-    });
-  }
-
-  /* ---------- échange 7 d’atout ---------------- */
-  async function confirmExchange() {
-    if (!room.value || !myUid.value) return;
-    showExchange.value = false;
-
-    await runTransaction(db, async (tx) => {
-      const snap = await tx.get(doc(db, "rooms", room.value!.id));
-      const d = snap.data() as RoomDoc;
-
-      const sevenCode = "7" + d.trumpSuit;
-      if (!d.hands[myUid.value!].includes(sevenCode)) return; // pas de 7
-
-      const allowedRanks = ["A", "10", "K", "Q", "J"];
-      if (!allowedRanks.includes(d.trumpCard.slice(0, -1))) return; // carte exposée non échangeable
-
-      // swap
-      const hand = d.hands[myUid.value!].filter((c) => c !== sevenCode);
-      hand.push(d.trumpCard);
-
-      tx.update(doc(db, "rooms", room.value!.id), {
-        trumpCard: sevenCode,
-        [`hands.${myUid.value}`]: hand,
-      });
-    });
-  }
-
-  function canDraw(): boolean {
-    if (!room.value || !myUid.value) return false;
-
-    const d = room.value;
-
-    // 1. Vérifie que le pli est terminé
-    const trickDone = (d.trick.cards?.length ?? 0) === 0;
-
-    // 2. Vérifie que c'est bien à ce joueur de piocher
-    const isInDrawQueue = d.drawQueue?.[0] === myUid.value;
-
-    // 3. Vérifie la taille de la main + meld <= 9
-    const hand = d.hands?.[myUid.value] ?? [];
-    const meld = d.melds?.[myUid.value] ?? [];
-    const cardCountOk = hand.length + meld.length < 9;
-
-    return trickDone && isInDrawQueue && cardCountOk;
-  }
-
-  function cancelExchange() {
-    showExchange.value = false;
   }
 
   async function joinRoom(roomId: string, uid: string, playerName: string) {
@@ -329,6 +250,7 @@ export const useGameStore = defineStore("game", () => {
       };
 
       /* dès qu’on est 2 on peut passer en phase 'play' */
+      updates.phase = "play";
       updates.currentTurn = d.currentTurn ?? d.players[0]; // ou tirage au sort
 
       tx.update(roomRef, updates);
@@ -388,7 +310,6 @@ export const useGameStore = defineStore("game", () => {
     deOuD,
     //getMeld,
     resolveTrick,
-    confirmExchange,
     //applyCombo,
     //getMeldTags,
   };

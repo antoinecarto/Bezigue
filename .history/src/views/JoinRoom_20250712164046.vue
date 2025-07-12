@@ -144,7 +144,7 @@ async function maybeStartGame(tx: any, roomRef: any, roomData: any) {
     hands,
     melds: {},
     trick: { cards: [], players: [] },
-    drawQueue: [host, guest],
+    drawQueue: [],
   });
 }
 
