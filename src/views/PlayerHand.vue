@@ -6,7 +6,7 @@
     :item-key="cardKey"
     class="player-hand"
     :animation="200"
-    :group="{ name: 'cards', pull: canDragOut, put: false }"
+    :group="{ name: 'cards', pull: canDragOut, put: canDragOut }"
     @end="onEnd"
   >
     <template #item="{ element }">

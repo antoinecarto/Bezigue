@@ -44,7 +44,7 @@ function validateMeld() {
     :group="{
       name: 'cards',
       put: !props.readonly,
-      pull: false,
+      pull: !props.readonly,
     }"
     :sort="false"
     :disabled="props.readonly"
