@@ -56,10 +56,16 @@ const targetScore = ref<1000 | 2000>(2000);
 
 /* ───────── modale nom ───────── */
 const showNameModal = ref(false);
+const nameCallback = ref<(() => void) | null>(null);
 
-onMounted(() => {
-  if (!localStorage.getItem("playerName")) showNameModal.value = true;
-});
+function askPlayerName(callback: () => void) {
+  if (!localStorage.getItem("playerName")) {
+    showNameModal.value = true;
+    nameCallback.value = callback;
+  } else {
+    callback();
+  }
+}
 
 async function confirmName(name: string) {
   const trimmed = name.trim();
@@ -67,57 +73,55 @@ async function confirmName(name: string) {
   localStorage.setItem("playerName", trimmed);
   showNameModal.value = false;
 
-  // si la room est déjà créée + uid connu → MAJ playerNames
   if (roomId.value && game.myUid) {
     await updateDoc(doc(db, "rooms", roomId.value), {
       [`playerNames.${game.myUid}`]: trimmed,
     });
   }
+
+  if (nameCallback.value) {
+    nameCallback.value();
+    nameCallback.value = null;
+  }
 }
 
 /* ───────── création de salle ───────── */
 async function createRoom() {
+askPlayerName(() => actuallyCreateRoom());
+}
+
+async function actuallyCreateRoom() {
   loading.value = true;
   try {
-    /* 1. sécurité utilisateur */
     const uid = getAuth().currentUser?.uid;
     if (!uid) throw new Error("Utilisateur non connecté");
-    game.myUid = uid; // mémorise pour confirmName
+    game.myUid = uid;
 
-    /* 2. nom de la salle */
     const roomName = prompt("Nom de la salle ?")?.trim();
     if (!roomName) {
       loading.value = false;
       return;
     }
-
     /* 3. distribution immédiate (main P1 + main réservée P2) */
     const fullDeck = generateShuffledDeck();
     const distrib = distributeCards(fullDeck);
     const hostHand = arrayToStr(distrib.hands.player1);
     const seat2Hand = arrayToStr(distrib.hands.player2);
     const trumpCardStr = distrib.trumpCard.toString();
-
     /* 4. document « rooms » */
     const roomRef = await addDoc(collection(db, "rooms"), {
-      /* méta */
       name: roomName,
       createdAt: serverTimestamp(),
       phase: "waiting",
       targetScore: targetScore.value,
-
-      /* joueurs */
       players: [uid],
       playerNames: { [uid]: localStorage.getItem("playerName") ?? "" },
-
-      /* cartes & état de jeu */
       trumpCard: trumpCardStr,
       trumpSuit: trumpCardStr.match(/([a-zA-Z])_(?:1|2)$/)?.[1] ?? null,
       trumpTaken: false,
       deck: arrayToStr(distrib.drawPile),
       hands: { [uid]: hostHand },
       reservedHands: { seat2: seat2Hand },
-
       trick: { cards: [], players: [] },
       melds: {},
       canMeld: null,
@@ -127,7 +131,6 @@ async function createRoom() {
       currentMeneIndex: 0,
       combos: {},
     });
-
     /* 5. sous‑collection « menes/0 » */
     await setDoc(doc(db, "rooms", roomRef.id, "menes", "0"), {
       firstPlayerUid: uid,
@@ -136,14 +139,13 @@ async function createRoom() {
       scores: { [uid]: 0 },
       targetScore: targetScore.value,
     });
-
     /* 6. navigation + emit */
     roomId.value = roomRef.id;
     emit("room-created", roomRef.id);
     router.push(`/room/${roomRef.id}`);
   } catch (e: any) {
     console.error(e);
-    alert("Erreur : " + e.message);
+    alert("Erreur : " + e.message);
   } finally {
     loading.value = false;
   }

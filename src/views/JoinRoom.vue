@@ -62,22 +62,33 @@ const showNameModal = ref(false);
 const emit = defineEmits(["room-joined"]);
 
 /* ───────── pop‑up nom joueur ───────── */
-onMounted(() => {
-  // montre d’abord la pop‑up si aucun nom sauvegardé
-  if (!localStorage.getItem("playerName")) showNameModal.value = true;
-});
 
+const nameCallback = ref<(() => void) | null>(null);
+
+// SI le nom du joueur n'est pas dans le localStorage, on demande le nom : 
+function askPlayerName(callback: () => void) {
+  if (!localStorage.getItem("playerName")) {
+    showNameModal.value = true;
+    nameCallback.value = callback;
+  } else {
+    callback();
+  }
+}
 async function confirmName(name: string) {
   const trimmed = name.trim();
   if (!trimmed) return;
   localStorage.setItem("playerName", trimmed);
   showNameModal.value = false;
 
-  // si on a déjà rejoint une room → MAJ playerNames
   if (currentRoomId.value && uid.value) {
     await updateDoc(doc(db, "rooms", currentRoomId.value), {
       [`playerNames.${uid.value}`]: trimmed,
     });
+  }
+
+  if (nameCallback.value) {
+    nameCallback.value();
+    nameCallback.value = null;
   }
 }
 
@@ -149,6 +160,10 @@ async function maybeStartGame(tx: any, roomRef: any, roomData: any) {
 }
 
 async function joinRoom(roomCode: string) {
+askPlayerName(() => actuallyJoinRoom(roomCode));
+}
+
+async function actuallyJoinRoom(roomCode: string){
   if (!uid.value) {
     error.value = "Vous devez être connecté pour rejoindre une salle.";
     return;
