@@ -89,13 +89,6 @@ export class Card {
     this.copy = copy;
   }
 
-  /* Conversion rapide “♣ ♦ ♥ ♠” → “C D H S” (utile ailleurs) */
-  private static SUIT_LETTER: Record<Suit, string> = {
-    "♣": "C",
-    "♦": "D",
-    "♥": "H",
-    "♠": "S",
-  };
   /* ----------- Représentations ------------------------------------ */
   /** Code court “A♠” sans la copie (utile en UI) */
   shortCode(): string {

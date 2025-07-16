@@ -24,9 +24,7 @@ export function detectCombosInMeld(
   function getColor(card: string): string {
     return card.substring(0, 2);
   } // ex: "QS"
-  function getRank(card: string): string {
-    return card.substring(2, 3);
-  } // ex: "_1" ignoré ici, on pourrait l'améliorer
+
   function isAtout(color: string): boolean {
     return color === "CO" /* ex: carreau atout */;
   } // à ajuster

@@ -6,7 +6,7 @@
     les sous‑vues : MeldZone, PlayerHand, TrickZone (à ajouter si besoin).
 -->
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed } from "vue";
+import { onMounted, onUnmounted, computed, ref } from "vue";
 import { storeToRefs } from "pinia"; // ← ①
 import { useRoute } from "vue-router";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
@@ -19,7 +19,10 @@ import PlayerHand from "@/views/PlayerHand.vue";
 import MeldZone from "@/views/MeldZone.vue";
 import CenterBoard from "@/views/components/CenterBoard.vue";
 import GameChat from "./GameChat.vue";
+import VoiceChat from "@/views/components/VoiceChat.vue";
 
+const roomId = ref("abc123"); // récupéré dynamiquement
+const isHost = ref(true); // ou false selon le joueur
 const route = useRoute();
 const game = useGameStore();
 /* ① — les refs du store --------------------------------------------- */
@@ -162,6 +165,10 @@ async function updateMelds(uid: string, newCards: string[]) {
 
     <!-- chat -->
     <GameChat class="mt-4" />
+  </div>
+  <div>
+    <h2>Room #{{ roomId }}</h2>
+    <VoiceChat :roomId="roomId" :isCaller="isHost" />
   </div>
 </template>
 

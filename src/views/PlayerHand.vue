@@ -37,7 +37,6 @@ import PlayingCard from "@/views/components/PlayingCard.vue";
 
 const game = useGameStore();
 const { myUid, hand, currentTurn } = storeToRefs(game);
-const room = computed(() => game.room);
 
 /* ---------------- cartes locales pour vuedraggable ------------- */
 const cards = ref<string[]>([]);
