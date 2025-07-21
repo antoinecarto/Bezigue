@@ -36,26 +36,6 @@ export const useGameStore = defineStore("game", () => {
     console.log("drawQueue:", room.value.drawQueue);
   });
 
-  watchEffect(() => {
-    if (!room.value || !myUid.value) return;
-
-    const trick = room.value.trick;
-    if (!trick || trick.cards?.length !== 2) return;
-
-    // ⚠️ Ne pas lancer deux fois
-    if (playing.value) return;
-
-    // Ne pas résoudre si ce n'est pas moi qui ai posé la 2e carte
-    const lastToPlay = trick.players?.[1];
-    if (lastToPlay !== myUid.value) return;
-
-    // Appel unique : pose un verrou
-    playing.value = true;
-    resolveTrickOnServer().finally(() => {
-      playing.value = false;
-    });
-  });
-
   const currentTurn = computed(() => room.value?.currentTurn ?? null);
 
   const getExchange = computed(() => exchangeTable.value);
@@ -72,7 +52,7 @@ export const useGameStore = defineStore("game", () => {
       const data = snap.data() as RoomDoc;
       room.value = { id: snap.id, ...data };
       if (myUid.value) hand.value = data.hands?.[myUid.value] ?? [];
-      melds.value = { ...data.melds };
+      // melds.value = { ...data.melds };
       exchangeTable.value = { ...(data.exchangeTable ?? {}) };
       scores.value = { ...(data.scores ?? {}) };
     });

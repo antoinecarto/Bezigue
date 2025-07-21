@@ -72,7 +72,7 @@ export const useGameStore = defineStore("game", () => {
       const data = snap.data() as RoomDoc;
       room.value = { id: snap.id, ...data };
       if (myUid.value) hand.value = data.hands?.[myUid.value] ?? [];
-      melds.value = { ...data.melds };
+      // melds.value = { ...data.melds };
       exchangeTable.value = { ...(data.exchangeTable ?? {}) };
       scores.value = { ...(data.scores ?? {}) };
     });

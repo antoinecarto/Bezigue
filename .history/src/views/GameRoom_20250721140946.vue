@@ -52,16 +52,19 @@ const mainOpponentLabel = computed(() =>
     ? `${game.deOuD(opponentName.value)}${opponentName.value}`
     : ""
 );
-const myMeld = computed(() => {
-  const uid = myUid.value;
-  if (!room.value || !uid) return [];
-  return room.value.melds?.[uid] ?? [];
-});
+/* 6 — opponentMeld ---------------------------------------------- */
 
 const opponentMeld = computed(() => {
-  if (!room.value || !opponentUid.value) return [];
+  if (!opponentUid.value || !room.value) return [];
   return room.value.melds?.[opponentUid.value] ?? [];
 });
+/* 7 — myMeld ---------------------------------------------- */
+
+const myMeld = computed(() => {
+  if (!myUid.value || !room.value) return [];
+  return room.value.melds?.[myUid.value] ?? [];
+});
+
 /* ⑥ — gestion du cycle de vie -------------------------------------- */
 let unsubscribeRoom: Unsubscribe | null = null;
 
@@ -95,8 +98,6 @@ async function updateMelds(uid: string, newCards: string[]) {
     console.error("Erreur mise à jour melds Firestore:", error);
   }
 }
-console.log("Meld de l'adversaire :", opponentMeld);
-console.log("melds dans la room :", room?.melds);
 </script>
 
 <template>
