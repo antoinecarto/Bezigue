@@ -20,7 +20,6 @@ import MeldZone from "@/views/MeldZone.vue";
 import CenterBoard from "@/views/components/CenterBoard.vue";
 import GameChat from "./GameChat.vue";
 import VoiceChat from "@/views/components/VoiceChat.vue";
-import Exchange7Dialog from "@/views/components/Exchange7Dialog.vue";
 
 const roomId = ref("abc123"); // récupéré dynamiquement
 const isHost = ref(true); // ou false selon le joueur
@@ -163,7 +162,7 @@ async function updateMelds(uid: string, newCards: string[]) {
     <h2>Room #{{ roomId }}</h2>
     <VoiceChat :roomId="roomId" :isCaller="isHost" />
   </div>
-  <Exchange7Dialog v-if="game.showExchange" />
+  <Exchange7Dialog v-if="game.showExchange.value" />
 </template>
 
 <style scoped>

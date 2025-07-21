@@ -1,6 +1,6 @@
 // src/stores/game.ts
 import { defineStore } from "pinia";
-import { ref, computed, watchEffect, watch } from "vue";
+import { ref, computed, watchEffect } from "vue";
 import { doc, onSnapshot, runTransaction, updateDoc } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import type { RoomDoc, RoomState } from "@/types/firestore";
@@ -54,10 +54,6 @@ export const useGameStore = defineStore("game", () => {
     resolveTrickOnServer().finally(() => {
       playing.value = false;
     });
-  });
-
-  watch(room, () => {
-    checkExchangePossibility();
   });
 
   const currentTurn = computed(() => room.value?.currentTurn ?? null);
@@ -272,21 +268,30 @@ export const useGameStore = defineStore("game", () => {
     });
   }
 
-  function checkExchangePossibility() {
-    const d = room.value;
-    const uid = myUid.value;
-    if (!d || !uid) return;
+  /* ---------- échange 7 d’atout ---------------- */
+  async function confirmExchange() {
+    if (!room.value || !myUid.value) return;
+    showExchange.value = false;
 
-    const handCards = d.hands?.[uid];
-    if (!handCards) return;
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(doc(db, "rooms", room.value!.id));
+      const d = snap.data() as RoomDoc;
 
-    const sevenCode = "7" + d.trumpSuit;
-    const allowedRanks = ["A", "10", "K", "Q", "J"];
-    const isExchangeable = allowedRanks.includes(d.trumpCard.slice(0, -1));
+      const sevenCode = "7" + d.trumpSuit;
+      if (!d.hands[myUid.value!].includes(sevenCode)) return; // pas de 7
 
-    if (handCards.includes(sevenCode) && isExchangeable) {
-      showExchange.value = true;
-    }
+      const allowedRanks = ["A", "10", "K", "Q", "J"];
+      if (!allowedRanks.includes(d.trumpCard.slice(0, -1))) return; // carte exposée non échangeable
+
+      // swap
+      const hand = d.hands[myUid.value!].filter((c) => c !== sevenCode);
+      hand.push(d.trumpCard);
+
+      tx.update(doc(db, "rooms", room.value!.id), {
+        trumpCard: sevenCode,
+        [`hands.${myUid.value}`]: hand,
+      });
+    });
   }
 
   function canDraw(): boolean {

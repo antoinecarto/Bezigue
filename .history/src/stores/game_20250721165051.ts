@@ -1,6 +1,6 @@
 // src/stores/game.ts
 import { defineStore } from "pinia";
-import { ref, computed, watchEffect, watch } from "vue";
+import { ref, computed, watchEffect } from "vue";
 import { doc, onSnapshot, runTransaction, updateDoc } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import type { RoomDoc, RoomState } from "@/types/firestore";
@@ -54,10 +54,6 @@ export const useGameStore = defineStore("game", () => {
     resolveTrickOnServer().finally(() => {
       playing.value = false;
     });
-  });
-
-  watch(room, () => {
-    checkExchangePossibility();
   });
 
   const currentTurn = computed(() => room.value?.currentTurn ?? null);
