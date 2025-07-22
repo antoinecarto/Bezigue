@@ -14,7 +14,7 @@ const props = defineProps<{
 /* ---------- état local ---------- */
 const pending = ref<string[]>([]);
 const game = useGameStore();
-const { myUid, currentTurn, melds } = storeToRefs(game);
+const { myUid, hand, currentTurn } = storeToRefs(game);
 
 const isMyTurn = computed(() => currentTurn.value === myUid.value);
 const showNotYourTurn = ref(false);
@@ -32,22 +32,23 @@ watch(
   },
   { immediate: true }
 );
-
 function onCardClick(code: string) {
   if (!isMyTurn.value) {
     showNotYourTurn.value = true;
     return;
   }
-  if (playing.value) return;
+  if (playing.value) return; // already playing
+
+  const idx = hand.value.indexOf(code);
+  if (idx !== -1) hand.value.splice(idx, 1);
 
   game.playCard(code).catch((err) => {
+    hand.value.splice(idx, 0, code); // rollback en cas d'erreur
     console.error(err);
   });
 }
 
 function onCardDropped(evt: any) {
-  console.log("DROP EVENT", evt);
-
   if (props.readonly) return;
 
   const addedCard = evt?.added?.element;
@@ -73,7 +74,7 @@ function onCardDropped(evt: any) {
     }"
     :sort="false"
     :disabled="props.readonly"
-    @add="onCardDropped"
+    @change="onCardDropped"
   >
     <template #item="{ element }">
       <PlayingCard

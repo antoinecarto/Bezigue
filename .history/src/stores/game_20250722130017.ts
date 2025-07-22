@@ -25,6 +25,7 @@ export const useGameStore = defineStore("game", () => {
   const scores = ref<Record<string, number>>({});
 
   const loading = ref(true);
+  const drawInProgress = ref(false);
   const playing = ref(false); // verrou anti double‑clic
   const showExchange = ref(false);
 
@@ -233,6 +234,7 @@ export const useGameStore = defineStore("game", () => {
     const roomRef = doc(db, "rooms", room.value.id);
 
     try {
+      // 1ère transaction : poser la carte dans trick.cards
       await runTransaction(db, async (tx) => {
         const snap = await tx.get(roomRef);
         if (!snap.exists()) throw new Error("Room missing");
@@ -240,29 +242,10 @@ export const useGameStore = defineStore("game", () => {
 
         if ((d.trick.cards?.length ?? 0) >= 2) throw new Error("Trick full");
 
-        console.log("Server Hand:", d.hands[myUid.value]);
-        console.log("Server Meld:", d.melds?.[myUid.value]);
-        // Récupérer la main et le meld côté serveur
         const srvHand = [...(d.hands[myUid.value] ?? [])];
-        const srvMeld = [...(d.melds?.[myUid.value] ?? [])];
-
-        let removedFrom = "";
-
-        // Essayer de retirer la carte de la main
-        let pos = srvHand.indexOf(code);
-        if (pos !== -1) {
-          srvHand.splice(pos, 1);
-          removedFrom = "hand";
-        } else {
-          // Sinon, essayer de la retirer du meld
-          pos = srvMeld.indexOf(code);
-          if (pos !== -1) {
-            srvMeld.splice(pos, 1);
-            removedFrom = "meld";
-          } else {
-            throw new Error("Card not in hand or meld server");
-          }
-        }
+        const pos = srvHand.indexOf(code);
+        if (pos === -1) throw new Error("Card not in hand server");
+        srvHand.splice(pos, 1);
 
         const cards = [...(d.trick.cards ?? []), code];
         const players = [...(d.trick.players ?? []), myUid.value];
@@ -270,13 +253,15 @@ export const useGameStore = defineStore("game", () => {
 
         const update: Record<string, any> = {
           [`hands.${myUid.value}`]: srvHand,
-          [`melds.${myUid.value}`]: srvMeld,
           trick: { cards, players },
           exchangeTable: { ...(d.exchangeTable ?? {}), [myUid.value]: code },
         };
 
         if (cards.length === 1) {
           update.currentTurn = opponent;
+        } else {
+          // On ne résout PAS encore ici !
+          // Juste on garde la deuxième carte posée côté serveur
         }
 
         tx.update(roomRef, update);

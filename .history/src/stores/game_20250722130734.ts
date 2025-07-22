@@ -25,6 +25,7 @@ export const useGameStore = defineStore("game", () => {
   const scores = ref<Record<string, number>>({});
 
   const loading = ref(true);
+  const drawInProgress = ref(false);
   const playing = ref(false); // verrou anti double‑clic
   const showExchange = ref(false);
 
@@ -240,8 +241,6 @@ export const useGameStore = defineStore("game", () => {
 
         if ((d.trick.cards?.length ?? 0) >= 2) throw new Error("Trick full");
 
-        console.log("Server Hand:", d.hands[myUid.value]);
-        console.log("Server Meld:", d.melds?.[myUid.value]);
         // Récupérer la main et le meld côté serveur
         const srvHand = [...(d.hands[myUid.value] ?? [])];
         const srvMeld = [...(d.melds?.[myUid.value] ?? [])];

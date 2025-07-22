@@ -40,7 +40,21 @@ function onCardClick(code: string) {
   }
   if (playing.value) return;
 
+  const meld = melds.value[props.uid] ?? [];
+  const idx = meld.indexOf(code);
+  if (idx === -1) return;
+
+  // Retirer carte du meld localement
+  const newMeld = [...meld];
+  newMeld.splice(idx, 1);
+  game.updateMeld(props.uid, newMeld);
+  pending.value = newMeld;
+
   game.playCard(code).catch((err) => {
+    // rollback si erreur
+    game.updateMeld(props.uid, meld);
+    pending.value = [...meld]; // rollback UI aussi
+
     console.error(err);
   });
 }

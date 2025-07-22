@@ -25,6 +25,7 @@ export const useGameStore = defineStore("game", () => {
   const scores = ref<Record<string, number>>({});
 
   const loading = ref(true);
+  const drawInProgress = ref(false);
   const playing = ref(false); // verrou anti double‑clic
   const showExchange = ref(false);
 
