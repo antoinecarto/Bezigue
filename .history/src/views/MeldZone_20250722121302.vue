@@ -2,7 +2,6 @@
 import { ref, watch } from "vue";
 import draggable from "vuedraggable";
 import PlayingCard from "@/views/components/PlayingCard.vue";
-import { useGameStore } from "@/stores/game";
 
 const props = defineProps<{
   uid: string;
@@ -12,7 +11,6 @@ const props = defineProps<{
 
 /* ---------- état local ---------- */
 const pending = ref<string[]>([]);
-const game = useGameStore();
 
 /* ---------- synchronisation avec props.cards ---------- */
 watch(
@@ -26,18 +24,6 @@ watch(
   },
   { immediate: true }
 );
-
-function onCardDropped(evt: any) {
-  if (props.readonly) return;
-
-  const addedCard = evt?.added?.element;
-  if (!addedCard) return;
-
-  console.log("Carte ajoutée dans le meld :", addedCard);
-
-  // 🔥 Appelle addToMeld pour mise à jour Firestore
-  game.addToMeld(props.uid, addedCard);
-}
 </script>
 
 <template>
@@ -53,7 +39,6 @@ function onCardDropped(evt: any) {
     }"
     :sort="false"
     :disabled="props.readonly"
-    @change="onCardDropped"
   >
     <template #item="{ element }">
       <PlayingCard :code="element" :key="element" />

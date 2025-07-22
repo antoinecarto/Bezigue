@@ -12,7 +12,6 @@ const props = defineProps<{
 
 /* ---------- état local ---------- */
 const pending = ref<string[]>([]);
-const game = useGameStore();
 
 /* ---------- synchronisation avec props.cards ---------- */
 watch(

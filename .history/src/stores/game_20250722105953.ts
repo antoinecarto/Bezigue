@@ -99,33 +99,19 @@ export const useGameStore = defineStore("game", () => {
    * - Déclenche la réactivité Vue 3 (nouveaux tableau + objet).
    * - Annule proprement en cas d'erreur Firestore.
    */
-  async function addToMeld(uid: string, code: string) {
-    console.log("addToMeld called", uid, code);
+  function addToMeld(uid: string, code: string) {
     if (!room.value) return;
     if (!hand.value.includes(code)) return;
 
-    const newHand = hand.value.filter((c) => c !== code);
-    const newMeld = [...(melds.value[uid] ?? []), code];
+    // Mise à jour locale : on retire la carte de la main
+    hand.value = hand.value.filter((c) => c !== code);
 
-    // Mise à jour locale
-    hand.value = newHand;
+    // Et on l'ajoute au meld visible
     melds.value = {
       ...melds.value,
-      [uid]: newMeld,
+      [uid]: [...(melds.value[uid] ?? []), code],
     };
-
-    // Mise à jour Firestore
-    try {
-      await updateDoc(doc(db, "rooms", room.value.id), {
-        [`hands.${uid}`]: newHand,
-        [`melds.${uid}`]: newMeld,
-      });
-    } catch (e) {
-      console.error("Erreur lors de la mise à jour de Firestore", e);
-      // rollback local si besoin ?
-    }
   }
-
   async function drawCard() {
     if (!room.value || !myUid.value) return;
     if (!canDraw()) return;

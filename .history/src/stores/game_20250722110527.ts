@@ -100,7 +100,6 @@ export const useGameStore = defineStore("game", () => {
    * - Annule proprement en cas d'erreur Firestore.
    */
   async function addToMeld(uid: string, code: string) {
-    console.log("addToMeld called", uid, code);
     if (!room.value) return;
     if (!hand.value.includes(code)) return;
 
