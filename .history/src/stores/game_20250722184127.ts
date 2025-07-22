@@ -101,89 +101,28 @@ export const useGameStore = defineStore("game", () => {
    */
   async function addToMeld(uid: string, code: string) {
     if (!room.value) return;
+    if (!hand.value.includes(code)) return;
 
-    const currentHand = room.value.hands[uid] ?? [];
-    const currentMeld = room.value.melds[uid] ?? [];
+    const newHand = hand.value.filter((c) => c !== code);
+    const newMeld = [...(melds.value[uid] ?? []), code];
 
-    if (!currentHand.includes(code)) {
-      console.warn(`⛔️ ${code} n'est pas dans la main`);
-    }
-
-    const newHand = currentHand.filter((c) => c !== code);
-    const newMeld = [...currentMeld, code];
-
-    if (newHand.length + newMeld.length > 9) {
-      console.warn("⛔️ Trop de cartes (main + meld > 9)");
-      return;
-    }
-
-    console.log("📝 Mise à jour Firestore : ", {
-      [`hands.${uid}`]: newHand,
-      [`melds.${uid}`]: newMeld,
-    });
-
-    await updateDoc(doc(db, "rooms", room.value.id), {
-      [`hands.${uid}`]: newHand,
-      [`melds.${uid}`]: newMeld,
-    });
-  }
-
-  async function removeFromMeldAndReturnToHand(uid: string, code: string) {
-    if (!room.value) return;
-
-    const oldMeld = melds.value[uid] ?? [];
-    const oldHand = hand.value[uid] ?? [];
-
-    if (!oldMeld.includes(code)) {
-      console.warn(`⛔ ${code} n'est pas dans le meld`);
-      return;
-    }
-
-    // Vérifier qu'on ne dépasse pas 9 cartes au total
-    if (oldHand.length + oldMeld.length >= 9) {
-      console.warn("⛔️ Trop de cartes !");
-      return;
-    }
-
-    const newMeld = oldMeld.filter((c) => c !== code);
-    const newHand = [...oldHand, code];
-
+    // 🔥 Firestore D'ABORD
     try {
       await updateDoc(doc(db, "rooms", room.value.id), {
-        [`hand.${uid}`]: newHand,
+        [`hands.${uid}`]: newHand,
         [`melds.${uid}`]: newMeld,
       });
 
-      hand.value = { ...hand.value, [uid]: newHand };
-      melds.value = { ...melds.value, [uid]: newMeld };
+      // ✅ Puis mise à jour locale si succès
+      hand.value = newHand;
+      melds.value = {
+        ...melds.value,
+        [uid]: newMeld,
+      };
     } catch (e) {
-      console.error("Erreur Firestore lors du retour en main", e);
+      console.error("Erreur lors de la mise à jour Firestore", e);
     }
-  }
-
-  async function removeFromMeld(uid: string, code: string) {
-    if (!room.value) return;
-
-    const currentHand = room.value.hands[uid] ?? [];
-    const currentMeld = room.value.melds[uid] ?? [];
-
-    if (!currentMeld.includes(code)) {
-      console.warn(`⛔️ ${code} n'est pas dans le meld`);
-      return;
-    }
-
-    const newMeld = currentMeld.filter((c) => c !== code);
-    const newHand = [...currentHand, code];
-
-    if (newHand.length + newMeld.length > 9) {
-      console.warn("⛔️ Trop de cartes (main + meld > 9)");
-      return;
-    }
-
-    await updateDoc(doc(db, "rooms", room.value.id), {
-      [`hands.${uid}`]: newHand,
-      [`melds.${uid}`]: newMeld,
-    });
+    console.log("✅ addToMeld envoyé vers Firestore :", newMeld);
   }
 
   async function drawCard() {
@@ -537,8 +476,6 @@ export const useGameStore = defineStore("game", () => {
     getExchange,
 
     // actions
-    removeFromMeldAndReturnToHand,
-    removeFromMeld,
     updateMeld,
     getScore,
     updateHand,

@@ -128,39 +128,6 @@ export const useGameStore = defineStore("game", () => {
     });
   }
 
-  async function removeFromMeldAndReturnToHand(uid: string, code: string) {
-    if (!room.value) return;
-
-    const oldMeld = melds.value[uid] ?? [];
-    const oldHand = hand.value[uid] ?? [];
-
-    if (!oldMeld.includes(code)) {
-      console.warn(`⛔ ${code} n'est pas dans le meld`);
-      return;
-    }
-
-    // Vérifier qu'on ne dépasse pas 9 cartes au total
-    if (oldHand.length + oldMeld.length >= 9) {
-      console.warn("⛔️ Trop de cartes !");
-      return;
-    }
-
-    const newMeld = oldMeld.filter((c) => c !== code);
-    const newHand = [...oldHand, code];
-
-    try {
-      await updateDoc(doc(db, "rooms", room.value.id), {
-        [`hand.${uid}`]: newHand,
-        [`melds.${uid}`]: newMeld,
-      });
-
-      hand.value = { ...hand.value, [uid]: newHand };
-      melds.value = { ...melds.value, [uid]: newMeld };
-    } catch (e) {
-      console.error("Erreur Firestore lors du retour en main", e);
-    }
-  }
-
   async function removeFromMeld(uid: string, code: string) {
     if (!room.value) return;
 

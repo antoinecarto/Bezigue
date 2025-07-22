@@ -3,11 +3,11 @@
        une carte vers la MeldZone que si canDragOut === true -->
   <draggable
     :list="hand"
-    :item-key="(c) => c"
+    :item-key="cardKey"
     class="player-hand"
-    :group="{ name: 'cards', pull: true, put: true }"
-    :sort="false"
-    @add="onCardDroppedBackToHand"
+    :animation="200"
+    :group="{ name: 'cards', pull: canDragOut, put: canDragOut }"
+    @end="onEnd"
   >
     <template #item="{ element }">
       <PlayingCard
@@ -51,13 +51,6 @@ const canDragOut = computed(() => isMyTurn.value);
 /* -------------------------------------------------------------- */
 async function onEnd() {
   await game.updateHand([...hand.value]); // trie dans Firestore
-}
-
-function onCardDroppedBackToHand(evt: any) {
-  const addedCard = evt.item?.__draggable_context?.element;
-  if (!addedCard) return;
-
-  game.removeFromMeldAndReturnToHand(game.playerUid, addedCard);
 }
 
 function onCardClick(code: string) {

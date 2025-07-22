@@ -4,15 +4,18 @@ import draggable from "vuedraggable";
 import PlayingCard from "@/views/components/PlayingCard.vue";
 import { useGameStore } from "@/stores/game";
 
-const props = defineProps({
-  uid: String,
-  readonly: Boolean,
-  cards: Array as () => string[] | undefined,
-});
+const props = defineProps<{
+  uid: string;
+  readonly?: boolean;
+  cards?: string[];
+}>();
 
-const localCards = ref<string[]>(props.cards ?? []);
 const game = useGameStore();
 
+// Local mutable ref qui contiendra les cartes affichées dans le meld
+const localCards = ref<string[]>(props.cards ?? []);
+
+// Synchroniser localCards si props.cards change (mise à jour depuis Firestore)
 watch(
   () => props.cards,
   (newCards) => {
@@ -20,12 +23,14 @@ watch(
   }
 );
 
+// Quand une carte est déposée dans le meld
 function onCardDropped(evt: any) {
   if (props.readonly) return;
 
   const addedCard = evt.item?.__draggable_context?.element;
   if (!addedCard) return;
 
+  // Appelle la méthode pour ajouter la carte au meld dans Firestore
   game.addToMeld(props.uid, addedCard);
 }
 
@@ -41,7 +46,7 @@ function onCardClick(code: string) {
 
 <template>
   <draggable
-    :list="localCards"
+    :list="props.cards"
     :item-key="(c) => c"
     class="meld-zone flex flex-wrap gap-1 bg-green-200/60 border-2 border-green-500 rounded-md p-2 min-h-[110px]"
     :group="{

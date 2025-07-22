@@ -105,8 +105,10 @@ export const useGameStore = defineStore("game", () => {
     const currentHand = room.value.hands[uid] ?? [];
     const currentMeld = room.value.melds[uid] ?? [];
 
+    // Vérifie que la main contient bien la carte
     if (!currentHand.includes(code)) {
       console.warn(`⛔️ ${code} n'est pas dans la main`);
+      return;
     }
 
     const newHand = currentHand.filter((c) => c !== code);
@@ -117,17 +119,11 @@ export const useGameStore = defineStore("game", () => {
       return;
     }
 
-    console.log("📝 Mise à jour Firestore : ", {
-      [`hands.${uid}`]: newHand,
-      [`melds.${uid}`]: newMeld,
-    });
-
     await updateDoc(doc(db, "rooms", room.value.id), {
-      [`hands.${uid}`]: newHand,
+      [`hand.${uid}`]: newHand,
       [`melds.${uid}`]: newMeld,
     });
   }
-
   async function removeFromMeldAndReturnToHand(uid: string, code: string) {
     if (!room.value) return;
 

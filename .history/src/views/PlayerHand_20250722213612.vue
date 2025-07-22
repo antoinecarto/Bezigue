@@ -53,13 +53,6 @@ async function onEnd() {
   await game.updateHand([...hand.value]); // trie dans Firestore
 }
 
-function onCardDroppedBackToHand(evt: any) {
-  const addedCard = evt.item?.__draggable_context?.element;
-  if (!addedCard) return;
-
-  game.removeFromMeldAndReturnToHand(game.playerUid, addedCard);
-}
-
 function onCardClick(code: string) {
   if (!isMyTurn.value) {
     showNotYourTurn.value = true;

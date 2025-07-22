@@ -107,6 +107,7 @@ export const useGameStore = defineStore("game", () => {
 
     if (!currentHand.includes(code)) {
       console.warn(`⛔️ ${code} n'est pas dans la main`);
+      return;
     }
 
     const newHand = currentHand.filter((c) => c !== code);

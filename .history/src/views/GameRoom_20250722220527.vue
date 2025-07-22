@@ -134,7 +134,7 @@ function updateMeldRemove(uid: string, card: string) {
       v-if="opponentUid"
       :uid="opponentUid"
       :readonly="true"
-      :cards="melds[opponentUid]"
+      :cards="melds[myUid]"
     />
 
     <!-- plateau central -->

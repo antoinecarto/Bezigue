@@ -61,7 +61,9 @@ const mainOpponentLabel = computed(() =>
 /* ⑥ — gestion du cycle de vie -------------------------------------- */
 let unsubscribeRoom: Unsubscribe | null = null;
 
-defineProps(["roomId"]);
+watchEffect(() => {
+  console.log("melds[myUid] =", melds.value[myUid.value ?? ""]);
+});
 
 onMounted(() => {
   const auth = getAuth();
@@ -73,7 +75,6 @@ onMounted(() => {
       user.uid,
       localStorage.getItem("playerName") ?? ""
     );
-    console.log("opponent melds ???? : ", melds[opponentUid]);
   });
 
   onUnmounted(() => {
@@ -93,16 +94,6 @@ async function updateMelds(uid: string, newCards: string[]) {
   } catch (error) {
     console.error("Erreur mise à jour melds Firestore:", error);
   }
-}
-
-function updateMeldAdd(uid: string, card: string) {
-  // Appelle ton store pour ajouter la carte dans Firestore
-  game.addToMeld(uid, card).catch(console.error);
-}
-
-function updateMeldRemove(uid: string, card: string) {
-  // Appelle ton store pour retirer la carte dans Firestore
-  game.removeFromMeld(uid, card).catch(console.error);
 }
 </script>
 
@@ -136,7 +127,6 @@ function updateMeldRemove(uid: string, card: string) {
       :readonly="true"
       :cards="melds[opponentUid]"
     />
-
     <!-- plateau central -->
     <CenterBoard />
 
@@ -145,8 +135,11 @@ function updateMeldRemove(uid: string, card: string) {
       v-if="myUid"
       :uid="myUid"
       :cards="melds[myUid]"
-      @addToMeld="(uid, card) => updateMeldAdd(uid, card)"
-      @removeFromMeld="(uid, card) => updateMeldRemove(uid, card)"
+      @update="
+        (newCards) => {
+          if (myUid) updateMelds(myUid, newCards);
+        }
+      "
     />
 
     <!-- main du joueur -->

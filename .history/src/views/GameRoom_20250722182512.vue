@@ -6,7 +6,7 @@
     les sous‑vues : MeldZone, PlayerHand, TrickZone (à ajouter si besoin).
 -->
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed, ref, watchEffect } from "vue";
+import { onMounted, onUnmounted, computed, ref } from "vue";
 import { storeToRefs } from "pinia"; // ← ①
 import { useRoute } from "vue-router";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
@@ -27,7 +27,7 @@ const isHost = ref(true); // ou false selon le joueur
 const route = useRoute();
 const game = useGameStore();
 /* ① — les refs du store --------------------------------------------- */
-const { myUid, room, loading, melds } = storeToRefs(game); // <- myUid et room sont VRAIS refs
+const { myUid, room, loading } = storeToRefs(game); // <- myUid et room sont VRAIS refs
 
 /* ② — uid de l’adversaire ------------------------------------------- */
 const opponentUid = computed(() => {
@@ -54,14 +54,12 @@ const mainOpponentLabel = computed(() =>
     : ""
 );
 
-// const opponentMeld = computed(() => {
-//   if (!room.value || !opponentUid.value) return [];
-//   return room.value.melds?.[opponentUid.value] ?? [];
-// });
+const opponentMeld = computed(() => {
+  if (!room.value || !opponentUid.value) return [];
+  return room.value.melds?.[opponentUid.value] ?? [];
+});
 /* ⑥ — gestion du cycle de vie -------------------------------------- */
 let unsubscribeRoom: Unsubscribe | null = null;
-
-defineProps(["roomId"]);
 
 onMounted(() => {
   const auth = getAuth();
@@ -73,7 +71,6 @@ onMounted(() => {
       user.uid,
       localStorage.getItem("playerName") ?? ""
     );
-    console.log("opponent melds ???? : ", melds[opponentUid]);
   });
 
   onUnmounted(() => {
@@ -93,16 +90,6 @@ async function updateMelds(uid: string, newCards: string[]) {
   } catch (error) {
     console.error("Erreur mise à jour melds Firestore:", error);
   }
-}
-
-function updateMeldAdd(uid: string, card: string) {
-  // Appelle ton store pour ajouter la carte dans Firestore
-  game.addToMeld(uid, card).catch(console.error);
-}
-
-function updateMeldRemove(uid: string, card: string) {
-  // Appelle ton store pour retirer la carte dans Firestore
-  game.removeFromMeld(uid, card).catch(console.error);
 }
 </script>
 
@@ -134,21 +121,14 @@ function updateMeldRemove(uid: string, card: string) {
       v-if="opponentUid"
       :uid="opponentUid"
       :readonly="true"
-      :cards="melds[opponentUid]"
+      :cards="opponentMeld"
     />
-
     <!-- plateau central -->
     <CenterBoard />
 
     <!-- Meld du joueur (interactive) -->
-    <MeldZone
-      v-if="myUid"
-      :uid="myUid"
-      :cards="melds[myUid]"
-      @addToMeld="(uid, card) => updateMeldAdd(uid, card)"
-      @removeFromMeld="(uid, card) => updateMeldRemove(uid, card)"
-    />
-
+    <MeldZone v-if="myUid" :uid="myUid" :cards="melds[myUid] @update="
+    (newCards) => { if (myUid) updateMelds(myUid, newCards); } " />
     <!-- main du joueur -->
     <PlayerHand />
 

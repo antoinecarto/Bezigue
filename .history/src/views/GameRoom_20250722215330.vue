@@ -73,7 +73,6 @@ onMounted(() => {
       user.uid,
       localStorage.getItem("playerName") ?? ""
     );
-    console.log("opponent melds ???? : ", melds[opponentUid]);
   });
 
   onUnmounted(() => {

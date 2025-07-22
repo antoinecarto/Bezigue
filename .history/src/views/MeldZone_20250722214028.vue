@@ -2,7 +2,6 @@
 import { ref, watch } from "vue";
 import draggable from "vuedraggable";
 import PlayingCard from "@/views/components/PlayingCard.vue";
-import { useGameStore } from "@/stores/game";
 
 const props = defineProps({
   uid: String,
@@ -11,7 +10,6 @@ const props = defineProps({
 });
 
 const localCards = ref<string[]>(props.cards ?? []);
-const game = useGameStore();
 
 watch(
   () => props.cards,
