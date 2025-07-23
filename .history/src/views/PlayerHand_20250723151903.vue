@@ -57,25 +57,25 @@ watch(
   { immediate: true, deep: true }
 );
 
-// 🔄 Également, sync les modifs utilisateur vers le store
-watch(
-  handArrayRef,
-  (newArray) => {
-    if (
-      hand.value &&
-      typeof hand.value === "object" &&
-      !Array.isArray(hand.value) &&
-      myUid.value
-    ) {
-      // Mise à jour de la main du joueur dans l'objet global
-      hand.value[myUid.value] = newArray;
-    }
-  },
-  { deep: true }
-);
+// // 🔄 Également, sync les modifs utilisateur vers le store
+// watch(
+//   handArrayRef,
+//   (newArray) => {
+//     if (
+//       hand.value &&
+//       typeof hand.value === "object" &&
+//       !Array.isArray(hand.value) &&
+//       myUid.value
+//     ) {
+//       // Mise à jour de la main du joueur dans l'objet global
+//       hand.value[myUid.value] = newArray;
+//     }
+//   },
+//   { deep: true }
+// );
 
 function onCardDroppedBackToHand(evt: any) {
-  const addedCard = evt.item?.__draggable_context?.element;
+  const addedCard = evt.added?.element;
   if (!addedCard) {
     console.warn("Aucune carte ajoutée détectée.");
     return;
@@ -83,9 +83,12 @@ function onCardDroppedBackToHand(evt: any) {
 
   console.log("Carte ajoutée à la main :", addedCard);
 
-  console.log("Tentative de suppression de la carte du meld :", addedCard);
-  game.removeFromMeldAndReturnToHand(myUid.value, addedCard);
-  console.log("après, ça ne fonctionne pas ??");
+  if (!handArrayRef.value.includes(addedCard)) {
+    console.log("Tentative de suppression de la carte du meld :", addedCard);
+    game.removeFromMeldAndReturnToHand(myUid.value, addedCard);
+  } else {
+    console.warn("La carte est déjà dans la main.");
+  }
 }
 
 function onCardClick(code: string) {

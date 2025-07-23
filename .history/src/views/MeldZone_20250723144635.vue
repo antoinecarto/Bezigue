@@ -28,6 +28,8 @@ function onCardDropped(evt: any) {
   const addedCard = evt.item?.__draggable_context?.element;
   console.log("Carte drag-n-drop reçue:", addedCard);
 
+  if (!addedCard) return;
+
   game.addToMeld(props.uid!, addedCard);
 }
 

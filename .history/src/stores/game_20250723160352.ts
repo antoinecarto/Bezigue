@@ -194,10 +194,12 @@ export const useGameStore = defineStore("game", () => {
 
     if (!room.value) {
       console.warn("La pièce est introuvable.");
+      return;
     }
 
     if (!uid || !code) {
       console.warn("UID ou code de carte manquant.");
+      return;
     }
 
     const currentMeld = room.value.melds?.[uid] ?? [];
@@ -205,6 +207,7 @@ export const useGameStore = defineStore("game", () => {
 
     if (!currentMeld.includes(code)) {
       console.warn(`La carte ${code} n'est pas dans le meld.`);
+      return;
     }
 
     // Créer les nouveaux tableaux

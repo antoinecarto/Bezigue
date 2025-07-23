@@ -57,22 +57,22 @@ watch(
   { immediate: true, deep: true }
 );
 
-// 🔄 Également, sync les modifs utilisateur vers le store
-watch(
-  handArrayRef,
-  (newArray) => {
-    if (
-      hand.value &&
-      typeof hand.value === "object" &&
-      !Array.isArray(hand.value) &&
-      myUid.value
-    ) {
-      // Mise à jour de la main du joueur dans l'objet global
-      hand.value[myUid.value] = newArray;
-    }
-  },
-  { deep: true }
-);
+// // 🔄 Également, sync les modifs utilisateur vers le store
+// watch(
+//   handArrayRef,
+//   (newArray) => {
+//     if (
+//       hand.value &&
+//       typeof hand.value === "object" &&
+//       !Array.isArray(hand.value) &&
+//       myUid.value
+//     ) {
+//       // Mise à jour de la main du joueur dans l'objet global
+//       hand.value[myUid.value] = newArray;
+//     }
+//   },
+//   { deep: true }
+// );
 
 function onCardDroppedBackToHand(evt: any) {
   const addedCard = evt.item?.__draggable_context?.element;
@@ -85,7 +85,6 @@ function onCardDroppedBackToHand(evt: any) {
 
   console.log("Tentative de suppression de la carte du meld :", addedCard);
   game.removeFromMeldAndReturnToHand(myUid.value, addedCard);
-  console.log("après, ça ne fonctionne pas ??");
 }
 
 function onCardClick(code: string) {

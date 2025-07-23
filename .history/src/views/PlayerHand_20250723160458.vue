@@ -85,7 +85,6 @@ function onCardDroppedBackToHand(evt: any) {
 
   console.log("Tentative de suppression de la carte du meld :", addedCard);
   game.removeFromMeldAndReturnToHand(myUid.value, addedCard);
-  console.log("après, ça ne fonctionne pas ??");
 }
 
 function onCardClick(code: string) {

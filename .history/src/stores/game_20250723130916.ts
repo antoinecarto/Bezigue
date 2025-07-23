@@ -145,90 +145,98 @@ export const useGameStore = defineStore("game", () => {
       return;
     }
 
-    const currentHand = Array.isArray(room.value.hands?.[uid])
-      ? room.value.hands[uid]
-      : [];
-    const currentMeld = Array.isArray(room.value.melds?.[uid])
-      ? room.value.melds[uid]
-      : [];
+    if (!room.value.hands[uid]) {
+      console.warn(`La main du joueur ${uid} est introuvable.`);
+      return;
+    }
+
+    const currentHand = room.value.hands[uid];
+    const currentMeld = room.value.melds[uid] || [];
 
     if (!currentHand.includes(code)) {
-      console.warn(
-        `❌ La carte ${code} n'est pas dans la main du joueur ${uid}.`
-      );
-      return;
+      console.warn(`La carte ${code} n'est plus dans la main du joueur.`);
+      //return;
     }
 
-    if (currentMeld.includes(code)) {
-      console.warn(`ℹ️ La carte ${code} est déjà dans le meld de ${uid}.`);
-      return;
-    }
-
+    // Mise à jour locale immédiate pour une meilleure réactivité
     const newHand = currentHand.filter((c) => c !== code);
     const newMeld = [...currentMeld, code];
 
+    console.log("État initial du meld :", currentMeld);
     try {
+      // Mise à jour de Firestore
       await updateDoc(doc(db, "rooms", room.value.id), {
         [`hands.${uid}`]: newHand,
         [`melds.${uid}`]: newMeld,
       });
 
-      // Met à jour l'état local après succès
+      console.log("Mise à jour réussie de Firestore.");
+      console.log("Nouvel état de la main :", newHand);
+      console.log("Nouvel état du meld :", newMeld);
+
+      // Mise à jour locale après confirmation de Firestore
       room.value.hands[uid] = newHand;
       room.value.melds[uid] = newMeld;
 
-      console.log(`✅ Carte ${code} déplacée de la main au meld pour ${uid}.`);
+      console.log(`Carte ${code} déplacée de la main au meld pour ${uid}.`);
     } catch (e) {
-      console.error("❌ Erreur Firestore lors de l'ajout au meld :", e);
-      // Ne pas toucher aux données locales si Firestore échoue
+      console.error("Erreur lors de la mise à jour Firestore:", e);
+      // Restaurer l'état local en cas d'erreur
+      room.value.hands[uid] = currentHand;
+      room.value.melds[uid] = currentMeld;
     }
   }
 
-  async function removeFromMeldAndReturnToHand(uid: string, code: string) {
-    console.log(
-      "Début de removeFromMeldAndReturnToHand avec UID:",
-      uid,
-      "et code:",
-      code
-    );
-
+  async function removeFromMeldAndReturnToHand(uid, code) {
     if (!room.value) {
       console.warn("La pièce est introuvable.");
+      return;
     }
 
     if (!uid || !code) {
       console.warn("UID ou code de carte manquant.");
+      return;
     }
 
-    const currentMeld = room.value.melds?.[uid] ?? [];
-    const currentHand = room.value.hands?.[uid] ?? [];
+    const oldMeld = melds.value[uid] ?? [];
+    const oldHand = hand.value[uid] ?? [];
 
-    if (!currentMeld.includes(code)) {
+    if (!oldMeld.includes(code)) {
       console.warn(`La carte ${code} n'est pas dans le meld.`);
+      //return;
     }
 
-    // Créer les nouveaux tableaux
-    const newMeld = currentMeld.filter((c) => c !== code);
-    const newHand = [...currentHand, code];
-    console.log("newHand :", newHand);
-    console.log("newMeld :", newMeld);
+    // Vérification du nombre total de cartes
+    if (oldHand.length + oldMeld.length >= 9) {
+      console.warn("Trop de cartes dans la main et le meld.");
+      //return;
+    }
+
+    const newMeld = oldMeld.filter((c) => c !== code);
+    const newHand = [...oldHand, code];
 
     try {
-      // 🔥 Mise à jour Firestore
-      await updateDoc(doc(db, "rooms", room.value.id), {
-        [`melds.${uid}`]: newMeld,
+      console.log("Tentative de mise à jour de Firestore avec :", {
         [`hands.${uid}`]: newHand,
+        [`melds.${uid}`]: newMeld,
       });
 
-      // 🧠 Mise à jour locale
-      room.value.melds[uid] = newMeld;
-      room.value.hands[uid] = newHand;
+      await updateDoc(doc(db, "rooms", room.value.id), {
+        [`hands.${uid}`]: newHand,
+        [`melds.${uid}`]: newMeld,
+      });
 
-      console.log(
-        `✔️ Carte ${code} retirée du meld et ajoutée à la main de ${uid}.`
-      );
+      // Mise à jour des valeurs locales après confirmation de Firestore
+      hand.value = { ...hand.value, [uid]: newHand };
+      melds.value = { ...melds.value, [uid]: newMeld };
+      console.log("Mise à jour réussie de Firestore.");
+
+      console.log(`Carte ${code} retournée de meld à la main pour ${uid}.`);
     } catch (e) {
-      console.error("❌ Erreur lors de la mise à jour Firestore :", e);
+      console.error("Erreur Firestore lors du retour en main :", e);
+      // En cas d'erreur, vous pouvez choisir de restaurer l'état local
+      // hand.value = { ...hand.value, [uid]: oldHand };
+      // melds.value = { ...melds.value, [uid]: oldMeld };
     }
   }
 
@@ -621,7 +629,7 @@ export const useGameStore = defineStore("game", () => {
     // actions
     removeFromMeldAndReturnToHand,
     //removeFromMeld,
-    //updateMeld,
+    updateMeld,
     getScore,
     updateHand,
     addToMeld,

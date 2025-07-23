@@ -185,50 +185,52 @@ export const useGameStore = defineStore("game", () => {
   }
 
   async function removeFromMeldAndReturnToHand(uid: string, code: string) {
-    console.log(
-      "Début de removeFromMeldAndReturnToHand avec UID:",
-      uid,
-      "et code:",
-      code
-    );
+    console.log("🛠 Début de removeFromMeldAndReturnToHand", { uid, code });
 
     if (!room.value) {
-      console.warn("La pièce est introuvable.");
+      console.warn("❌ La pièce est introuvable.");
+      return;
     }
 
     if (!uid || !code) {
-      console.warn("UID ou code de carte manquant.");
+      console.warn("❌ UID ou code de carte manquant.");
+      return;
     }
 
-    const currentMeld = room.value.melds?.[uid] ?? [];
-    const currentHand = room.value.hands?.[uid] ?? [];
+    const currentMeld = Array.isArray(room.value.melds?.[uid])
+      ? room.value.melds[uid]
+      : [];
+    const currentHand = Array.isArray(room.value.hands?.[uid])
+      ? room.value.hands[uid]
+      : [];
 
     if (!currentMeld.includes(code)) {
-      console.warn(`La carte ${code} n'est pas dans le meld.`);
+      console.warn(
+        `⚠️ La carte ${code} n'est pas présente dans le meld de ${uid}.`
+      );
+      return;
     }
 
-    // Créer les nouveaux tableaux
+    // On reconstruit les tableaux avec la carte déplacée
     const newMeld = currentMeld.filter((c) => c !== code);
     const newHand = [...currentHand, code];
-    console.log("newHand :", newHand);
-    console.log("newMeld :", newMeld);
 
     try {
-      // 🔥 Mise à jour Firestore
       await updateDoc(doc(db, "rooms", room.value.id), {
-        [`melds.${uid}`]: newMeld,
         [`hands.${uid}`]: newHand,
+        [`melds.${uid}`]: newMeld,
       });
 
-      // 🧠 Mise à jour locale
-      room.value.melds[uid] = newMeld;
+      // Mise à jour de l'état local
       room.value.hands[uid] = newHand;
+      room.value.melds[uid] = newMeld;
 
       console.log(
-        `✔️ Carte ${code} retirée du meld et ajoutée à la main de ${uid}.`
+        `✅ Carte ${code} retirée du meld et replacée dans la main de ${uid}.`
       );
     } catch (e) {
-      console.error("❌ Erreur lors de la mise à jour Firestore :", e);
+      console.error("❌ Erreur Firestore lors du retour de carte en main :", e);
+      // Ne rien modifier localement si la mise à jour échoue
     }
   }
 

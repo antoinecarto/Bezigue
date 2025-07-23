@@ -75,7 +75,7 @@ watch(
 );
 
 function onCardDroppedBackToHand(evt: any) {
-  const addedCard = evt.item?.__draggable_context?.element;
+  const addedCard = evt.added?.element;
   if (!addedCard) {
     console.warn("Aucune carte ajoutée détectée.");
     return;
@@ -83,9 +83,12 @@ function onCardDroppedBackToHand(evt: any) {
 
   console.log("Carte ajoutée à la main :", addedCard);
 
-  console.log("Tentative de suppression de la carte du meld :", addedCard);
-  game.removeFromMeldAndReturnToHand(myUid.value, addedCard);
-  console.log("après, ça ne fonctionne pas ??");
+  if (!handArrayRef.value.includes(addedCard)) {
+    console.log("Tentative de suppression de la carte du meld :", addedCard);
+    game.removeFromMeldAndReturnToHand(myUid.value, addedCard);
+  } else {
+    console.warn("La carte est déjà dans la main.");
+  }
 }
 
 function onCardClick(code: string) {
