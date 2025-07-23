@@ -21,6 +21,7 @@ import CenterBoard from "@/views/components/CenterBoard.vue";
 import GameChat from "./GameChat.vue";
 import VoiceChat from "@/views/components/VoiceChat.vue";
 import Exchange7Dialog from "@/views/components/Exchange7Dialog.vue";
+//import Toast from "@/views/components/Toast.vue";
 
 const roomId = ref("abc123"); // récupéré dynamiquement
 const isHost = ref(true); // ou false selon le joueur
@@ -82,6 +83,19 @@ onMounted(() => {
   });
 });
 
+/* fonction de mise à jour dans Firestore */
+async function updateMelds(uid: string, newCards: string[]) {
+  if (!room.value) return;
+  const roomRef = doc(db, "rooms", room.value.id);
+  try {
+    await updateDoc(roomRef, {
+      [`melds.${uid}`]: newCards,
+    });
+  } catch (error) {
+    console.error("Erreur mise à jour melds Firestore:", error);
+  }
+}
+
 function updateMeldAdd(uid: string, card: string) {
   // Appelle ton store pour ajouter la carte dans Firestore
   game.addToMeld(uid, card).catch(console.error);
@@ -91,9 +105,17 @@ function updateMeldRemove(uid: string, card: string) {
   // Appelle ton store pour retirer la carte dans Firestore
   game.removeFromMeld(uid, card).catch(console.error);
 }
+
+console.log("melds[myUid] type:", melds[myUid], Array.isArray(melds[myUid]));
+console.log(
+  "melds[opponentUid] type:",
+  melds[opponentUid],
+  Array.isArray(melds[opponentUid])
+);
 </script>
 
 <template>
+  <!--<Toast ref="toastRef" />-->
   <!-- écran de chargement -->
   <section v-if="loading" class="flex items-center justify-center h-full">
     Chargement…

@@ -19,6 +19,7 @@ export interface RoomDoc {
   exchangeTable: Record<string, string>;
   reservedHands?: Record<string, string[]>;
   combos?: Record<string, Combination[]>; // ex. combos["uid1"] = [{name, points, cards}]
+  opponentHasDrawn: false;
 }
 
 // type local qui inclut l’id
@@ -26,5 +27,3 @@ export type RoomState = RoomDoc & { id: string };
 
 // ref Vue
 export const room = ref<RoomState | null>(null);
-//
-export const turnCount = ref(0);

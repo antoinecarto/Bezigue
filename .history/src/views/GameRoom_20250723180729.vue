@@ -21,6 +21,7 @@ import CenterBoard from "@/views/components/CenterBoard.vue";
 import GameChat from "./GameChat.vue";
 import VoiceChat from "@/views/components/VoiceChat.vue";
 import Exchange7Dialog from "@/views/components/Exchange7Dialog.vue";
+import Toast from "@/views/components/Toast.vue";
 
 const roomId = ref("abc123"); // récupéré dynamiquement
 const isHost = ref(true); // ou false selon le joueur
@@ -94,6 +95,7 @@ function updateMeldRemove(uid: string, card: string) {
 </script>
 
 <template>
+  <Toast ref="toastRef" />
   <!-- écran de chargement -->
   <section v-if="loading" class="flex items-center justify-center h-full">
     Chargement…

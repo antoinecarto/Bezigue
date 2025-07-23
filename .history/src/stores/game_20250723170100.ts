@@ -5,7 +5,7 @@ import { doc, onSnapshot, runTransaction, updateDoc } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import type { RoomDoc, RoomState } from "@/types/firestore";
 import type { Suit } from "@/game/models/Card";
-import { turnCount } from "@/types/firestore";
+import showToast from "@/views/components/Toast.vue";
 
 /* ── RANG UNIQUE & PARTAGÉ ─────────────────────────────────────────── */
 
@@ -15,6 +15,23 @@ function splitCode(code: string) {
   const suit = raw.slice(-1) as Suit; // Dernier caractère (C, D, H, S)
   return { rank, suit } as const;
 }
+
+//toast
+export const useToastStore = defineStore("toast", () => {
+  const toasts = ref<{ id: number; message: string }[]>([]);
+  let idCounter = 0;
+
+  function show(message: string) {
+    const id = idCounter++;
+    toasts.value.push({ id, message });
+    // Supprimer le toast après 3 secondes
+    setTimeout(() => {
+      toasts.value = toasts.value.filter((t) => t.id !== id);
+    }, 3000);
+  }
+
+  return { toasts, show };
+});
 
 export const useGameStore = defineStore("game", () => {
   /* ──────────── state ──────────── */
@@ -28,6 +45,7 @@ export const useGameStore = defineStore("game", () => {
   const loading = ref(true);
   const playing = ref(false); // verrou anti double‑clic
   const showExchange = ref(false);
+  const toast = showToast();
 
   /* ──────────── getters ──────────── */
 
@@ -133,10 +151,12 @@ export const useGameStore = defineStore("game", () => {
       console.warn(
         `❌ La carte ${code} n'est pas dans la main du joueur ${uid}.`
       );
+      return;
     }
 
     if (currentMeld.includes(code)) {
       console.warn(`ℹ️ La carte ${code} est déjà dans le meld de ${uid}.`);
+      return;
     }
 
     const newHand = currentHand.filter((c) => c !== code);
@@ -274,7 +294,6 @@ export const useGameStore = defineStore("game", () => {
         [`hands.${myUid.value}`]: hand,
         deck,
         drawQueue: newQueue,
-        opponentHasDrawn: true,
       };
 
       tx.update(roomRef, update);
@@ -298,7 +317,6 @@ export const useGameStore = defineStore("game", () => {
     if (a.suit === trump && b.suit !== trump) return firstUid;
     if (b.suit === trump && a.suit !== trump) return secondUid;
     // 3) couleurs diff., pas d’atout → le meneur gagne
-
     return firstUid;
   }
 
@@ -315,10 +333,14 @@ export const useGameStore = defineStore("game", () => {
       room.value.currentTurn !== myUid.value
     )
       return;
-    const isFirstTurn = turnCount.value == 0;
-    if (!isFirstTurn && room.value.drawQueue?.length > 0) {
-      console.log("Attends que tout le monde ait pioché avant de jouer.");
-      return;
+    const toast = useToastStore();
+    // ✅ Bloquer si l'adversaire n’a pas encore pioché
+    if (room.value.drawQueue && room.value.drawQueue.length > 0) {
+      // Ex: interdiction si drawQueue non vide
+      if (drawQueue.value.length > 0) {
+        toast.show("Vous devez attendre que l'adversaire pioche !");
+        return;
+      }
     }
 
     playing.value = true;
@@ -425,8 +447,7 @@ export const useGameStore = defineStore("game", () => {
       if (points) {
         update[`scores.${winner}`] = (d.scores?.[winner] ?? 0) + points;
       }
-      turnCount.value++;
-      console.log("turnCount : ", turnCount.value);
+
       tx.update(roomRef, update);
     });
   }

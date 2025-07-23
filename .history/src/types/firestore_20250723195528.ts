@@ -8,6 +8,7 @@ export interface RoomDoc {
   playerNames: Record<string, string>;
   phase: "waiting" | "play" | "battle" | "finished";
   currentTurn: string;
+  turnCount: number;
   drawQueue: string[];
   trumpCard: string;
   deck: string[];
@@ -26,5 +27,3 @@ export type RoomState = RoomDoc & { id: string };
 
 // ref Vue
 export const room = ref<RoomState | null>(null);
-//
-export const turnCount = ref(0);

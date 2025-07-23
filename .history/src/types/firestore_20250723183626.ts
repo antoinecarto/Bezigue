@@ -26,5 +26,3 @@ export type RoomState = RoomDoc & { id: string };
 
 // ref Vue
 export const room = ref<RoomState | null>(null);
-//
-export const turnCount = ref(0);

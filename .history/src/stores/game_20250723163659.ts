@@ -5,7 +5,6 @@ import { doc, onSnapshot, runTransaction, updateDoc } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import type { RoomDoc, RoomState } from "@/types/firestore";
 import type { Suit } from "@/game/models/Card";
-import { turnCount } from "@/types/firestore";
 
 /* ── RANG UNIQUE & PARTAGÉ ─────────────────────────────────────────── */
 
@@ -133,10 +132,12 @@ export const useGameStore = defineStore("game", () => {
       console.warn(
         `❌ La carte ${code} n'est pas dans la main du joueur ${uid}.`
       );
+      return;
     }
 
     if (currentMeld.includes(code)) {
       console.warn(`ℹ️ La carte ${code} est déjà dans le meld de ${uid}.`);
+      return;
     }
 
     const newHand = currentHand.filter((c) => c !== code);
@@ -274,7 +275,6 @@ export const useGameStore = defineStore("game", () => {
         [`hands.${myUid.value}`]: hand,
         deck,
         drawQueue: newQueue,
-        opponentHasDrawn: true,
       };
 
       tx.update(roomRef, update);
@@ -298,13 +298,44 @@ export const useGameStore = defineStore("game", () => {
     if (a.suit === trump && b.suit !== trump) return firstUid;
     if (b.suit === trump && a.suit !== trump) return secondUid;
     // 3) couleurs diff., pas d’atout → le meneur gagne
-
     return firstUid;
   }
 
   // delay utilitaire
   function delay(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Met à jour la meld d'un joueur (uid) avec un nouveau tableau de cartes (newMeld).
+   * - Met à jour localement la reactive `melds`.
+   * - Met à jour dans Firestore.
+   * - Gère proprement les erreurs avec rollback local si besoin.
+   */
+  async function updateMeld(uid: string, newMeld: string[]) {
+    if (!room.value) return;
+
+    // Sauvegarder la valeur locale avant modif (pour rollback si erreur)
+    const oldMeld = melds.value[uid] ?? [];
+
+    // Mise à jour locale
+    melds.value = {
+      ...melds.value,
+      [uid]: newMeld,
+    };
+
+    try {
+      await updateDoc(doc(db, "rooms", room.value.id), {
+        [`melds.${uid}`]: newMeld,
+      });
+    } catch (e) {
+      console.error("Erreur lors de la mise à jour de la meld Firestore", e);
+      // rollback local
+      melds.value = {
+        ...melds.value,
+        [uid]: oldMeld,
+      };
+    }
   }
 
   async function playCard(code: string) {
@@ -315,9 +346,14 @@ export const useGameStore = defineStore("game", () => {
       room.value.currentTurn !== myUid.value
     )
       return;
-    const isFirstTurn = turnCount.value == 0;
-    if (!isFirstTurn && room.value.drawQueue?.length > 0) {
-      console.log("Attends que tout le monde ait pioché avant de jouer.");
+
+    // ✅ Bloquer si l'adversaire n’a pas encore pioché
+    const opponent = room.value.players.find((p) => p !== myUid.value);
+    if (room.value.drawQueue?.includes(opponent)) {
+      toast({
+        title: "Patience...",
+        description: "L’adversaire doit d’abord piocher avant que tu joues.",
+      });
       return;
     }
 
@@ -425,8 +461,7 @@ export const useGameStore = defineStore("game", () => {
       if (points) {
         update[`scores.${winner}`] = (d.scores?.[winner] ?? 0) + points;
       }
-      turnCount.value++;
-      console.log("turnCount : ", turnCount.value);
+
       tx.update(roomRef, update);
     });
   }

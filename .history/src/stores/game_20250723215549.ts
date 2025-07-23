@@ -425,8 +425,7 @@ export const useGameStore = defineStore("game", () => {
       if (points) {
         update[`scores.${winner}`] = (d.scores?.[winner] ?? 0) + points;
       }
-      turnCount.value++;
-      console.log("turnCount : ", turnCount.value);
+
       tx.update(roomRef, update);
     });
   }

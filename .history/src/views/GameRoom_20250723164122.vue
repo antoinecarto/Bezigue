@@ -6,7 +6,7 @@
     les sous‑vues : MeldZone, PlayerHand, TrickZone (à ajouter si besoin).
 -->
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed, ref } from "vue";
+import { onMounted, onUnmounted, computed, ref, watchEffect } from "vue";
 import { storeToRefs } from "pinia"; // ← ①
 import { useRoute } from "vue-router";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
@@ -82,6 +82,19 @@ onMounted(() => {
   });
 });
 
+/* fonction de mise à jour dans Firestore */
+async function updateMelds(uid: string, newCards: string[]) {
+  if (!room.value) return;
+  const roomRef = doc(db, "rooms", room.value.id);
+  try {
+    await updateDoc(roomRef, {
+      [`melds.${uid}`]: newCards,
+    });
+  } catch (error) {
+    console.error("Erreur mise à jour melds Firestore:", error);
+  }
+}
+
 function updateMeldAdd(uid: string, card: string) {
   // Appelle ton store pour ajouter la carte dans Firestore
   game.addToMeld(uid, card).catch(console.error);
@@ -91,9 +104,18 @@ function updateMeldRemove(uid: string, card: string) {
   // Appelle ton store pour retirer la carte dans Firestore
   game.removeFromMeld(uid, card).catch(console.error);
 }
+
+console.log("melds[myUid] type:", melds[myUid], Array.isArray(melds[myUid]));
+console.log(
+  "melds[opponentUid] type:",
+  melds[opponentUid],
+  Array.isArray(melds[opponentUid])
+);
 </script>
 
 <template>
+  <Toast ref="toastRef" />
+
   <!-- écran de chargement -->
   <section v-if="loading" class="flex items-center justify-center h-full">
     Chargement…
@@ -165,17 +187,9 @@ function updateMeldRemove(uid: string, card: string) {
 </template>
 
 <style scoped>
-.toast-container {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  /* styles visuels pour les toasts */
+.hand-status-top {
 }
-.toast {
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 0.5rem 1rem;
-  margin-bottom: 0.5rem;
-  border-radius: 0.25rem;
+
+.hand-status-bottom {
 }
 </style>

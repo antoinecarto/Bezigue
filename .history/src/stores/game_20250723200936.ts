@@ -298,7 +298,7 @@ export const useGameStore = defineStore("game", () => {
     if (a.suit === trump && b.suit !== trump) return firstUid;
     if (b.suit === trump && a.suit !== trump) return secondUid;
     // 3) couleurs diff., pas d’atout → le meneur gagne
-
+    turnCount.value++;
     return firstUid;
   }
 
@@ -425,8 +425,7 @@ export const useGameStore = defineStore("game", () => {
       if (points) {
         update[`scores.${winner}`] = (d.scores?.[winner] ?? 0) + points;
       }
-      turnCount.value++;
-      console.log("turnCount : ", turnCount.value);
+
       tx.update(roomRef, update);
     });
   }

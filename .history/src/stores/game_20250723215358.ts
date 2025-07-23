@@ -281,25 +281,25 @@ export const useGameStore = defineStore("game", () => {
     });
   }
 
-  function resolveTrick(
-    first: string,
-    second: string,
-    firstUid: string,
-    secondUid: string,
-    trump: Suit
-  ): string {
-    const a = splitCode(first); // { rank, suit }
-    const b = splitCode(second);
-    // 1) même couleur → plus haute l’emporte
-    if (a.suit === b.suit) {
-      return RANK_ORDER[a.rank] >= RANK_ORDER[b.rank] ? firstUid : secondUid;
-    }
-    // 2) couleurs diff. : atout > non‑atout
-    if (a.suit === trump && b.suit !== trump) return firstUid;
-    if (b.suit === trump && a.suit !== trump) return secondUid;
-    // 3) couleurs diff., pas d’atout → le meneur gagne
-
-    return firstUid;
+  function resolveTrick(): string {
+  // first: string,
+  // second: string,
+  // firstUid: string,
+  // secondUid: string,
+  // trump: Suit
+    // const a = splitCode(first); // { rank, suit }
+    // const b = splitCode(second);
+    // // 1) même couleur → plus haute l’emporte
+    // if (a.suit === b.suit) {
+    //   return RANK_ORDER[a.rank] >= RANK_ORDER[b.rank] ? firstUid : secondUid;
+    // }
+    // // 2) couleurs diff. : atout > non‑atout
+    // if (a.suit === trump && b.suit !== trump) return firstUid;
+    // if (b.suit === trump && a.suit !== trump) return secondUid;
+    // // 3) couleurs diff., pas d’atout → le meneur gagne
+    // turnCount.value++;
+    // console.log("turnCount : ", turnCount.value);
+    // return firstUid;
   }
 
   // delay utilitaire
@@ -425,8 +425,7 @@ export const useGameStore = defineStore("game", () => {
       if (points) {
         update[`scores.${winner}`] = (d.scores?.[winner] ?? 0) + points;
       }
-      turnCount.value++;
-      console.log("turnCount : ", turnCount.value);
+
       tx.update(roomRef, update);
     });
   }

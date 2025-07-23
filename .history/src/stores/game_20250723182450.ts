@@ -5,7 +5,7 @@ import { doc, onSnapshot, runTransaction, updateDoc } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import type { RoomDoc, RoomState } from "@/types/firestore";
 import type { Suit } from "@/game/models/Card";
-import { turnCount } from "@/types/firestore";
+//import showToast from "@/views/components/Toast.vue";
 
 /* ── RANG UNIQUE & PARTAGÉ ─────────────────────────────────────────── */
 
@@ -274,7 +274,6 @@ export const useGameStore = defineStore("game", () => {
         [`hands.${myUid.value}`]: hand,
         deck,
         drawQueue: newQueue,
-        opponentHasDrawn: true,
       };
 
       tx.update(roomRef, update);
@@ -298,7 +297,6 @@ export const useGameStore = defineStore("game", () => {
     if (a.suit === trump && b.suit !== trump) return firstUid;
     if (b.suit === trump && a.suit !== trump) return secondUid;
     // 3) couleurs diff., pas d’atout → le meneur gagne
-
     return firstUid;
   }
 
@@ -315,11 +313,6 @@ export const useGameStore = defineStore("game", () => {
       room.value.currentTurn !== myUid.value
     )
       return;
-    const isFirstTurn = turnCount.value == 0;
-    if (!isFirstTurn && room.value.drawQueue?.length > 0) {
-      console.log("Attends que tout le monde ait pioché avant de jouer.");
-      return;
-    }
 
     playing.value = true;
 
@@ -425,8 +418,7 @@ export const useGameStore = defineStore("game", () => {
       if (points) {
         update[`scores.${winner}`] = (d.scores?.[winner] ?? 0) + points;
       }
-      turnCount.value++;
-      console.log("turnCount : ", turnCount.value);
+
       tx.update(roomRef, update);
     });
   }
