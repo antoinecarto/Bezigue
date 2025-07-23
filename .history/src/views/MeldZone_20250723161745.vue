@@ -3,7 +3,6 @@ import { computed, watch, ref } from "vue";
 import draggable from "vuedraggable";
 import PlayingCard from "@/views/components/PlayingCard.vue";
 import { useGameStore } from "@/stores/game";
-import { storeToRefs } from "pinia";
 
 const props = defineProps({
   uid: String,
@@ -18,7 +17,6 @@ const localCards = computed(() => {
   return Array.isArray(props.cards) ? props.cards : [];
 });
 const game = useGameStore();
-const { myUid, currentTurn } = storeToRefs(game);
 
 watch(
   () => props.cards,
@@ -75,8 +73,4 @@ function onCardClick(code: string) {
       />
     </template>
   </draggable>
-  <div v-if="showNotYourTurn" class="popup">
-    Ce n'est pas votre tour !
-    <button @click="showNotYourTurn = false">OK</button>
-  </div>
 </template>
