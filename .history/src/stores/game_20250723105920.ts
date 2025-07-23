@@ -1,14 +1,7 @@
 // src/stores/game.ts
 import { defineStore } from "pinia";
 import { ref, computed, watchEffect, watch } from "vue";
-import {
-  doc,
-  onSnapshot,
-  runTransaction,
-  updateDoc,
-  arrayRemove,
-  arrayUnion,
-} from "firebase/firestore";
+import { doc, onSnapshot, runTransaction, updateDoc } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import type { RoomDoc, RoomState } from "@/types/firestore";
 import type { Suit } from "@/game/models/Card";
@@ -135,55 +128,39 @@ export const useGameStore = defineStore("game", () => {
    * - Annule proprement en cas d'erreur Firestore.
    */
   async function addToMeld(uid: string, code: string) {
-    if (!room.value) {
-      console.warn("La pièce est introuvable.");
-      return;
-    }
+    if (!room.value) return;
 
-    if (!uid || !code) {
-      console.warn("UID ou code de carte manquant.");
-      return;
-    }
+    const currentHand = room.value?.hands?.[uid] ?? [];
+    const currentMeld = melds.value[uid] ?? [];
 
-    if (!room.value.hands[uid]) {
-      console.warn(`La main du joueur ${uid} est introuvable.`);
-      return;
-    }
-
-    const currentHand = room.value.hands[uid];
-    const currentMeld = room.value.melds[uid] || [];
-
+    console.log("addToMeld appelé avec", { uid, code });
+    console.log("main actuelle", room.value?.hands?.[uid]);
+    console.log("currentHand : ", currentHand);
     if (!currentHand.includes(code)) {
-      console.warn(`La carte ${code} n'est plus dans la main du joueur.`);
-      //return;
+      console.warn(`⛔️ ${code} n'est pas dans la main`);
+      return;
     }
 
-    // Mise à jour locale immédiate pour une meilleure réactivité
     const newHand = currentHand.filter((c) => c !== code);
     const newMeld = [...currentMeld, code];
 
-    console.log("État initial du meld :", currentMeld);
+    if (newHand.length + newMeld.length > 9) {
+      console.warn("⛔️ Trop de cartes (main + meld > 9)");
+      return;
+    }
+
     try {
-      // Mise à jour de Firestore
-      await updateDoc(doc(db, "rooms", room.value.id), {
+      console.log("📝 Mise à jour Firestore : ", {
         [`hands.${uid}`]: newHand,
         [`melds.${uid}`]: newMeld,
       });
 
-      console.log("Mise à jour réussie de Firestore.");
-      console.log("Nouvel état de la main :", newHand);
-      console.log("Nouvel état du meld :", newMeld);
-
-      // Mise à jour locale après confirmation de Firestore
-      room.value.hands[uid] = newHand;
-      room.value.melds[uid] = newMeld;
-
-      console.log(`Carte ${code} déplacée de la main au meld pour ${uid}.`);
+      await updateDoc(doc(db, "rooms", room.value.id), {
+        [`hands.${uid}`]: newHand,
+        [`melds.${uid}`]: newMeld,
+      });
     } catch (e) {
-      console.error("Erreur lors de la mise à jour Firestore:", e);
-      // Restaurer l'état local en cas d'erreur
-      room.value.hands[uid] = currentHand;
-      room.value.melds[uid] = currentMeld;
+      console.error("❌ Erreur Firestore dans addToMeld", e);
     }
   }
 

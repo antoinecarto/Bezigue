@@ -26,11 +26,9 @@ function onCardDropped(evt: any) {
   if (props.readonly) return;
 
   const addedCard = evt.item?.__draggable_context?.element;
-  console.log("Carte drag-n-drop reçue:", addedCard);
-
   if (!addedCard) return;
 
-  game.addToMeld(props.uid!, addedCard);
+  game.addToMeld(props.uid, addedCard);
 }
 
 // Optionnel : gérer le clic sur une carte dans le meld (ex: retirer du meld)

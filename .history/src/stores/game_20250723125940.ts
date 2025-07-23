@@ -155,7 +155,7 @@ export const useGameStore = defineStore("game", () => {
 
     if (!currentHand.includes(code)) {
       console.warn(`La carte ${code} n'est plus dans la main du joueur.`);
-      //return;
+      return;
     }
 
     // Mise à jour locale immédiate pour une meilleure réactivité

@@ -104,13 +104,6 @@ function updateMeldRemove(uid: string, card: string) {
   // Appelle ton store pour retirer la carte dans Firestore
   game.removeFromMeld(uid, card).catch(console.error);
 }
-
-console.log("melds[myUid] type:", melds[myUid], Array.isArray(melds[myUid]));
-console.log(
-  "melds[opponentUid] type:",
-  melds[opponentUid],
-  Array.isArray(melds[opponentUid])
-);
 </script>
 
 <template>

@@ -30,7 +30,7 @@
 
 <script setup lang="ts">
 import draggable from "vuedraggable";
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { useGameStore } from "@/stores/game";
 import { storeToRefs } from "pinia";
 import PlayingCard from "@/views/components/PlayingCard.vue";
@@ -48,7 +48,7 @@ function onCardDroppedBackToHand(evt: any) {
   const addedCard = evt.item?.__draggable_context?.element;
   if (!addedCard) return;
 
-  game.removeFromMeldAndReturnToHand(game.myUid, addedCard);
+  game.removeFromMeldAndReturnToHand(game.playerUid, addedCard);
 }
 
 function onCardClick(code: string) {

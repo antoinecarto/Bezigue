@@ -48,7 +48,7 @@ function onCardDroppedBackToHand(evt: any) {
   const addedCard = evt.item?.__draggable_context?.element;
   if (!addedCard) return;
 
-  game.removeFromMeldAndReturnToHand(game.myUid, addedCard);
+  game.removeFromMeldAndReturnToHand(game.playerUid, addedCard);
 }
 
 function onCardClick(code: string) {

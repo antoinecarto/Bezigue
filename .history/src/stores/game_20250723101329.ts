@@ -1,14 +1,7 @@
 // src/stores/game.ts
 import { defineStore } from "pinia";
 import { ref, computed, watchEffect, watch } from "vue";
-import {
-  doc,
-  onSnapshot,
-  runTransaction,
-  updateDoc,
-  arrayRemove,
-  arrayUnion,
-} from "firebase/firestore";
+import { doc, onSnapshot, runTransaction, updateDoc } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import type { RoomDoc, RoomState } from "@/types/firestore";
 import type { Suit } from "@/game/models/Card";
@@ -76,23 +69,6 @@ export const useGameStore = defineStore("game", () => {
   const getScore = (uid: string) => scores.value[uid] ?? 0;
 
   /* ─────────── helpers ─────────── */
-  // function _subscribeRoom(roomId: string) {
-  //   return onSnapshot(doc(db, "rooms", roomId), (snap) => {
-  //     loading.value = false;
-  //     if (!snap.exists()) {
-  //       room.value = null;
-  //       return;
-  //     }
-  //     const data = snap.data() as RoomDoc;
-  //     room.value = { id: snap.id, ...data };
-  //     if (myUid.value) hand.value = data.hands?.[myUid.value] ?? [];
-  //     melds.value = { ...data.melds };
-  //     exchangeTable.value = { ...(data.exchangeTable ?? {}) };
-  //     scores.value = { ...(data.scores ?? {}) };
-  //     console.log("🔥 Firestore melds reçus :", data.melds);
-  //   });
-  // }
-
   function _subscribeRoom(roomId: string) {
     return onSnapshot(doc(db, "rooms", roomId), (snap) => {
       loading.value = false;
@@ -102,22 +78,11 @@ export const useGameStore = defineStore("game", () => {
       }
       const data = snap.data() as RoomDoc;
       room.value = { id: snap.id, ...data };
-
-      if (myUid.value) hand.value = data.hands?.[myUid.value] ?? []; //melds.value = { ...data.melds };
+      if (myUid.value) hand.value = data.hands?.[myUid.value] ?? [];
+      melds.value = { ...data.melds };
       exchangeTable.value = { ...(data.exchangeTable ?? {}) };
       scores.value = { ...(data.scores ?? {}) };
-      //
-      melds.value = {};
-      if (data.melds) {
-        for (const [uid, cards] of Object.entries(data.melds)) {
-          melds.value[uid] = Array.isArray(cards)
-            ? cards
-            : Object.values(cards);
-        }
-      }
-      //
-      console.log("🔥 Firestore hands reçues :", hand.value);
-      console.log("🔥 Firestore melds reçus :", melds.value);
+      console.log("🔥 Firestore melds reçus :", data.melds);
     });
   }
 
@@ -135,87 +100,69 @@ export const useGameStore = defineStore("game", () => {
    * - Annule proprement en cas d'erreur Firestore.
    */
   async function addToMeld(uid: string, code: string) {
-    if (!room.value) {
-      console.warn("La pièce est introuvable.");
-      return;
-    }
+    if (!room.value) return;
 
-    if (!uid || !code) {
-      console.warn("UID ou code de carte manquant.");
-      return;
-    }
-
-    if (!room.value.hands[uid]) {
-      console.warn(`La main du joueur ${uid} est introuvable.`);
-      return;
-    }
-
-    const currentHand = room.value.hands[uid];
-    const currentMeld = room.value.melds[uid] || [];
+    const currentHand = room.value.hands[uid] ?? [];
+    const currentMeld = room.value.melds[uid] ?? [];
 
     if (!currentHand.includes(code)) {
-      console.warn(`La carte ${code} n'est plus dans la main du joueur.`);
-      //return;
+      console.warn(`⛔️ ${code} n'est pas dans la main`);
     }
 
-    // Mise à jour locale immédiate pour une meilleure réactivité
     const newHand = currentHand.filter((c) => c !== code);
     const newMeld = [...currentMeld, code];
 
-    console.log("État initial du meld :", currentMeld);
-    try {
-      // Mise à jour de Firestore
-      await updateDoc(doc(db, "rooms", room.value.id), {
-        [`hands.${uid}`]: newHand,
-        [`melds.${uid}`]: newMeld,
-      });
-
-      console.log("Mise à jour réussie de Firestore.");
-      console.log("Nouvel état de la main :", newHand);
-      console.log("Nouvel état du meld :", newMeld);
-
-      // Mise à jour locale après confirmation de Firestore
-      room.value.hands[uid] = newHand;
-      room.value.melds[uid] = newMeld;
-
-      console.log(`Carte ${code} déplacée de la main au meld pour ${uid}.`);
-    } catch (e) {
-      console.error("Erreur lors de la mise à jour Firestore:", e);
-      // Restaurer l'état local en cas d'erreur
-      room.value.hands[uid] = currentHand;
-      room.value.melds[uid] = currentMeld;
+    if (newHand.length + newMeld.length > 9) {
+      console.warn("⛔️ Trop de cartes (main + meld > 9)");
+      return;
     }
+
+    console.log("📝 Mise à jour Firestore : ", {
+      [`hands.${uid}`]: newHand,
+      [`melds.${uid}`]: newMeld,
+    });
+
+    await updateDoc(doc(db, "rooms", room.value.id), {
+      [`hands.${uid}`]: newHand,
+      [`melds.${uid}`]: newMeld,
+    });
   }
 
   async function removeFromMeldAndReturnToHand(uid: string, code: string) {
-    if (!room.value) return;
+    console.log("⚙️ Début de removeFromMeldAndReturnToHand", { uid, code });
+    if (!room.value) {
+      console.warn("⛔️ Pas de room");
+      return;
+    }
+    console.log("📄 room id:", room.value.id);
 
-    const oldMeld = melds.value[uid] ?? [];
-    const oldHand = hand.value[uid] ?? [];
+    const currentMeld = room.value.melds[uid] ?? [];
+    const currentHand = room.value.hands[uid] ?? [];
 
-    if (!oldMeld.includes(code)) {
+    if (!currentMeld.includes(code)) {
       console.warn(`⛔ ${code} n'est pas dans le meld`);
       return;
     }
 
-    // Attention : ne pas additionner des valeurs obsolètes de Firestore !
-    if (oldHand.length + oldMeld.length >= 9) {
+    if (currentHand.length + currentMeld.length >= 9) {
       console.warn("⛔️ Trop de cartes !");
       return;
     }
 
-    const newMeld = oldMeld.filter((c) => c !== code);
-    const newHand = [...oldHand, code];
-
+    const newMeld = currentMeld.filter((c) => c !== code);
+    const newHand = [...currentHand, code];
+    console.log(
+      "🔁 Suppression dans Firestore (removeFromMeldAndReturnToHand)",
+      {
+        [`hands.${uid}`]: newHand,
+        [`melds.${uid}`]: newMeld,
+      }
+    );
     try {
       await updateDoc(doc(db, "rooms", room.value.id), {
         [`hands.${uid}`]: newHand,
         [`melds.${uid}`]: newMeld,
       });
-
-      // met à jour les valeurs locales immédiatement
-      hand.value = { ...hand.value, [uid]: newHand };
-      melds.value = { ...melds.value, [uid]: newMeld };
     } catch (e) {
       console.error("Erreur Firestore lors du retour en main", e);
     }
@@ -234,7 +181,7 @@ export const useGameStore = defineStore("game", () => {
 
     if (!currentMeld.includes(code)) {
       console.warn(`⛔️ ${code} n'est pas dans le meld`);
-      // return;
+      return;
     }
 
     const newMeld = currentMeld.filter((c) => c !== code);
@@ -242,7 +189,7 @@ export const useGameStore = defineStore("game", () => {
 
     if (newHand.length + newMeld.length > 9) {
       console.warn("⛔️ Trop de cartes (main + meld > 9)");
-      // return;
+      return;
     }
     console.log("room.value.id dans removeFromMeld : ", room.value.id);
 

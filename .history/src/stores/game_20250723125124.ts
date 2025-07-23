@@ -155,24 +155,19 @@ export const useGameStore = defineStore("game", () => {
 
     if (!currentHand.includes(code)) {
       console.warn(`La carte ${code} n'est plus dans la main du joueur.`);
-      //return;
+      return;
     }
 
     // Mise à jour locale immédiate pour une meilleure réactivité
     const newHand = currentHand.filter((c) => c !== code);
     const newMeld = [...currentMeld, code];
 
-    console.log("État initial du meld :", currentMeld);
     try {
       // Mise à jour de Firestore
       await updateDoc(doc(db, "rooms", room.value.id), {
         [`hands.${uid}`]: newHand,
         [`melds.${uid}`]: newMeld,
       });
-
-      console.log("Mise à jour réussie de Firestore.");
-      console.log("Nouvel état de la main :", newHand);
-      console.log("Nouvel état du meld :", newMeld);
 
       // Mise à jour locale après confirmation de Firestore
       room.value.hands[uid] = newHand;
