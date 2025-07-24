@@ -614,38 +614,22 @@ export const useGameStore = defineStore("game", () => {
       if (!snap.exists()) throw new Error("Room not found");
 
       const d = snap.data() as RoomDoc;
-      const uid = myUid.value;
 
-      const hand = d.hands?.[uid];
-      if (!hand) {
-        console.warn("Pas de main trouvée pour ce joueur");
-        return;
-      }
-
-      const sevenPrefix = "7" + d.trumpSuit;
-      const sevenCode = hand.find((card) => card.startsWith(sevenPrefix));
-      if (!sevenCode) {
-        console.warn("Le 7 d’atout n’est pas présent dans la main");
-        return;
-      }
-
-      const trumpCard = d.trumpCard;
-      const trumpRank = trumpCard.split("_")[0].slice(0, -1);
+      const sevenCode = "7" + d.trumpSuit;
       const allowedRanks = ["A", "10", "K", "Q", "J"];
 
-      if (!allowedRanks.includes(trumpRank)) {
-        console.warn("Carte d’atout non échangeable :", trumpRank);
-        return;
-      }
+      if (!d.hands[myUid.value].includes(sevenCode)) return;
+      if (!allowedRanks.includes(d.trumpCard.slice(0, -1))) return;
 
-      // Mise à jour de la main (remplace le 7 par la carte d’atout)
-      const newHand = hand.filter((c) => c !== sevenCode);
-      newHand.push(trumpCard);
+      const newHand = d.hands[myUid.value].filter((c) => c !== sevenCode);
+      newHand.push(d.trumpCard);
+
+      const currentScore = d.scores?.[myUid.value] ?? 0;
 
       const update: Record<string, any> = {
         trumpCard: sevenCode,
-        [`hands.${uid}`]: newHand,
-        [`scores.${uid}`]: (d.scores?.[uid] || 0) + 10,
+        [`hands.${myUid.value}`]: newHand,
+        [`scores.${myUid.value}`]: currentScore + 10, // 🔥 Ajouter 10 points ici
       };
 
       tx.update(roomRef, update);
