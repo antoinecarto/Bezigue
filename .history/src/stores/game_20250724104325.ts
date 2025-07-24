@@ -103,16 +103,6 @@ export const useGameStore = defineStore("game", () => {
   const drawQueue = ref<string[]>([]); // ← Important !
 
   /* ──────────── getters ──────────── */
-  watchEffect(() => {
-    if (!room.value) return;
-
-    const data = room.value;
-
-    drawQueue.value = data.drawQueue || [];
-    currentTurn.value = data.currentTurn || null;
-
-    // ...idem pour d'autres champs si nécessaire
-  });
 
   watchEffect(() => {
     if (!room.value) return;
@@ -525,7 +515,7 @@ export const useGameStore = defineStore("game", () => {
       );
 
       if (allHandsEmpty) {
-        update.phase = "final";
+        update.phase = "finished";
       }
       tx.update(roomRef, update);
     });

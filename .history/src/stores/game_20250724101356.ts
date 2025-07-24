@@ -25,7 +25,7 @@ function splitCode(code: string) {
   return { rank, suit } as const;
 }
 
-export async function startNewMene(roomId: string) {
+export async function startNewMene() {
   // 1. Récupérer les infos actuelles de la room
   const roomSnap = await getDoc(doc(db, "rooms", roomId));
   if (!roomSnap.exists()) throw new Error("Room introuvable");
@@ -103,16 +103,6 @@ export const useGameStore = defineStore("game", () => {
   const drawQueue = ref<string[]>([]); // ← Important !
 
   /* ──────────── getters ──────────── */
-  watchEffect(() => {
-    if (!room.value) return;
-
-    const data = room.value;
-
-    drawQueue.value = data.drawQueue || [];
-    currentTurn.value = data.currentTurn || null;
-
-    // ...idem pour d'autres champs si nécessaire
-  });
 
   watchEffect(() => {
     if (!room.value) return;
@@ -512,20 +502,15 @@ export const useGameStore = defineStore("game", () => {
       if (points) {
         update[`scores.${winner}`] = (d.scores?.[winner] ?? 0) + points;
       }
-
-      if (d.deck.length === 0) {
-        update.phase = "battle";
-        update.drawQueue = []; // ne pas attendre une pioche impossible
-      } else {
-        update.drawQueue = [winner, loser];
-      }
+      turnCount.value++;
+      console.log("turnCount : ", turnCount.value);
 
       const allHandsEmpty = d.players.every(
         (uid) => (d.hands[uid]?.length ?? 0) === 0
       );
 
       if (allHandsEmpty) {
-        update.phase = "final";
+        update.phase = "finished";
       }
       tx.update(roomRef, update);
     });

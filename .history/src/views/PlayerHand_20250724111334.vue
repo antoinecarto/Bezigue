@@ -38,12 +38,6 @@ const { myUid, hand, drawQueue, currentTurn } = storeToRefs(game);
 const showNotYourTurn = ref(false);
 const playing = ref(false);
 
-watch(drawQueue, (val) => {
-  console.log("🎯 drawQueue changed", val);
-  console.log("🧠 isNotMyTurn:", isNotMyTurn.value);
-  console.log("👤 myUid:", myUid.value);
-});
-
 const isMyTurn = computed(() => currentTurn.value === myUid.value);
 const isNotMyTurn = computed(() => {
   return drawQueue.value.length === 1 && drawQueue.value[0] !== myUid.value;
@@ -97,10 +91,8 @@ function onCardDroppedBackToHand(evt: any) {
 }
 
 function onCardClick(code: string) {
-  console.log("drawQueue:", drawQueue.value);
-  console.log("currentTurn:", currentTurn.value);
-  console.log("myUid:", myUid.value);
-  console.log("isNotMyTurn:", isNotMyTurn.value);
+  console.log("drawQueue:", drawQueue.value, "myUid:", myUid.value);
+
   if (isNotMyTurn.value) {
     console.log("Popup affichée car ce n'est pas ton tour");
 

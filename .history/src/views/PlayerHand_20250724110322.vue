@@ -13,7 +13,7 @@
         :key="element"
         :width="70"
         :height="100"
-        :class="[{ disabled: !isMyTurn }, 'cursor-pointer']"
+        :class="[{ disabled: isNotMyTurn }, 'cursor-pointer']"
         @click="onCardClick(element)"
       />
     </template>
@@ -33,18 +33,10 @@ import { storeToRefs } from "pinia";
 import PlayingCard from "@/views/components/PlayingCard.vue";
 
 const game = useGameStore();
-const { myUid, hand, drawQueue, currentTurn } = storeToRefs(game);
+const { myUid, hand, drawQueue } = storeToRefs(game);
 
 const showNotYourTurn = ref(false);
 const playing = ref(false);
-
-watch(drawQueue, (val) => {
-  console.log("🎯 drawQueue changed", val);
-  console.log("🧠 isNotMyTurn:", isNotMyTurn.value);
-  console.log("👤 myUid:", myUid.value);
-});
-
-const isMyTurn = computed(() => currentTurn.value === myUid.value);
 const isNotMyTurn = computed(() => {
   return drawQueue.value.length === 1 && drawQueue.value[0] !== myUid.value;
 });
@@ -97,13 +89,7 @@ function onCardDroppedBackToHand(evt: any) {
 }
 
 function onCardClick(code: string) {
-  console.log("drawQueue:", drawQueue.value);
-  console.log("currentTurn:", currentTurn.value);
-  console.log("myUid:", myUid.value);
-  console.log("isNotMyTurn:", isNotMyTurn.value);
   if (isNotMyTurn.value) {
-    console.log("Popup affichée car ce n'est pas ton tour");
-
     showNotYourTurn.value = true;
     return;
   }

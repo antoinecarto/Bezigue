@@ -23,14 +23,12 @@ import VoiceChat from "@/views/components/VoiceChat.vue";
 import Exchange7Dialog from "@/views/components/Exchange7Dialog.vue";
 import { startNewMene } from "@/stores/game";
 
+const roomId = ref("abc123"); // récupéré dynamiquement
 const isHost = ref(true); // ou false selon le joueur
 const route = useRoute();
 const game = useGameStore();
 /* ① — les refs du store --------------------------------------------- */
 const { myUid, room, loading, melds } = storeToRefs(game); // <- myUid et room sont VRAIS refs
-
-const roomId = computed(() => room.value?.id ?? "");
-const phase = computed(() => room.value?.phase ?? "waiting");
 
 /* ② — uid de l’adversaire ------------------------------------------- */
 const opponentUid = computed(() => {
@@ -165,7 +163,7 @@ function updateMeldRemove(uid: string, card: string) {
     <VoiceChat :roomId="roomId" :isCaller="isHost" />
   </div>
   <Exchange7Dialog v-if="game.showExchange" />
-  <button v-if="phase === 'finished'" @click="startNewMene(roomId)">
+  <button v-if="phase === 'finished' && isOwner" @click="startNewMene(room.id)">
     Lancer la prochaine mène
   </button>
 </template>

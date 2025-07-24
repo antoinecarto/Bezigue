@@ -6,7 +6,7 @@ import type { Combination } from "@/core/rules/detectCombinations";
 export interface RoomDoc {
   players: string[];
   playerNames: Record<string, string>;
-  phase: "waiting" | "play" | "battle" | "finished" | "final";
+  phase: "waiting" | "play" | "battle" | "finished";
   currentTurn: string;
   drawQueue: string[];
   trumpCard: string;

@@ -1,20 +1,11 @@
 // src/stores/game.ts
 import { defineStore } from "pinia";
 import { ref, computed, watchEffect, watch } from "vue";
-import {
-  doc,
-  onSnapshot,
-  runTransaction,
-  updateDoc,
-  getDoc,
-  setDoc,
-} from "firebase/firestore";
+import { doc, onSnapshot, runTransaction, updateDoc } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import type { RoomDoc, RoomState } from "@/types/firestore";
 import type { Suit } from "@/game/models/Card";
 import { turnCount } from "@/types/firestore";
-import { generateShuffledDeck, distributeCards } from "@/game/BezigueGame";
-import { arrayToStr } from "@/game/serializers";
 
 /* ── RANG UNIQUE & PARTAGÉ ─────────────────────────────────────────── */
 
@@ -25,69 +16,6 @@ function splitCode(code: string) {
   return { rank, suit } as const;
 }
 
-export async function startNewMene(roomId: string) {
-  // 1. Récupérer les infos actuelles de la room
-  const roomSnap = await getDoc(doc(db, "rooms", roomId));
-  if (!roomSnap.exists()) throw new Error("Room introuvable");
-
-  const roomData = roomSnap.data();
-  const players: string[] = roomData.players;
-  const currentMeneIndex: number = roomData.currentMeneIndex ?? 0;
-  const lastFirstPlayer: string = (
-    await getDoc(doc(db, "rooms", roomId, "menes", `${currentMeneIndex}`))
-  ).data()?.firstPlayerUid;
-
-  if (players.length !== 2) {
-    throw new Error("Il faut exactement 2 joueurs pour démarrer une mène.");
-  }
-
-  // 2. Déterminer le prochain premier joueur (celui qui n’a pas commencé la dernière mène)
-  const firstPlayer = players.find((p) => p !== lastFirstPlayer) ?? players[0];
-  const secondPlayer = players.find((p) => p !== firstPlayer) ?? players[1];
-
-  // 3. Générer et distribuer le jeu
-  const fullDeck = generateShuffledDeck();
-  const distrib = distributeCards(fullDeck);
-  const trumpCardStr = distrib.trumpCard.toString();
-  const trumpSuit = trumpCardStr.match(/([a-zA-Z])_(?:1|2)$/)?.[1] ?? null;
-
-  // 4. Incrément de l'index de mène
-  const newMeneIndex = currentMeneIndex + 1;
-
-  // 5. Mise à jour du document principal
-  await updateDoc(doc(db, "rooms", roomId), {
-    phase: "play",
-    currentMeneIndex: newMeneIndex,
-    trumpCard: trumpCardStr,
-    trumpSuit,
-    trumpTaken: false,
-    deck: arrayToStr(distrib.drawPile),
-    hands: {
-      [firstPlayer]: arrayToStr(distrib.hands.player1),
-    },
-    reservedHands: {
-      [secondPlayer]: arrayToStr(distrib.hands.player2),
-    },
-    currentTurn: firstPlayer,
-    drawQueue: [],
-    trick: { cards: [], players: [] },
-    melds: {},
-    canMeld: null,
-    combos: {},
-  });
-
-  // 6. Création du document « menes/newMeneIndex »
-  await setDoc(doc(db, "rooms", roomId, "menes", `${newMeneIndex}`), {
-    firstPlayerUid: firstPlayer,
-    currentPliCards: [],
-    plies: [],
-    scores: {
-      [players[0]]: 0,
-      [players[1]]: 0,
-    },
-    targetScore: roomData.targetScore,
-  });
-}
 export const useGameStore = defineStore("game", () => {
   /* ──────────── state ──────────── */
   const room = ref<RoomState | null>(null);
@@ -103,16 +31,6 @@ export const useGameStore = defineStore("game", () => {
   const drawQueue = ref<string[]>([]); // ← Important !
 
   /* ──────────── getters ──────────── */
-  watchEffect(() => {
-    if (!room.value) return;
-
-    const data = room.value;
-
-    drawQueue.value = data.drawQueue || [];
-    currentTurn.value = data.currentTurn || null;
-
-    // ...idem pour d'autres champs si nécessaire
-  });
 
   watchEffect(() => {
     if (!room.value) return;
@@ -360,10 +278,6 @@ export const useGameStore = defineStore("game", () => {
         opponentHasDrawn: true,
       };
 
-      if (deck.length === 0) {
-        update.phase = "battle"; // On entre dans la 2e phase de la mène
-      }
-
       tx.update(roomRef, update);
     });
   }
@@ -512,21 +426,8 @@ export const useGameStore = defineStore("game", () => {
       if (points) {
         update[`scores.${winner}`] = (d.scores?.[winner] ?? 0) + points;
       }
-
-      if (d.deck.length === 0) {
-        update.phase = "battle";
-        update.drawQueue = []; // ne pas attendre une pioche impossible
-      } else {
-        update.drawQueue = [winner, loser];
-      }
-
-      const allHandsEmpty = d.players.every(
-        (uid) => (d.hands[uid]?.length ?? 0) === 0
-      );
-
-      if (allHandsEmpty) {
-        update.phase = "final";
-      }
+      turnCount.value++;
+      console.log("turnCount : ", turnCount.value);
       tx.update(roomRef, update);
     });
   }
@@ -674,7 +575,6 @@ export const useGameStore = defineStore("game", () => {
     removeFromMeldAndReturnToHand,
     removeFromMeld,
     //updateMeld,
-    startNewMene,
     getScore,
     updateHand,
     addToMeld,
