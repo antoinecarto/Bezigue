@@ -554,29 +554,23 @@ export const useGameStore = defineStore("game", () => {
     if (!room.value || !myUid.value) return;
     showExchange.value = false;
 
-    const roomRef = doc(db, "rooms", room.value.id);
-
     await runTransaction(db, async (tx) => {
-      const snap = await tx.get(roomRef);
-      if (!snap.exists()) throw new Error("Room not found");
-
+      const snap = await tx.get(doc(db, "rooms", room.value!.id));
       const d = snap.data() as RoomDoc;
 
       const sevenCode = "7" + d.trumpSuit;
-      const allowedRanks = ["A", "10", "K", "Q", "J"];
+      if (!d.hands[myUid.value!].includes(sevenCode)) return;
 
-      if (!d.hands[myUid.value].includes(sevenCode)) return;
+      const allowedRanks = ["A", "10", "K", "Q", "J"];
       if (!allowedRanks.includes(d.trumpCard.slice(0, -1))) return;
 
-      const newHand = d.hands[myUid.value].filter((c) => c !== sevenCode);
-      newHand.push(d.trumpCard);
+      const hand = d.hands[myUid.value!].filter((c) => c !== sevenCode);
+      hand.push(d.trumpCard);
 
-      const update: Record<string, any> = {
+      tx.update(doc(db, "rooms", room.value!.id), {
         trumpCard: sevenCode,
-        [`hands.${myUid.value}`]: newHand,
-      };
-
-      tx.update(roomRef, update);
+        [`hands.${myUid.value}`]: hand,
+      });
     });
   }
 
