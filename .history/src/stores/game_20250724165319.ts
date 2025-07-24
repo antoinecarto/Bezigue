@@ -597,10 +597,8 @@ export const useGameStore = defineStore("game", () => {
     const trumpRank = d.trumpCard.split("_")[0].slice(0, -1);
     const allowedRanks = ["A", "10", "K", "Q", "J"];
     const isExchangeable = allowedRanks.includes(trumpRank);
-    const hasSeven = handCards.some((card) => card.startsWith(sevenCode));
-    const canExchange = hasSeven && isExchangeable;
 
-    console.log("canExchange : ", canExchange);
+    const canExchange = handCards.includes(sevenCode) && isExchangeable;
     console.log("sevenCode : ", sevenCode);
     console.log("trumpRank : ", trumpRank);
     console.log("allowedRanks : ", allowedRanks);
@@ -626,27 +624,16 @@ export const useGameStore = defineStore("game", () => {
       const d = snap.data() as RoomDoc;
 
       const sevenCode = "7" + d.trumpSuit;
-      const trumpRank = d.trumpCard.split("_")[0].slice(0, -1); // <-- comme dans checkExchangePossibility
       const allowedRanks = ["A", "10", "K", "Q", "J"];
 
-      const hasSeven = d.hands[myUid.value].some((card) =>
-        card.startsWith(sevenCode)
-      );
-      if (!hasSeven) return;
-      if (!allowedRanks.includes(trumpRank)) return;
+      if (!d.hands[myUid.value].includes(sevenCode)) return;
+      if (!allowedRanks.includes(d.trumpCard.slice(0, -1))) return;
 
-      // Trouver la vraie carte "7C_1" dans la main
-      const sevenCard = d.hands[myUid.value].find((card) =>
-        card.startsWith(sevenCode)
-      );
-      if (!sevenCard) return;
-
-      // Remplacer le 7 par la carte d’atout
-      const newHand = d.hands[myUid.value].filter((c) => c !== sevenCard);
+      const newHand = d.hands[myUid.value].filter((c) => c !== sevenCode);
       newHand.push(d.trumpCard);
 
       const update: Record<string, any> = {
-        trumpCard: sevenCard,
+        trumpCard: sevenCode,
         [`hands.${myUid.value}`]: newHand,
       };
 

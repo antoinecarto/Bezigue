@@ -102,14 +102,6 @@ export async function endMene(roomId: string) {
   // Exemple : récupérer les scores
   const scores = meneData?.scores ?? {};
   console.log("scores : ", scores);
-  const plies = meneData?.plies ?? [];
-  if (plies.length > 0) {
-    const lastPli = plies[plies.length - 1];
-    const lastWinner = lastPli?.winner;
-    if (lastWinner && scores[lastWinner] !== undefined) {
-      scores[lastWinner] += 10; // ✅ Bonus dernier pli
-    }
-  }
 
   const target = roomData.targetScore ?? 2000;
   console.log("target : ", target);
@@ -185,19 +177,13 @@ export const useGameStore = defineStore("game", () => {
     });
   });
 
-  watchEffect(() => {
-    const d = room.value;
-    const uid = myUid.value;
-    console.log("watchEffect triggered", room.value?.currentTurn, myUid.value);
-
-    if (!d || !uid) return;
-
-    // Si c’est à moi de jouer, je vérifie si je peux échanger
-    if (d.currentTurn === uid) {
-      console.log("d.currentTurn : ", uid);
+  watch(
+    () => room.value?.currentTurn,
+    (newVal, oldVal) => {
+      if (!oldVal || !newVal || newVal !== myUid.value) return;
       checkExchangePossibility();
     }
-  });
+  );
 
   const currentTurn = computed(() => room.value?.currentTurn ?? null);
 
@@ -572,46 +558,36 @@ export const useGameStore = defineStore("game", () => {
       } else {
         update.drawQueue = [winner, loser];
       }
+
+      const allHandsEmpty = d.players.every(
+        (uid) => (d.hands[uid]?.length ?? 0) === 0
+      );
+
+      if (allHandsEmpty) {
+        update.phase = "final";
+      }
       tx.update(roomRef, update);
     });
   }
 
   function checkExchangePossibility() {
-    console.log("entrée dans checkExchangePossibility");
     const d = room.value;
     const uid = myUid.value;
     if (!d || !uid) return;
-    if (d.currentTurn !== uid) {
-      showExchange.value = false; // fermer si ce n'est plus le tour
-
-      return;
-    }
+    if (d.currentTurn !== uid) return;
 
     const handCards = d.hands?.[uid];
-    if (!handCards) {
-      showExchange.value = false; // fermer si pas de main
-      return;
-    }
+    if (!handCards) return;
 
     const sevenCode = "7" + d.trumpSuit;
-    const trumpRank = d.trumpCard.split("_")[0].slice(0, -1);
     const allowedRanks = ["A", "10", "K", "Q", "J"];
-    const isExchangeable = allowedRanks.includes(trumpRank);
-    const hasSeven = handCards.some((card) => card.startsWith(sevenCode));
-    const canExchange = hasSeven && isExchangeable;
+    const isExchangeable = allowedRanks.includes(d.trumpCard.slice(0, -1));
 
-    console.log("canExchange : ", canExchange);
-    console.log("sevenCode : ", sevenCode);
-    console.log("trumpRank : ", trumpRank);
-    console.log("allowedRanks : ", allowedRanks);
-    console.log("isExchangeable : ", isExchangeable);
-    console.log("d.trumpCard: ", d.trumpCard);
-
-    if (canExchange) {
-      console.log("Exchange possible! Showing popup.");
+    if (handCards.includes(sevenCode) && isExchangeable) {
+      showExchange.value = true;
     }
-    showExchange.value = canExchange;
   }
+
   // ----- échange confirmé -----
   async function confirmExchange() {
     if (!room.value || !myUid.value) return;
@@ -626,27 +602,16 @@ export const useGameStore = defineStore("game", () => {
       const d = snap.data() as RoomDoc;
 
       const sevenCode = "7" + d.trumpSuit;
-      const trumpRank = d.trumpCard.split("_")[0].slice(0, -1); // <-- comme dans checkExchangePossibility
       const allowedRanks = ["A", "10", "K", "Q", "J"];
 
-      const hasSeven = d.hands[myUid.value].some((card) =>
-        card.startsWith(sevenCode)
-      );
-      if (!hasSeven) return;
-      if (!allowedRanks.includes(trumpRank)) return;
+      if (!d.hands[myUid.value].includes(sevenCode)) return;
+      if (!allowedRanks.includes(d.trumpCard.slice(0, -1))) return;
 
-      // Trouver la vraie carte "7C_1" dans la main
-      const sevenCard = d.hands[myUid.value].find((card) =>
-        card.startsWith(sevenCode)
-      );
-      if (!sevenCard) return;
-
-      // Remplacer le 7 par la carte d’atout
-      const newHand = d.hands[myUid.value].filter((c) => c !== sevenCard);
+      const newHand = d.hands[myUid.value].filter((c) => c !== sevenCode);
       newHand.push(d.trumpCard);
 
       const update: Record<string, any> = {
-        trumpCard: sevenCard,
+        trumpCard: sevenCode,
         [`hands.${myUid.value}`]: newHand,
       };
 

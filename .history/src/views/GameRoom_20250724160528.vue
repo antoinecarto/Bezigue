@@ -115,6 +115,7 @@ function updateMeldRemove(uid: string, card: string) {
 
 <template>
   <Exchange7Dialog v-if="game.showExchange" />
+
   <FinalPopup
     v-if="game.room?.phase === 'final'"
     :winner="winnerName"
