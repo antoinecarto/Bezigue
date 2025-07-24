@@ -59,14 +59,9 @@ const mainOpponentLabel = computed(() =>
 );
 
 const winnerName = computed(() => {
-  if (!game.room?.scores) return "";
-  const scores = game.room.scores;
-  const playerIds = Object.keys(scores);
-  if (scores[playerIds[0]] > scores[playerIds[1]])
-    return game.room.playerNames[playerIds[0]];
-  else if (scores[playerIds[1]] > scores[playerIds[0]])
-    return game.room.playerNames[playerIds[1]];
-  else return "Égalité";
+  if (game.room?.phase !== "final") return null;
+  const winnerUid = game.room.winnerUid;
+  return winnerUid ? game.room.playerNames[winnerUid] : "Égalité";
 });
 
 // const opponentMeld = computed(() => {
@@ -97,11 +92,6 @@ onMounted(() => {
   });
 });
 
-function onCloseFinalPopup() {
-  // Retour à la page d'accueil.
-  window.location.href = "https://app-bezigue.web.app/";
-}
-
 function updateMeldAdd(uid: string, card: string) {
   // Appelle ton store pour ajouter la carte dans Firestore
   game.addToMeld(uid, card).catch(console.error);
@@ -117,7 +107,7 @@ function updateMeldRemove(uid: string, card: string) {
   <FinalPopup
     v-if="game.room?.phase === 'final'"
     :winner="winnerName"
-    @close="onCloseFinalPopup"
+    @close="onClosePopup"
   />
 
   <!-- écran de chargement -->

@@ -107,7 +107,7 @@ async function actuallyCreateRoom() {
     const distrib = distributeCards(fullDeck);
     const hostHand = arrayToStr(distrib.hands.player1);
     const seat2Hand = arrayToStr(distrib.hands.player2);
-    const trumpCardStr = distrib.trumpCard;
+    const trumpCardStr = distrib.trumpCard.toString();
     /* 4. document « rooms » */
     const roomRef = await addDoc(collection(db, "rooms"), {
       name: roomName,

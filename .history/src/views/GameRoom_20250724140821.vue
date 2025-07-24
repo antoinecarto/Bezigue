@@ -97,11 +97,6 @@ onMounted(() => {
   });
 });
 
-function onCloseFinalPopup() {
-  // Retour à la page d'accueil.
-  window.location.href = "https://app-bezigue.web.app/";
-}
-
 function updateMeldAdd(uid: string, card: string) {
   // Appelle ton store pour ajouter la carte dans Firestore
   game.addToMeld(uid, card).catch(console.error);
@@ -117,7 +112,7 @@ function updateMeldRemove(uid: string, card: string) {
   <FinalPopup
     v-if="game.room?.phase === 'final'"
     :winner="winnerName"
-    @close="onCloseFinalPopup"
+    @close="onClosePopup"
   />
 
   <!-- écran de chargement -->

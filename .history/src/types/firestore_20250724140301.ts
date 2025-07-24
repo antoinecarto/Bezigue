@@ -12,6 +12,7 @@ export interface RoomDoc {
   trumpCard: string;
   drawPile: string[];
   deck: string[];
+  winnerName: string;
   hands: Record<string, string[]>;
   melds: Record<string, string[]>;
   scores: Record<string, number>;

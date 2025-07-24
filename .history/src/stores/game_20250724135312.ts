@@ -47,7 +47,7 @@ export async function startNewMene(roomId: string) {
   // 3. Générer et distribuer le jeu
   const fullDeck = generateShuffledDeck();
   const distrib = distributeCards(fullDeck);
-  const trumpCardStr = distrib.trumpCard;
+  const trumpCardStr = distrib.trumpCard.toString();
   const trumpSuit = trumpCardStr.match(/([a-zA-Z])_(?:1|2)$/)?.[1] ?? null;
 
   // 4. Incrément de l'index de mène
@@ -60,7 +60,7 @@ export async function startNewMene(roomId: string) {
     trumpCard: trumpCardStr,
     trumpSuit,
     trumpTaken: false,
-    deck: distrib.drawPile,
+    deck: arrayToStr(distrib.drawPile),
     hands: {
       [firstPlayer]: arrayToStr(distrib.hands.player1),
     },
@@ -101,11 +101,11 @@ export async function endMene(roomId: string) {
 
   // Exemple : récupérer les scores
   const scores = meneData?.scores ?? {};
-  const target = roomData.targetScore ?? 2000;
+  const target = roomData.targetScore ?? 1000;
 
   // Trouver si quelqu’un a atteint la cible
   const someoneReachedTarget = Object.values(scores).some(
-    (score) => (score as number) >= target
+    (score) => score >= target
   );
 
   if (someoneReachedTarget) {
@@ -716,6 +716,7 @@ export const useGameStore = defineStore("game", () => {
     // actions
     removeFromMeldAndReturnToHand,
     removeFromMeld,
+    //updateMeld,
     startNewMene,
     getScore,
     updateHand,

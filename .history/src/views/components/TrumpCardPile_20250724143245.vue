@@ -5,7 +5,7 @@ import PlayingCard from "@/views/components/PlayingCard.vue";
 
 const game = useGameStore();
 const trump = computed(() => {
-  const pile = game.room?.deck;
+  const pile = game.room?.drawPile;
   console.log("drawPile:", pile);
   if (!pile || pile.length === 0) {
     console.log("Draw pile vide");
