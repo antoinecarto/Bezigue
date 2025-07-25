@@ -73,19 +73,15 @@ export async function startNewMene(roomId: string) {
     targetScore: roomData.targetScore ?? 2000,
   });
 
-  await setDoc(
-    doc(db, "rooms", roomId, "menes", `${newMeneIndex}`),
-    {
-      firstPlayerUid: firstPlayer,
-      currentPliCards: [],
-      plies: [],
-      scores: {
-        [players[0]]: 0,
-        [players[1]]: 0,
-      },
+  await setDoc(doc(db, "rooms", roomId, "menes", `${newMeneIndex}`), {
+    firstPlayerUid: firstPlayer,
+    currentPliCards: [],
+    plies: [],
+    scores: {
+      [players[0]]: 0,
+      [players[1]]: 0,
     },
-    { merge: true }
-  );
+{ merge: true   });
 }
 
 /// end mènes :
@@ -411,8 +407,6 @@ export const useGameStore = defineStore("game", () => {
 
       tx.update(roomRef, update);
     });
-
-    checkExchangePossibility();
   }
 
   function resolveTrick(
@@ -543,9 +537,9 @@ export const useGameStore = defineStore("game", () => {
         (acc, c) => (["10", "A"].includes(splitCode(c).rank) ? acc + 10 : acc),
         0
       );
-      // if (winner) {
-      //   checkExchangePossibility();
-      // }
+      if (winner) {
+        checkExchangePossibility();
+      }
 
       const update: Record<string, any> = {
         trick: { cards: [], players: [] },
