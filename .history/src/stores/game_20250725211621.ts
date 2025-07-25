@@ -91,9 +91,7 @@ export async function startNewMene(roomId: string) {
     },
     { merge: true }
   );
-}
-
-export async function endMene(roomId: string) {
+}xport async function endMene(roomId: string) {
   const roomSnap = await getDoc(doc(db, "rooms", roomId));
   if (!roomSnap.exists()) throw new Error("Room introuvable");
   const roomData = roomSnap.data();
@@ -148,6 +146,7 @@ export async function endMene(roomId: string) {
     await startNewMene(roomId);
   }
 }
+
 
 export const useGameStore = defineStore("game", () => {
   /* ──────────── state ──────────── */

@@ -99,52 +99,39 @@ export async function endMene(roomId: string) {
   const roomData = roomSnap.data();
 
   const currentMeneIndex = roomData.currentMeneIndex ?? 0;
-  const scores = { ...roomData.scores }; // ✅ Copie défensive des scores
 
-  // 🔍 On récupère le dernier pli du mene pour le bonus
+  // ⚠️ Ce meneData n'a pas les bons scores (figés au départ)
   const meneSnap = await getDoc(
     doc(db, "rooms", roomId, "menes", `${currentMeneIndex}`)
   );
   const meneData = meneSnap.data();
+
   const plies = meneData?.plies ?? [];
+
+  // ✅ Utiliser les scores en temps réel dans la room
+  const scores = roomData.scores ?? {};
 
   if (plies.length > 0) {
     const lastPli = plies[plies.length - 1];
     const lastWinner = lastPli?.winner;
-
     if (lastWinner && scores[lastWinner] !== undefined) {
-      scores[lastWinner] += 10; // ✅ Bonus pour le dernier pli
+      scores[lastWinner] += 10; // ✅ Bonus dernier pli
     }
   }
 
   const target = roomData.targetScore ?? 2000;
-
   const someoneReachedTarget = Object.values(scores).some(
     (score) => (score as number) >= target
   );
 
-  console.log("✅ Scores mis à jour :", scores);
-  console.log("🎯 Cible :", target);
-  console.log("🏁 Quelqu’un a atteint la cible ?", someoneReachedTarget);
-
   if (someoneReachedTarget) {
-    // 🎉 Trouver le joueur avec le plus gros score
-    const [winnerUid] = Object.entries(scores).reduce(
-      (maxEntry, currentEntry) =>
-        (currentEntry[1] as number) > (maxEntry[1] as number)
-          ? currentEntry
-          : maxEntry
-    );
-
     await updateDoc(doc(db, "rooms", roomId), {
       phase: "final",
-      winnerUid,
-      scores, // ✅ Sauvegarde des scores mis à jour
+      winnerUid: Object.entries(scores).reduce((max, curr) =>
+        (curr[1] as number) > (max[1] as number) ? curr : max
+      )[0],
     });
   } else {
-    await updateDoc(doc(db, "rooms", roomId), {
-      scores, // ✅ Màj des scores même si pas encore fin
-    });
     await startNewMene(roomId);
   }
 }
