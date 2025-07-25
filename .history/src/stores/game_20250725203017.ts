@@ -157,10 +157,6 @@ export const useGameStore = defineStore("game", () => {
   /* ──────────── getters ──────────── */
   watchEffect(() => {
     if (!room.value) return;
-    scores.value = room.value.scores || {};
-  });
-  watchEffect(() => {
-    if (!room.value) return;
     targetScore.value = room.value.targetScore ?? 0;
   });
   watchEffect(() => {

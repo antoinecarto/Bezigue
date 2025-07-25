@@ -1,6 +1,6 @@
 // src/stores/game.ts
 import { defineStore } from "pinia";
-import { ref, computed, watchEffect, watch } from "vue";
+import { ref, computed, watchEffect } from "vue";
 import {
   doc,
   onSnapshot,
@@ -48,10 +48,6 @@ export async function startNewMene(roomId: string) {
   const trumpSuit = trumpCardStr.match(/([a-zA-Z])_(?:1|2)$/)?.[1] ?? null;
 
   const newMeneIndex = currentMeneIndex + 1;
-  const initialScores: Record<string, number> = {
-    [players[0]]: roomData.scores?.[players[0]] ?? 0,
-    [players[1]]: roomData.scores?.[players[1]] ?? 0,
-  };
 
   // Distribution directe aux 2 joueurs
   await updateDoc(doc(db, "rooms", roomId), {
@@ -75,7 +71,6 @@ export async function startNewMene(roomId: string) {
     p1Ready: false,
     p2Ready: false,
     targetScore: roomData.targetScore ?? 2000,
-    scores: initialScores,
   });
 
   await setDoc(
@@ -157,10 +152,6 @@ export const useGameStore = defineStore("game", () => {
   /* ──────────── getters ──────────── */
   watchEffect(() => {
     if (!room.value) return;
-    scores.value = room.value.scores || {};
-  });
-  watchEffect(() => {
-    if (!room.value) return;
     targetScore.value = room.value.targetScore ?? 0;
   });
   watchEffect(() => {
@@ -196,10 +187,6 @@ export const useGameStore = defineStore("game", () => {
     playing.value = true;
     resolveTrickOnServer().finally(() => {
       playing.value = false;
-      // ✅ Ajout ici : si c’est mon tour après le pli, je peux vérifier les échanges
-      if (currentTurn.value === myUid.value) {
-        checkExchangePossibility();
-      }
     });
   });
 
@@ -531,8 +518,6 @@ export const useGameStore = defineStore("game", () => {
   }
 
   async function resolveTrickOnServer() {
-    console.log("[resolveTrickOnServer] called");
-
     if (!room.value) return;
 
     const roomRef = doc(db, "rooms", room.value.id);
@@ -567,6 +552,10 @@ export const useGameStore = defineStore("game", () => {
         (acc, c) => (["10", "A"].includes(splitCode(c).rank) ? acc + 10 : acc),
         0
       );
+      console.log("winner : ", winner);
+      if (winner) {
+        checkExchangePossibility();
+      }
 
       const update: Record<string, any> = {
         trick: { cards: [], players: [] },

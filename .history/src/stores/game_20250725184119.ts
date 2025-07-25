@@ -48,10 +48,6 @@ export async function startNewMene(roomId: string) {
   const trumpSuit = trumpCardStr.match(/([a-zA-Z])_(?:1|2)$/)?.[1] ?? null;
 
   const newMeneIndex = currentMeneIndex + 1;
-  const initialScores: Record<string, number> = {
-    [players[0]]: roomData.scores?.[players[0]] ?? 0,
-    [players[1]]: roomData.scores?.[players[1]] ?? 0,
-  };
 
   // Distribution directe aux 2 joueurs
   await updateDoc(doc(db, "rooms", roomId), {
@@ -75,7 +71,6 @@ export async function startNewMene(roomId: string) {
     p1Ready: false,
     p2Ready: false,
     targetScore: roomData.targetScore ?? 2000,
-    scores: initialScores,
   });
 
   await setDoc(
@@ -155,10 +150,6 @@ export const useGameStore = defineStore("game", () => {
   const drawQueue = ref<string[]>([]); // ← Important !
 
   /* ──────────── getters ──────────── */
-  watchEffect(() => {
-    if (!room.value) return;
-    scores.value = room.value.scores || {};
-  });
   watchEffect(() => {
     if (!room.value) return;
     targetScore.value = room.value.targetScore ?? 0;
