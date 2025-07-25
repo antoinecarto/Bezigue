@@ -87,35 +87,6 @@ export async function startNewMene(roomId: string) {
     targetScore: roomData.targetScore,
   });
 }
-
-export async function startNewMeneForP2(roomId: string) {
-  const roomRef = doc(db, "rooms", roomId);
-  await runTransaction(db, async (tx) => {
-    const snap = await tx.get(roomRef);
-    if (!snap.exists()) return;
-    const room = snap.data();
-
-    const players = room.players ?? [];
-    if (players.length < 2) return; // Pas de P2
-    const p2Uid = players[1];
-    const seat2 = "seat2";
-
-    // Si la main est déjà là, pas besoin de la réassigner
-    if (room.hands?.[p2Uid]) return;
-
-    const reserved = room.reservedHands?.[seat2];
-    if (!reserved) return;
-
-    const newHands = { ...(room.hands ?? {}), [p2Uid]: reserved };
-    const newReserved = { ...(room.reservedHands ?? {}) };
-    delete newReserved[seat2];
-
-    tx.update(roomRef, {
-      hands: newHands,
-      reservedHands: newReserved,
-    });
-  });
-}
 /// end mènes :
 export async function endMene(roomId: string) {
   const roomSnap = await getDoc(doc(db, "rooms", roomId));
@@ -160,7 +131,6 @@ export async function endMene(roomId: string) {
   } else {
     // Sinon, lancer une nouvelle mène
     await startNewMene(roomId);
-    await startNewMeneForP2(roomId);
   }
 }
 
@@ -213,6 +183,20 @@ export const useGameStore = defineStore("game", () => {
     resolveTrickOnServer().finally(() => {
       playing.value = false;
     });
+  });
+
+  watchEffect(() => {
+    const d = room.value;
+    const uid = myUid.value;
+    console.log("watchEffect triggered", room.value?.currentTurn, myUid.value);
+
+    if (!d || !uid) return;
+
+    // Si c’est à moi de jouer, je vérifie si je peux échanger
+    if (d.currentTurn === uid) {
+      console.log("d.currentTurn : ", uid);
+      checkExchangePossibility();
+    }
   });
 
   const currentTurn = computed(() => room.value?.currentTurn ?? null);
@@ -570,9 +554,6 @@ export const useGameStore = defineStore("game", () => {
         (acc, c) => (["10", "A"].includes(splitCode(c).rank) ? acc + 10 : acc),
         0
       );
-      if (winner) {
-        checkExchangePossibility();
-      }
 
       const update: Record<string, any> = {
         trick: { cards: [], players: [] },

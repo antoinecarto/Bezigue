@@ -10,16 +10,6 @@ const trump = computed(() => {
 
 const remaining = computed(() => game.room?.deck.length ?? 0);
 (window as any).game = game; // expose dans la console
-//
-const props = defineProps<{
-  trump: string;
-  remaining: number;
-  game: {
-    drawCard: () => void;
-    canDraw: () => boolean;
-  };
-}>();
-const shouldShowBack = computed(() => props.remaining === 0);
 </script>
 
 <template>

@@ -550,6 +550,7 @@ export const useGameStore = defineStore("game", () => {
       if (cards.length !== 2) throw new Error("Trick not full");
       await delay(2000); // Laisse le pli affiché 3s dans l’UI
 
+      checkExchangePossibility();
       // Code pour déterminer le gagnant, points, etc (idem dans playCard)
 
       function getSuit(card: string): string {
@@ -570,9 +571,6 @@ export const useGameStore = defineStore("game", () => {
         (acc, c) => (["10", "A"].includes(splitCode(c).rank) ? acc + 10 : acc),
         0
       );
-      if (winner) {
-        checkExchangePossibility();
-      }
 
       const update: Record<string, any> = {
         trick: { cards: [], players: [] },

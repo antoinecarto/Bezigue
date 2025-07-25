@@ -10,23 +10,21 @@ const props = defineProps({
   readonly: Boolean,
   cards: Array as () => string[] | undefined,
 });
-
 const showNotYourTurn = ref(false);
 const playing = ref(false);
-const game = useGameStore();
-const { myUid, currentTurn } = storeToRefs(game);
-
 const isMyTurn = computed(() => currentTurn.value === myUid.value);
 
-// localCards est un ref modifiable, initialisé par une copie de props.cards
-const localCards = ref<string[]>([]);
+const localCards = computed(() => {
+  return Array.isArray(props.cards) ? props.cards : [];
+});
+const game = useGameStore();
+const { myUid, currentTurn } = storeToRefs(game);
 
 watch(
   () => props.cards,
   (newCards) => {
-    localCards.value = newCards ? [...newCards] : [];
-  },
-  { immediate: true }
+    localCards.value = newCards ?? [];
+  }
 );
 
 function onCardDropped(evt: any) {
@@ -38,6 +36,8 @@ function onCardDropped(evt: any) {
   game.addToMeld(props.uid!, addedCard);
 }
 
+// Optionnel : gérer le clic sur une carte dans le meld (ex: retirer du meld)
+// Il faudrait appeler une méthode correspondante dans le store pour retirer la carte
 function onCardClick(code: string) {
   if (!isMyTurn.value) {
     showNotYourTurn.value = true;
@@ -52,7 +52,7 @@ function onCardClick(code: string) {
 
 <template>
   <draggable
-    v-model:list="localCards"
+    :list="[]"
     :item-key="(c) => c"
     class="meld-zone flex flex-wrap gap-1 bg-green-200/60 border-2 border-green-500 rounded-md p-2 min-h-[110px]"
     :group="{

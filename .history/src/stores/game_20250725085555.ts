@@ -215,6 +215,20 @@ export const useGameStore = defineStore("game", () => {
     });
   });
 
+  watchEffect(() => {
+    const d = room.value;
+    const uid = myUid.value;
+    console.log("watchEffect triggered", room.value?.currentTurn, myUid.value);
+
+    if (!d || !uid) return;
+
+    // Si c’est à moi de jouer, je vérifie si je peux échanger
+    if (d.currentTurn === uid) {
+      console.log("d.currentTurn : ", uid);
+      checkExchangePossibility();
+    }
+  });
+
   const currentTurn = computed(() => room.value?.currentTurn ?? null);
 
   const getExchange = computed(() => exchangeTable.value);
@@ -570,9 +584,6 @@ export const useGameStore = defineStore("game", () => {
         (acc, c) => (["10", "A"].includes(splitCode(c).rank) ? acc + 10 : acc),
         0
       );
-      if (winner) {
-        checkExchangePossibility();
-      }
 
       const update: Record<string, any> = {
         trick: { cards: [], players: [] },
