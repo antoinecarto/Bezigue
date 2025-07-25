@@ -3,7 +3,7 @@ import { computed } from "vue";
 import PlayingCard from "@/views/components/PlayingCard.vue";
 
 const props = defineProps<{
-  trump?: string;
+  trump: string;
   remaining?: number;
   game?: {
     drawCard: () => void;
@@ -15,9 +15,8 @@ const props = defineProps<{
 const shouldShowBack = computed(() => (props.remaining ?? 0) === 0);
 
 // Computed trumpCard avec fallback "back"
-const trumpCard = computed(() => props.trump ?? "back");
-console.log("trump : ", trumpCard);
-console.log("props.trump : ", props.trump);
+//const trumpCard = computed(() => props.trump ?? "back");
+
 // Affiche soit "back" si plus de carte, sinon trumpCard
 const displayCardCode = computed(() =>
   shouldShowBack.value ? "back" : trumpCard.value
@@ -29,12 +28,7 @@ const canDraw = computed(() => props.game?.canDraw?.() ?? false);
 
 <template>
   <div class="trump-card flex flex-col items-center">
-    <PlayingCard
-      :code="displayCardCode"
-      :width="80"
-      :height="110"
-      class="mb-1"
-    />
+    <PlayingCard :code="trump" :width="80" :height="110" class="mb-1" />
 
     <button
       :disabled="!canDraw"

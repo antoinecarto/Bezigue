@@ -4,24 +4,24 @@ import PlayingCard from "@/views/components/PlayingCard.vue";
 
 const props = defineProps<{
   trump?: string;
-  remaining?: number;
-  game?: {
-    drawCard: () => void;
-    canDraw: () => boolean;
-  };
+  //remaining?: number;
+  // game?: {
+  //   drawCard: () => void;
+  //   canDraw: () => boolean;
+  // };
 }>();
 
 // Affiche le dos si plus de carte à piocher (remaining à 0)
-const shouldShowBack = computed(() => (props.remaining ?? 0) === 0);
+//const shouldShowBack = computed(() => (props.remaining ?? 0) === 0);
 
 // Computed trumpCard avec fallback "back"
 const trumpCard = computed(() => props.trump ?? "back");
 console.log("trump : ", trumpCard);
 console.log("props.trump : ", props.trump);
 // Affiche soit "back" si plus de carte, sinon trumpCard
-const displayCardCode = computed(() =>
-  shouldShowBack.value ? "back" : trumpCard.value
-);
+// const displayCardCode = computed(() =>
+//   shouldShowBack.value ? "back" : trumpCard.value
+// );
 
 // Bouton activé uniquement si canDraw existe et renvoie true
 const canDraw = computed(() => props.game?.canDraw?.() ?? false);
@@ -29,12 +29,7 @@ const canDraw = computed(() => props.game?.canDraw?.() ?? false);
 
 <template>
   <div class="trump-card flex flex-col items-center">
-    <PlayingCard
-      :code="displayCardCode"
-      :width="80"
-      :height="110"
-      class="mb-1"
-    />
+    <PlayingCard :code="trumpCard" :width="80" :height="110" class="mb-1" />
 
     <button
       :disabled="!canDraw"

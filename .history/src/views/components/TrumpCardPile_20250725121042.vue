@@ -11,14 +11,13 @@ const props = defineProps<{
   };
 }>();
 
-// Affiche le dos si plus de carte à piocher (remaining à 0)
-const shouldShowBack = computed(() => (props.remaining ?? 0) === 0);
+// Affiche le dos si plus de carte à piocher
+const shouldShowBack = computed(() => props.remaining === 0);
 
-// Computed trumpCard avec fallback "back"
+// Fallback trump card
 const trumpCard = computed(() => props.trump ?? "back");
-console.log("trump : ", trumpCard);
-console.log("props.trump : ", props.trump);
-// Affiche soit "back" si plus de carte, sinon trumpCard
+
+// Combine la logique d’affichage du code de la carte
 const displayCardCode = computed(() =>
   shouldShowBack.value ? "back" : trumpCard.value
 );
@@ -30,14 +29,14 @@ const canDraw = computed(() => props.game?.canDraw?.() ?? false);
 <template>
   <div class="trump-card flex flex-col items-center">
     <PlayingCard
-      :code="displayCardCode"
+      :code="displayCardCode.value"
       :width="80"
       :height="110"
       class="mb-1"
     />
 
     <button
-      :disabled="!canDraw"
+      :disabled="!canDraw.value"
       @click="props.game?.drawCard?.()"
       class="bg-green-600 text-white px-3 py-1 rounded disabled:opacity-40"
     >

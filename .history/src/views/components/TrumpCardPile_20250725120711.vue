@@ -4,25 +4,22 @@ import PlayingCard from "@/views/components/PlayingCard.vue";
 
 const props = defineProps<{
   trump?: string;
-  remaining?: number;
-  game?: {
-    drawCard: () => void;
-    canDraw: () => boolean;
-  };
+  // remaining?: number;
+  // game?: {
+  //   drawCard: () => void;
+  //   canDraw: () => boolean;
+  // };
 }>();
 
-// Affiche le dos si plus de carte à piocher (remaining à 0)
-const shouldShowBack = computed(() => (props.remaining ?? 0) === 0);
+// Affiche le dos si plus de carte à piocher
+const shouldShowBack = computed(() => props.remaining === 0);
 
-// Computed trumpCard avec fallback "back"
+// Fallback trump card
 const trumpCard = computed(() => props.trump ?? "back");
-console.log("trump : ", trumpCard);
-console.log("props.trump : ", props.trump);
-// Affiche soit "back" si plus de carte, sinon trumpCard
+
 const displayCardCode = computed(() =>
   shouldShowBack.value ? "back" : trumpCard.value
 );
-
 // Bouton activé uniquement si canDraw existe et renvoie true
 const canDraw = computed(() => props.game?.canDraw?.() ?? false);
 </script>

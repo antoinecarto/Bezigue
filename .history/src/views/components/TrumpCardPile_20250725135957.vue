@@ -15,7 +15,7 @@ const props = defineProps<{
 const shouldShowBack = computed(() => (props.remaining ?? 0) === 0);
 
 // Computed trumpCard avec fallback "back"
-const trumpCard = computed(() => props.trump ?? "back");
+const trumpCard = computed(() => props.trump! ?? "back");
 console.log("trump : ", trumpCard);
 console.log("props.trump : ", props.trump);
 // Affiche soit "back" si plus de carte, sinon trumpCard
