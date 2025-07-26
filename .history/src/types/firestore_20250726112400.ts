@@ -15,7 +15,7 @@ export interface RoomDoc {
   hands: Record<string, string[]>;
   melds: Record<string, string[]>;
   scores: Record<string, number>;
-  trick: { cards: string[]; players: string[]; winner?: string };
+  trick: { cards: string[]; players: string[] };
   trumpSuit: Suit;
   exchangeTable: Record<string, string>;
   reservedHands?: Record<string, string[]>;

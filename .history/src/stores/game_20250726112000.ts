@@ -585,7 +585,7 @@ export const useGameStore = defineStore("game", () => {
       );
 
       const update: Record<string, any> = {
-        trick: { cards: [], players: [], winner: winner },
+        trick: { cards: [], players: [] },
         exchangeTable: {},
         currentTurn: winner,
         drawQueue: [winner, loser],
@@ -803,6 +803,5 @@ export const useGameStore = defineStore("game", () => {
     resolveTrick,
     confirmExchange,
     cancelExchange,
-    checkExchangePossibility,
   };
 });

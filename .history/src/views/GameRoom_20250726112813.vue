@@ -101,13 +101,12 @@ const showMene = ref(false);
 const meneMessage = ref("");
 
 watch(
-  () => room.value?.trick?.winner,
+  () => room.value?.trickWinner,
   (winner) => {
-    console.log("🎯 watch trick.winner déclenché :", winner);
-
     if (!winner) return;
+
+    // ✅ Appelle checkExchangePossibility seulement pour le vainqueur du pli
     if (winner === myUid.value) {
-      console.log("✅ C’est moi le gagnant du pli !");
       game.checkExchangePossibility();
     }
   }
