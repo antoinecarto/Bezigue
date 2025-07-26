@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { defineProps, defineEmits } from "vue";
+import { defineEmits } from "vue";
 
-const props = defineProps<{ winner: string | null }>();
 const emit = defineEmits(["close"]);
 
 function close() {
@@ -11,7 +10,7 @@ function close() {
 
 <template>
   <div
-    v-if="props.winner"
+    v-if="winner"
     class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
   >
     <div class="bg-white rounded p-6 text-center shadow-lg max-w-sm">

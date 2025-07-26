@@ -1,7 +1,7 @@
 <template>
   <draggable
     v-model="game.hand"
-    :item-key="(c :string) => c"
+    :item-key="(c) => c"
     class="player-hand"
     :group="{ name: 'cards', pull: true, put: true }"
     :sort="true"
@@ -40,6 +40,12 @@ const { myUid, hand, drawQueue, currentTurn, room } = storeToRefs(game);
 
 const showNotYourTurn = ref(false);
 const playing = ref(false);
+
+watch(drawQueue, (val) => {
+  console.log("🎯 drawQueue changed", val);
+  console.log("🧠 isNotMyTurn:", isNotMyTurn.value);
+  console.log("👤 myUid:", myUid.value);
+});
 
 const isMyTurn = computed(() => currentTurn.value === myUid.value);
 const isNotMyTurn = computed(() => {
@@ -97,11 +103,20 @@ function onCardDroppedBackToHand(evt: any) {
     return;
   }
 
+  console.log("Carte ajoutée à la main :", addedCard);
+
+  console.log("Tentative de suppression de la carte du meld :", addedCard);
   game.removeFromMeldAndReturnToHand(myUid.value, addedCard);
 }
 
 function onCardClick(code: string) {
+  console.log("drawQueue:", drawQueue.value);
+  console.log("currentTurn:", currentTurn.value);
+  console.log("myUid:", myUid.value);
+  console.log("isNotMyTurn:", isNotMyTurn.value);
   if (isNotMyTurn.value) {
+    console.log("Popup affichée car ce n'est pas ton tour");
+
     showNotYourTurn.value = true;
     return;
   }

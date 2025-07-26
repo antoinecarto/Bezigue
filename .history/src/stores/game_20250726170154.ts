@@ -1,6 +1,6 @@
 // src/stores/game.ts
 import { defineStore } from "pinia";
-import { ref, computed, watchEffect } from "vue";
+import { ref, computed, watchEffect, watch } from "vue";
 import {
   doc,
   onSnapshot,
@@ -125,6 +125,10 @@ export async function endMene(roomId: string) {
     (score) => (score as number) >= target
   );
 
+  console.log("✅ Scores mis à jour :", scores);
+  console.log("🎯 Cible :", target);
+  console.log("🏁 Quelqu’un a atteint la cible ?", someoneReachedTarget);
+
   if (someoneReachedTarget) {
     // 🎉 Trouver le joueur avec le plus gros score
     const [winnerUid] = Object.entries(scores).reduce(
@@ -201,6 +205,17 @@ export const useGameStore = defineStore("game", () => {
 
     resolveTrickOnServer().finally(() => {
       playing.value = false;
+
+      const winner = resolveTrick(
+        trick.cards[0],
+        trick.cards[1],
+        trick.players[0],
+        trick.players[1],
+        trick.trumpSuit
+      );
+
+      console.log("winner =", winner);
+      console.log("myUid.value =", myUid.value);
     });
   });
 
@@ -232,6 +247,9 @@ export const useGameStore = defineStore("game", () => {
             : Object.values(cards);
         }
       }
+      //
+      console.log("🔥 Firestore hands reçues :", hand.value);
+      console.log("🔥 Firestore melds reçus :", melds.value);
     });
   }
 
@@ -301,6 +319,8 @@ export const useGameStore = defineStore("game", () => {
       // Met à jour l'état local après succès
       room.value.hands[uid] = newHand;
       room.value.melds[uid] = newMeld;
+
+      console.log(`✅ Carte ${code} déplacée de la main au meld pour ${uid}.`);
     } catch (e) {
       console.error("❌ Erreur Firestore lors de l'ajout au meld :", e);
       // Ne pas toucher aux données locales si Firestore échoue
@@ -308,6 +328,13 @@ export const useGameStore = defineStore("game", () => {
   }
 
   async function removeFromMeldAndReturnToHand(uid: string, code: string) {
+    console.log(
+      "Début de removeFromMeldAndReturnToHand avec UID:",
+      uid,
+      "et code:",
+      code
+    );
+
     if (!room.value) {
       console.warn("La pièce est introuvable.");
     }
@@ -811,6 +838,5 @@ export const useGameStore = defineStore("game", () => {
     confirmExchange,
     cancelExchange,
     checkExchangePossibility,
-    doExchangeProcess,
   };
 });

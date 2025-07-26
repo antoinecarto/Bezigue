@@ -66,6 +66,10 @@ const winnerName = computed(() => {
   else return "Égalité";
 });
 
+// const opponentMeld = computed(() => {
+//   if (!room.value || !opponentUid.value) return [];
+//   return room.value.melds?.[opponentUid.value] ?? [];
+// });
 /* ⑥ — gestion du cycle de vie -------------------------------------- */
 let unsubscribeRoom: Unsubscribe | null = null;
 
@@ -81,6 +85,7 @@ onMounted(() => {
       user.uid,
       localStorage.getItem("playerName") ?? ""
     );
+    console.log("opponent melds ???? : ", melds[opponentUid]);
   });
 
   onUnmounted(() => {
@@ -186,8 +191,8 @@ function updateMeldRemove(uid: string, card: string) {
       v-if="myUid"
       :uid="myUid"
       :cards="melds[myUid] ?? []"
-      @addToMeld="(uid : string, card : string) => updateMeldAdd(uid, card)"
-      @removeFromMeld="(uid : string, card: string) => updateMeldRemove(uid, card)"
+      @addToMeld="(uid, card) => updateMeldAdd(uid, card)"
+      @removeFromMeld="(uid, card) => updateMeldRemove(uid, card)"
     />
 
     <!-- main du joueur -->

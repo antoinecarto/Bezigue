@@ -97,11 +97,20 @@ function onCardDroppedBackToHand(evt: any) {
     return;
   }
 
+  console.log("Carte ajoutée à la main :", addedCard);
+
+  console.log("Tentative de suppression de la carte du meld :", addedCard);
   game.removeFromMeldAndReturnToHand(myUid.value, addedCard);
 }
 
 function onCardClick(code: string) {
+  console.log("drawQueue:", drawQueue.value);
+  console.log("currentTurn:", currentTurn.value);
+  console.log("myUid:", myUid.value);
+  console.log("isNotMyTurn:", isNotMyTurn.value);
   if (isNotMyTurn.value) {
+    console.log("Popup affichée car ce n'est pas ton tour");
+
     showNotYourTurn.value = true;
     return;
   }

@@ -186,8 +186,8 @@ function updateMeldRemove(uid: string, card: string) {
       v-if="myUid"
       :uid="myUid"
       :cards="melds[myUid] ?? []"
-      @addToMeld="(uid : string, card : string) => updateMeldAdd(uid, card)"
-      @removeFromMeld="(uid : string, card: string) => updateMeldRemove(uid, card)"
+      @addToMeld="(uid, card) => updateMeldAdd(uid, card)"
+      @removeFromMeld="(uid, card) => updateMeldRemove(uid, card)"
     />
 
     <!-- main du joueur -->

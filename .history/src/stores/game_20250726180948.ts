@@ -301,6 +301,8 @@ export const useGameStore = defineStore("game", () => {
       // Met à jour l'état local après succès
       room.value.hands[uid] = newHand;
       room.value.melds[uid] = newMeld;
+
+      console.log(`✅ Carte ${code} déplacée de la main au meld pour ${uid}.`);
     } catch (e) {
       console.error("❌ Erreur Firestore lors de l'ajout au meld :", e);
       // Ne pas toucher aux données locales si Firestore échoue
@@ -308,6 +310,13 @@ export const useGameStore = defineStore("game", () => {
   }
 
   async function removeFromMeldAndReturnToHand(uid: string, code: string) {
+    console.log(
+      "Début de removeFromMeldAndReturnToHand avec UID:",
+      uid,
+      "et code:",
+      code
+    );
+
     if (!room.value) {
       console.warn("La pièce est introuvable.");
     }

@@ -4,7 +4,7 @@ import { useGameStore } from "@/stores/game";
 const game = useGameStore();
 
 function confirm() {
-  game.doExchangeProcess();
+  game.confirmExchange();
 } // action Pinia
 function cancel() {
   game.cancelExchange();

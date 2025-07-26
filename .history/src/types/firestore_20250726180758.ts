@@ -19,6 +19,7 @@ export interface RoomDoc {
     cards: string[];
     players: string[];
     winner?: string;
+    trumpSuit?: Suit;
   };
   trumpSuit: Suit;
   exchangeTable: Record<string, string>;
