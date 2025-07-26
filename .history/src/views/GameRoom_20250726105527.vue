@@ -6,7 +6,7 @@
     les sous‑vues : MeldZone, PlayerHand, TrickZone (à ajouter si besoin).
 -->
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed, ref, watch } from "vue";
+import { onMounted, onUnmounted, computed, ref } from "vue";
 import { storeToRefs } from "pinia"; // ← ①
 import { useRoute } from "vue-router";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
@@ -97,21 +97,13 @@ onMounted(() => {
   });
 });
 
-const showMene = ref(false);
-const meneMessage = ref("");
-
 watch(
   () => room.value?.currentMeneIndex,
   (newVal, oldVal) => {
     if (newVal != null && newVal !== oldVal) {
-      meneMessage.value = `Début de la mène ${newVal}`;
-      showMene.value = true;
-      setTimeout(() => {
-        showMene.value = false;
-      }, 2000);
+      showMenePopup(newVal); // Montre la popup pour la nouvelle mène
     }
-  },
-  { immediate: true } // ← si tu veux aussi afficher à la première mène
+  }
 );
 
 function onCloseFinalPopup() {
@@ -128,15 +120,26 @@ function updateMeldRemove(uid: string, card: string) {
   // Appelle ton store pour retirer la carte dans Firestore
   game.removeFromMeld(uid, card).catch(console.error);
 }
+
+const showMenePopup = ref(false);
+const meneNumber = ref(0);
+
+onMounted(async () => {
+  const newIndex = await startNewMene(roomId.value);
+  meneNumber.value = newIndex;
+  showMenePopup.value = true;
+
+  setTimeout(() => {
+    showMenePopup.value = false;
+  }, 2000);
+});
 </script>
 
 <template>
   <Exchange7Dialog v-if="game.showExchange" />
-  <Transition name="fade">
-    <div v-if="showMene" class="popup-mene">
-      {{ meneMessage }}
-    </div>
-  </Transition>
+  <div v-if="showMenePopup" class="popup">
+    Début de la mène {{ meneNumber }}
+  </div>
   <FinalPopup
     v-if="game.room?.phase === 'final'"
     :winner="winnerName"
@@ -229,26 +232,18 @@ function updateMeldRemove(uid: string, card: string) {
   margin-bottom: 0.5rem;
   border-radius: 0.25rem;
 }
-.popup-mene {
-  position: absolute;
-  top: 20px;
+.popup {
+  position: fixed;
+  top: 20%;
   left: 50%;
   transform: translateX(-50%);
-  background: white;
-  border: 1px solid #333;
-  padding: 10px 20px;
-  border-radius: 10px;
-  font-weight: bold;
-  z-index: 10;
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.5s;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
+  background: #f5f5f5;
+  padding: 1rem 2rem;
+  border: 2px solid #333;
+  border-radius: 8px;
+  font-size: 1.5rem;
+  z-index: 1000;
+  animation: fadeOut 2s forwards;
 }
 
 @keyframes fadeOut {

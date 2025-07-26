@@ -128,15 +128,15 @@ function updateMeldRemove(uid: string, card: string) {
   // Appelle ton store pour retirer la carte dans Firestore
   game.removeFromMeld(uid, card).catch(console.error);
 }
+
+const meneNumber = ref(0);
 </script>
 
 <template>
   <Exchange7Dialog v-if="game.showExchange" />
-  <Transition name="fade">
-    <div v-if="showMene" class="popup-mene">
-      {{ meneMessage }}
-    </div>
-  </Transition>
+  <div v-if="showMene" class="popup-mene">
+    {{ meneMessage }}
+  </div>
   <FinalPopup
     v-if="game.room?.phase === 'final'"
     :winner="winnerName"
@@ -230,25 +230,17 @@ function updateMeldRemove(uid: string, card: string) {
   border-radius: 0.25rem;
 }
 .popup-mene {
-  position: absolute;
-  top: 20px;
+  position: fixed;
+  top: 20%;
   left: 50%;
   transform: translateX(-50%);
-  background: white;
-  border: 1px solid #333;
-  padding: 10px 20px;
-  border-radius: 10px;
-  font-weight: bold;
-  z-index: 10;
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.5s;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
+  background: #f5f5f5;
+  padding: 1rem 2rem;
+  border: 2px solid #333;
+  border-radius: 8px;
+  font-size: 1.5rem;
+  z-index: 1000;
+  animation: fadeOut 2s forwards;
 }
 
 @keyframes fadeOut {

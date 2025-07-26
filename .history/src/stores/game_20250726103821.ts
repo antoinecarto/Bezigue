@@ -214,16 +214,9 @@ export const useGameStore = defineStore("game", () => {
         trick.trumpSuit
       );
 
-      console.log("winner =", winner);
-      console.log("myUid.value =", myUid.value);
-
+      // ✅ Seul le gagnant du pli appelle checkExchangePossibility
       if (winner === myUid.value) {
-        console.log("Je suis le gagnant, j'appelle checkExchangePossibility()");
         checkExchangePossibility();
-      } else {
-        console.log(
-          "Je ne suis pas le gagnant, je n'appelle pas checkExchangePossibility()"
-        );
       }
     });
   });

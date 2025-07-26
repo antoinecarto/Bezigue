@@ -196,34 +196,20 @@ export const useGameStore = defineStore("game", () => {
     const trick = room.value.trick;
     if (!trick || trick.cards?.length !== 2) return;
 
+    // ⚠️ Ne pas lancer deux fois
     if (playing.value) return;
 
+    // Ne pas résoudre si ce n'est pas moi qui ai posé la 2e carte
     const lastToPlay = trick.players?.[1];
     if (lastToPlay !== myUid.value) return;
 
+    // Appel unique : pose un verrou
     playing.value = true;
-
     resolveTrickOnServer().finally(() => {
       playing.value = false;
-
-      const winner = resolveTrick(
-        trick.cards[0],
-        trick.cards[1],
-        trick.players[0],
-        trick.players[1],
-        trick.trumpSuit
-      );
-
-      console.log("winner =", winner);
-      console.log("myUid.value =", myUid.value);
-
-      if (winner === myUid.value) {
-        console.log("Je suis le gagnant, j'appelle checkExchangePossibility()");
+      // ✅ Ajout ici : si c’est mon tour après le pli, je peux vérifier les échanges
+      if (currentTurn.value === myUid.value) {
         checkExchangePossibility();
-      } else {
-        console.log(
-          "Je ne suis pas le gagnant, je n'appelle pas checkExchangePossibility()"
-        );
       }
     });
   });
