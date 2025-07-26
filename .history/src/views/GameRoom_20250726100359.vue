@@ -111,19 +111,6 @@ function updateMeldRemove(uid: string, card: string) {
   // Appelle ton store pour retirer la carte dans Firestore
   game.removeFromMeld(uid, card).catch(console.error);
 }
-
-const showMenePopup = ref(false);
-const meneNumber = ref(0);
-
-onMounted(async () => {
-  const newIndex = await startNewMene(roomId.value);
-  meneNumber.value = newIndex;
-  showMenePopup.value = true;
-
-  setTimeout(() => {
-    showMenePopup.value = false;
-  }, 2000);
-});
 </script>
 
 <template>

@@ -62,7 +62,6 @@ export async function startNewMene(roomId: string): Promise<number> {
   trumpCard: trumpCardStr,
   trumpSuit,
   distribution: distrib,
-  initialScores,
   createdAt: new Date().toISOString(),
 });
 

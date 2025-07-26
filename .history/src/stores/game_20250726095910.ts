@@ -55,20 +55,6 @@ export async function startNewMene(roomId: string): Promise<number> {
   };
 
   // … ici le code pour stocker la nouvelle mène dans Firestore
-  await setDoc(doc(db, "rooms", roomId, "menes", `${newMeneIndex}`), {
-  index: newMeneIndex,
-  firstPlayerUid: firstPlayer,
-  secondPlayerUid: secondPlayer,
-  trumpCard: trumpCardStr,
-  trumpSuit,
-  distribution: distrib,
-  initialScores,
-  createdAt: new Date().toISOString(),
-});
-
-await updateDoc(doc(db, "rooms", roomId), {
-  currentMeneIndex: newMeneIndex,
-});
 
   return newMeneIndex; // pour afficher dans la popup
 }
