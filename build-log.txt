@@ -2,11 +2,6 @@
 > bezigue_package@0.0.0 build
 > vue-tsc -b && vite build
 
-src/stores/game.ts(640,30): error TS2538: Type 'null' cannot be used as an index type.
-src/stores/game.ts(647,36): error TS7006: Parameter 'card' implicitly has an 'any' type.
-src/stores/game.ts(663,36): error TS7006: Parameter 'c' implicitly has an 'any' type.
-src/stores/game.ts(669,40): error TS2538: Type 'null' cannot be used as an index type.
-src/stores/game.ts(682,37): error TS18047: 'room.value' is possibly 'null'.
 src/views/PlayerHand.vue(77,7): error TS2322: Type 'string[]' is not assignable to type 'never'.
 src/views/PlayerHand.vue(100,38): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
   Type 'null' is not assignable to type 'string'.

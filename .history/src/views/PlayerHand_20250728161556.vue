@@ -96,10 +96,8 @@ function onCardDroppedBackToHand(evt: any) {
     console.warn("Aucune carte ajoutée détectée.");
     return;
   }
-  if (!myUid.value) {
-    console.warn("UID manquant");
-    return;
-  }
+  const uid = myUid.value;
+  if (!uid) return;
   // Si addedCard est un tableau, prends la première carte
   if (Array.isArray(addedCard)) {
     game.removeFromMeldAndReturnToHand(myUid.value, addedCard[0]);
