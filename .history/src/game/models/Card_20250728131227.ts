@@ -56,7 +56,7 @@ export const cardsToStrings = (arr: Card[]) => arr.map((c) => c.toString());
 export const serializeCombination = (c: Combination) => ({
   name: c.name,
   points: c.points,
-  cards: c.cards,
+  cards: cardsToStrings(c.cards),
 });
 
 /** transforme [{ name, points, cards:[Card] }] ➜ tableau 100 % “string-safe” */
