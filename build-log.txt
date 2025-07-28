@@ -2,28 +2,12 @@
 > bezigue_package@0.0.0 build
 > vue-tsc -b && vite build
 
-src/game/models/Card.ts(57,25): error TS2345: Argument of type 'string[]' is not assignable to parameter of type 'Card[]'.
-  Type 'string' is not assignable to type 'Card'.
-src/rules.ts(40,38): error TS7053: Element implicitly has an 'any' type because expression of type 'Rank' can't be used to index type '{ readonly A: 100; readonly K: 80; readonly Q: 60; readonly J: 40; }'.
-  Property '7' does not exist on type '{ readonly A: 100; readonly K: 80; readonly Q: 60; readonly J: 40; }'.
-src/stores/game.ts(181,17): error TS2540: Cannot assign to 'value' because it is a read-only property.
-src/stores/game.ts(321,25): error TS18047: 'room.value' is possibly 'null'.
-src/stores/game.ts(322,25): error TS18047: 'room.value' is possibly 'null'.
-src/stores/game.ts(336,40): error TS18047: 'room.value' is possibly 'null'.
-src/stores/game.ts(342,7): error TS18047: 'room.value' is possibly 'null'.
-src/stores/game.ts(343,7): error TS18047: 'room.value' is possibly 'null'.
-src/stores/game.ts(478,45): error TS2538: Type 'null' cannot be used as an index type.
-src/stores/game.ts(479,47): error TS2538: Type 'null' cannot be used as an index type.
-src/stores/game.ts(481,38): error TS2538: Type 'null' cannot be used as an index type.
-src/stores/game.ts(482,40): error TS2538: Type 'null' cannot be used as an index type.
-src/stores/game.ts(484,13): error TS6133: 'removedFrom' is declared but its value is never read.
-src/stores/game.ts(510,56): error TS2464: A computed property name must be of type 'string', 'number', 'symbol', or 'any'.
-src/stores/game.ts(553,9): error TS2345: Argument of type 'string' is not assignable to parameter of type 'Suit'.
-src/stores/game.ts(632,30): error TS2538: Type 'null' cannot be used as an index type.
-src/stores/game.ts(639,36): error TS7006: Parameter 'card' implicitly has an 'any' type.
-src/stores/game.ts(655,36): error TS7006: Parameter 'c' implicitly has an 'any' type.
-src/stores/game.ts(661,40): error TS2538: Type 'null' cannot be used as an index type.
-src/stores/game.ts(674,37): error TS18047: 'room.value' is possibly 'null'.
+src/stores/game.ts(535,9): error TS2345: Argument of type 'string' is not assignable to parameter of type 'Suit'.
+src/stores/game.ts(614,30): error TS2538: Type 'null' cannot be used as an index type.
+src/stores/game.ts(621,36): error TS7006: Parameter 'card' implicitly has an 'any' type.
+src/stores/game.ts(637,36): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/stores/game.ts(643,40): error TS2538: Type 'null' cannot be used as an index type.
+src/stores/game.ts(656,37): error TS18047: 'room.value' is possibly 'null'.
 src/views/PlayerHand.vue(77,7): error TS2322: Type 'string[]' is not assignable to type 'never'.
 src/views/PlayerHand.vue(100,38): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
   Type 'null' is not assignable to type 'string'.
