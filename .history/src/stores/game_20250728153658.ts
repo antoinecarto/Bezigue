@@ -542,7 +542,7 @@ export const useGameStore = defineStore("game", () => {
         const [raw] = card.split("_");
         return raw.slice(-1);
       }
-      const trumpSuit = getSuit(d.trumpCard) as Suit;
+      const trumpSuit = getSuit(d.trumpCard);
 
       console.log("Trump card:", d.trumpCard);
       console.log("Trump suit:", trumpSuit);

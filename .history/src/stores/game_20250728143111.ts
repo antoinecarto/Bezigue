@@ -467,35 +467,19 @@ export const useGameStore = defineStore("game", () => {
     try {
       await runTransaction(db, async (tx) => {
         const uid = myUid.value;
-        if (!uid) return; // pour rassurer TypeScript
+        if (!uid) return; // pour rassurer TypeScript même si déjà vérifié plus haut
 
         const snap = await tx.get(roomRef);
         if (!snap.exists()) throw new Error("Room missing");
         const d = snap.data() as RoomDoc;
 
         if ((d.trick.cards?.length ?? 0) >= 2) throw new Error("Trick full");
-        console.log("youpi Nouveau !!");
 
         console.log("Server Hand:", d.hands[uid]);
         console.log("Server Meld:", d.melds?.[uid]);
-
-        // Copie main et meld côté serveur
+        // Récupérer la main et le meld côté serveur
         const srvHand = [...(d.hands[uid] ?? [])];
         const srvMeld = [...(d.melds?.[uid] ?? [])];
-
-        // Chercher la carte dans la main
-        let index = srvHand.indexOf(code);
-        if (index !== -1) {
-          srvHand.splice(index, 1);
-        } else {
-          // Sinon chercher dans le meld
-          index = srvMeld.indexOf(code);
-          if (index !== -1) {
-            srvMeld.splice(index, 1);
-          } else {
-            throw new Error("Carte absente de la main et du meld");
-          }
-        }
 
         const cards = [...(d.trick.cards ?? []), code];
         const players = [...(d.trick.players ?? []), uid];
@@ -543,11 +527,6 @@ export const useGameStore = defineStore("game", () => {
         return raw.slice(-1);
       }
       const trumpSuit = getSuit(d.trumpCard) as Suit;
-
-      console.log("Trump card:", d.trumpCard);
-      console.log("Trump suit:", trumpSuit);
-      console.log("Cards:", cards);
-      console.log("Players:", players);
       const winner = resolveTrick(
         cards[0],
         cards[1],
@@ -555,11 +534,6 @@ export const useGameStore = defineStore("game", () => {
         players[1],
         trumpSuit
       );
-      if (!winner) {
-        console.error("resolveTrick() a retourné un winner invalide");
-        throw new Error("resolveTrick failed to find winner");
-      }
-
       const loser = players.find((p) => p !== winner)!;
 
       const points = cards.reduce(
@@ -635,8 +609,8 @@ export const useGameStore = defineStore("game", () => {
       if (!snap.exists()) throw new Error("Room not found");
 
       const d = snap.data() as RoomDoc;
-      const uid = myUid.value;
 
+      const uid = myUid.value!;
       const hand = d.hands?.[uid];
       if (!hand) {
         console.warn("Pas de main trouvée pour ce joueur");

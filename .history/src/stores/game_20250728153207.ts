@@ -519,6 +519,127 @@ export const useGameStore = defineStore("game", () => {
     }
   }
 
+  // async function playCard(code: string) {
+  //   if (
+  //     playing.value ||
+  //     !room.value ||
+  //     !myUid.value ||
+  //     room.value.currentTurn !== myUid.value
+  //   )
+  //     return;
+
+  //   playing.value = true;
+
+  //   const roomRef = doc(db, "rooms", room.value.id);
+
+  //   try {
+  //     await runTransaction(db, async (tx) => {
+  //       const uid = myUid.value;
+  //       if (!uid) return; // Sécurité TypeScript
+
+  //       const snap = await tx.get(roomRef);
+  //       if (!snap.exists()) throw new Error("Room missing");
+  //       const d = snap.data() as RoomDoc;
+
+  //       if ((d.trick.cards?.length ?? 0) >= 2) throw new Error("Trick full");
+
+  //       console.log("Server Hand:", d.hands[uid]);
+  //       console.log("Server Meld:", d.melds?.[uid]);
+
+  //       // Copie la main côté serveur pour la modifier
+  //       const srvHand = [...(d.hands[uid] ?? [])];
+  //       const srvMeld = [...(d.melds?.[uid] ?? [])];
+
+  //       // Supprime la carte jouée de la main
+  //       const cardIndex = srvHand.indexOf(code) || srvMeld.indexOf(code);
+  //       if (cardIndex === -1) {
+  //         throw new Error("Carte absente de la main ou de la meld!");
+  //       }
+  //       srvHand.splice(cardIndex, 1);
+
+  //       // Copie aussi le meld côté serveur (sans modification ici)
+
+  //       // Ajoute la carte jouée au pli (trick)
+  //       const cards = [...(d.trick.cards ?? []), code];
+  //       const players = [...(d.trick.players ?? []), uid];
+
+  //       // Trouve l’adversaire (autre joueur)
+  //       const opponent = d.players.find((p) => p !== uid)!;
+
+  //       // Prépare les mises à jour Firestore
+  //       const update: Record<string, any> = {
+  //         [`hands.${uid}`]: srvHand, // main mise à jour (carte retirée)
+  //         [`melds.${uid}`]: srvMeld, // meld inchangé
+  //         trick: { cards, players }, // pli avec la nouvelle carte
+  //         exchangeTable: { ...(d.exchangeTable ?? {}), [uid]: code },
+  //       };
+
+  //       // Si c’est la première carte jouée dans le pli, on passe le tour à l’adversaire
+  //       if (cards.length === 1) {
+  //         update.currentTurn = opponent;
+  //       }
+
+  //       // Met à jour Firestore
+  //       tx.update(roomRef, update);
+  //     });
+  //   } finally {
+  //     playing.value = false;
+  //   }
+  // }
+
+  // async function playCard(code: string) {
+  //   if (
+  //     playing.value ||
+  //     !room.value ||
+  //     !myUid.value ||
+  //     room.value.currentTurn !== myUid.value
+  //   )
+  //     return;
+
+  //   playing.value = true;
+
+  //   const roomRef = doc(db, "rooms", room.value.id);
+
+  //   try {
+  //     await runTransaction(db, async (tx) => {
+  //       const uid = myUid.value;
+  //       if (!uid) return; // pour rassurer TypeScript même si déjà vérifié plus haut
+
+  //       const snap = await tx.get(roomRef);
+  //       if (!snap.exists()) throw new Error("Room missing");
+  //       const d = snap.data() as RoomDoc;
+
+  //       if ((d.trick.cards?.length ?? 0) >= 2) throw new Error("Trick full");
+  //       console.log("Changement de Playcard !!!!");
+
+  //       console.log("Server Hand:", d.hands[uid]);
+  //       console.log("Server Meld:", d.melds?.[uid]);
+  //       // Récupérer la main et le meld côté serveur
+  //       const srvHand = [...(d.hands[uid] ?? [])];
+  //       const srvMeld = [...(d.melds?.[uid] ?? [])];
+
+  //       const cards = [...(d.trick.cards ?? []), code];
+  //       const players = [...(d.trick.players ?? []), uid];
+  //       const opponent = d.players.find((p) => p !== uid)!;
+
+  //       const update: Record<string, any> = {
+  //         [`hands.${uid}`]: srvHand,
+  //         [`melds.${uid}`]: srvMeld,
+  //         trick: { cards, players },
+  //         exchangeTable: { ...(d.exchangeTable ?? {}), [uid]: code },
+  //       };
+
+  //       if (cards.length === 1) {
+  //         update.currentTurn = opponent;
+  //       }
+
+  //       tx.update(roomRef, update);
+  //     });
+  //   } finally {
+  //     playing.value = false;
+  //   }
+  // }
+
   async function resolveTrickOnServer() {
     console.log("[resolveTrickOnServer] called");
 
@@ -542,7 +663,7 @@ export const useGameStore = defineStore("game", () => {
         const [raw] = card.split("_");
         return raw.slice(-1);
       }
-      const trumpSuit = getSuit(d.trumpCard) as Suit;
+      const trumpSuit = getSuit(d.trumpCard);
 
       console.log("Trump card:", d.trumpCard);
       console.log("Trump suit:", trumpSuit);
