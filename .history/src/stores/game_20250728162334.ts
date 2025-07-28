@@ -153,7 +153,9 @@ export const useGameStore = defineStore("game", () => {
   /* ──────────── state ──────────── */
   const room = ref<RoomState | null>(null);
   const myUid = ref<string | null>(null);
-  const hand = ref<string[]>([]);
+  // const hand = ref<string[]>([]);
+  const hand = ref<Record<string, string[]>>({});
+
   const melds = ref<Record<string, string[]>>({});
   const exchangeTable = ref<Record<string, string>>({});
   const scores = ref<Record<string, number>>({});
@@ -543,11 +545,6 @@ export const useGameStore = defineStore("game", () => {
         return raw.slice(-1);
       }
       const trumpSuit = getSuit(d.trumpCard) as Suit;
-
-      console.log("Trump card:", d.trumpCard);
-      console.log("Trump suit:", trumpSuit);
-      console.log("Cards:", cards);
-      console.log("Players:", players);
       const winner = resolveTrick(
         cards[0],
         cards[1],
@@ -702,18 +699,15 @@ export const useGameStore = defineStore("game", () => {
       if (!snap.exists()) throw new Error("Room not found");
 
       const d = snap.data() as RoomDoc;
-      let deck = [...(d.deck ?? [])];
+      const deck = [...(d.deck ?? [])];
 
       if (deck.length === 0) {
         console.warn("Deck vide, rien à remplacer");
         return;
       }
 
-      // 🔥 Supprimer l'ancienne trumpCard du deck s'il y est (évite les doublons)
-      deck = deck.filter((card) => card !== d.trumpCard);
-
-      // 🔁 Ajouter la nouvelle trumpCard (le 7) en dernière position
-      deck.push(newTrumpCard);
+      // On remplace la dernière carte du deck par la nouvelle trumpCard
+      deck[deck.length - 1] = newTrumpCard;
 
       tx.update(roomRef, { deck });
     });

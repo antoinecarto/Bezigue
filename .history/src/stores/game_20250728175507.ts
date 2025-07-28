@@ -153,10 +153,12 @@ export const useGameStore = defineStore("game", () => {
   /* ──────────── state ──────────── */
   const room = ref<RoomState | null>(null);
   const myUid = ref<string | null>(null);
-  const hand = ref<string[]>([]);
+  // const hand = ref<string[]>([]);
+
   const melds = ref<Record<string, string[]>>({});
   const exchangeTable = ref<Record<string, string>>({});
   const scores = ref<Record<string, number>>({});
+  const hand = ref<Record<string, string[]>>({});
 
   const loading = ref(true);
   const playing = ref(false); // verrou anti double‑clic
@@ -212,23 +214,38 @@ export const useGameStore = defineStore("game", () => {
   function _subscribeRoom(roomId: string) {
     return onSnapshot(doc(db, "rooms", roomId), (snap) => {
       loading.value = false;
+
       if (!snap.exists()) {
         room.value = null;
         return;
       }
+
       const data = snap.data() as RoomDoc;
       room.value = { id: snap.id, ...data };
 
-      if (myUid.value) hand.value = data.hands?.[myUid.value] ?? []; //melds.value = { ...data.melds };
+      // 🔧 Reconstruction propre de la main du joueur courant
+      hand.value = {};
+      if (data.hands) {
+        for (const [playerId, cards] of Object.entries(data.hands)) {
+          hand.value[playerId] = Array.isArray(cards)
+            ? cards
+            : Object.values(cards ?? {});
+        }
+      }
+
+      // 🔧 Reconstruction de la table d'échange
       exchangeTable.value = { ...(data.exchangeTable ?? {}) };
+
+      // 🔧 Reconstruction des scores
       scores.value = { ...(data.scores ?? {}) };
-      //
+
+      // 🔧 Reconstruction des melds
       melds.value = {};
       if (data.melds) {
-        for (const [uid, cards] of Object.entries(data.melds)) {
-          melds.value[uid] = Array.isArray(cards)
+        for (const [playerId, cards] of Object.entries(data.melds)) {
+          melds.value[playerId] = Array.isArray(cards)
             ? cards
-            : Object.values(cards);
+            : Object.values(cards ?? {});
         }
       }
     });
@@ -252,7 +269,7 @@ export const useGameStore = defineStore("game", () => {
     await updateDoc(doc(db, "rooms", room.value.id), {
       [`hands.${myUid.value}`]: newHand,
     });
-    hand.value = [...newHand];
+    hand.value[myUid.value] = [...newHand];
   }
 
   /**
@@ -474,7 +491,6 @@ export const useGameStore = defineStore("game", () => {
         const d = snap.data() as RoomDoc;
 
         if ((d.trick.cards?.length ?? 0) >= 2) throw new Error("Trick full");
-        console.log("youpi Nouveau !!");
 
         console.log("Server Hand:", d.hands[uid]);
         console.log("Server Meld:", d.melds?.[uid]);
@@ -543,11 +559,6 @@ export const useGameStore = defineStore("game", () => {
         return raw.slice(-1);
       }
       const trumpSuit = getSuit(d.trumpCard) as Suit;
-
-      console.log("Trump card:", d.trumpCard);
-      console.log("Trump suit:", trumpSuit);
-      console.log("Cards:", cards);
-      console.log("Players:", players);
       const winner = resolveTrick(
         cards[0],
         cards[1],
@@ -608,9 +619,11 @@ export const useGameStore = defineStore("game", () => {
       return;
     }
 
-    const handCards = d.hands?.[uid];
-    if (!handCards) {
-      showExchange.value = false; // fermer si pas de main
+    const allHands = d.hands;
+    const handCards = allHands?.[uid];
+
+    if (!Array.isArray(handCards)) {
+      showExchange.value = false;
       return;
     }
 
@@ -702,18 +715,15 @@ export const useGameStore = defineStore("game", () => {
       if (!snap.exists()) throw new Error("Room not found");
 
       const d = snap.data() as RoomDoc;
-      let deck = [...(d.deck ?? [])];
+      const deck = [...(d.deck ?? [])];
 
       if (deck.length === 0) {
         console.warn("Deck vide, rien à remplacer");
         return;
       }
 
-      // 🔥 Supprimer l'ancienne trumpCard du deck s'il y est (évite les doublons)
-      deck = deck.filter((card) => card !== d.trumpCard);
-
-      // 🔁 Ajouter la nouvelle trumpCard (le 7) en dernière position
-      deck.push(newTrumpCard);
+      // On remplace la dernière carte du deck par la nouvelle trumpCard
+      deck[deck.length - 1] = newTrumpCard;
 
       tx.update(roomRef, { deck });
     });
