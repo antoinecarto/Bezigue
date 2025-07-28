@@ -679,15 +679,6 @@ export const useGameStore = defineStore("game", () => {
     try {
       const newTrumpCard = await confirmExchange();
       // Si confirmExchange s'est bien passée (pas d'erreur), on continue
-      if (!newTrumpCard) {
-        console.warn(
-          "Aucune nouvelle carte d'atout, mise à jour du deck annulée."
-        );
-        return;
-      }
-      if (!room.value) {
-        throw new Error("Room value is null");
-      }
       await updateDeckAfterExchange(room.value.id, newTrumpCard);
     } catch (e) {
       console.error("L'échange a échoué, on ne met pas à jour le deck", e);
