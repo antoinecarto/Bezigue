@@ -314,7 +314,6 @@ export const useGameStore = defineStore("game", () => {
 
     if (!uid || !code) {
       console.warn("UID ou code de carte manquant.");
-      return;
     }
 
     const currentMeld = room.value.melds?.[uid] ?? [];

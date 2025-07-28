@@ -314,7 +314,6 @@ export const useGameStore = defineStore("game", () => {
 
     if (!uid || !code) {
       console.warn("UID ou code de carte manquant.");
-      return;
     }
 
     const currentMeld = room.value.melds?.[uid] ?? [];
@@ -327,6 +326,8 @@ export const useGameStore = defineStore("game", () => {
     // Créer les nouveaux tableaux
     const newMeld = currentMeld.filter((c) => c !== code);
     const newHand = [...currentHand, code];
+    console.log("newHand :", newHand);
+    console.log("newMeld :", newMeld);
 
     try {
       // 🔥 Mise à jour Firestore
