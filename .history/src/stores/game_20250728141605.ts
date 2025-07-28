@@ -466,30 +466,27 @@ export const useGameStore = defineStore("game", () => {
 
     try {
       await runTransaction(db, async (tx) => {
-        const uid = myUid.value;
-        if (!uid) return; // pour rassurer TypeScript même si déjà vérifié plus haut
-
         const snap = await tx.get(roomRef);
         if (!snap.exists()) throw new Error("Room missing");
         const d = snap.data() as RoomDoc;
 
         if ((d.trick.cards?.length ?? 0) >= 2) throw new Error("Trick full");
 
-        console.log("Server Hand:", d.hands[uid]);
-        console.log("Server Meld:", d.melds?.[uid]);
+        console.log("Server Hand:", d.hands[myUid.value]);
+        console.log("Server Meld:", d.melds?.[myUid.value]);
         // Récupérer la main et le meld côté serveur
-        const srvHand = [...(d.hands[uid] ?? [])];
-        const srvMeld = [...(d.melds?.[uid] ?? [])];
+        const srvHand = [...(d.hands[myUid.value] ?? [])];
+        const srvMeld = [...(d.melds?.[myUid.value] ?? [])];
 
         const cards = [...(d.trick.cards ?? []), code];
-        const players = [...(d.trick.players ?? []), uid];
-        const opponent = d.players.find((p) => p !== uid)!;
+        const players = [...(d.trick.players ?? []), myUid.value];
+        const opponent = d.players.find((p) => p !== myUid.value)!;
 
         const update: Record<string, any> = {
-          [`hands.${uid}`]: srvHand,
-          [`melds.${uid}`]: srvMeld,
+          [`hands.${myUid.value}`]: srvHand,
+          [`melds.${myUid.value}`]: srvMeld,
           trick: { cards, players },
-          exchangeTable: { ...(d.exchangeTable ?? {}), [uid]: code },
+          exchangeTable: { ...(d.exchangeTable ?? {}), [myUid.value]: code },
         };
 
         if (cards.length === 1) {
