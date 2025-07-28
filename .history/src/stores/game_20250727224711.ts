@@ -15,8 +15,6 @@ import type { Suit } from "@/game/models/Card";
 import { generateShuffledDeck, distributeCards } from "@/game/BezigueGame";
 import { arrayToStr } from "@/game/serializers";
 
-//VERSION OK EN DEV.
-
 /* ── RANG UNIQUE & PARTAGÉ ─────────────────────────────────────────── */
 
 function splitCode(code: string) {
@@ -153,7 +151,7 @@ export const useGameStore = defineStore("game", () => {
   /* ──────────── state ──────────── */
   const room = ref<RoomState | null>(null);
   const myUid = ref<string | null>(null);
-  const hand = ref<string[]>([]);
+  const hand = ref<Record<string, string[]>>({});
   const melds = ref<Record<string, string[]>>({});
   const exchangeTable = ref<Record<string, string>>({});
   const scores = ref<Record<string, number>>({});
@@ -178,7 +176,6 @@ export const useGameStore = defineStore("game", () => {
     const data = room.value;
 
     drawQueue.value = data.drawQueue || [];
-    currentTurn.value = data.currentTurn || null;
 
     // ...idem pour d'autres champs si nécessaire
   });
@@ -312,10 +309,12 @@ export const useGameStore = defineStore("game", () => {
   async function removeFromMeldAndReturnToHand(uid: string, code: string) {
     if (!room.value) {
       console.warn("La pièce est introuvable.");
+      return; // ← Important pour satisfaire TypeScript
     }
 
     if (!uid || !code) {
       console.warn("UID ou code de carte manquant.");
+      return;
     }
 
     const currentMeld = room.value.melds?.[uid] ?? [];
@@ -328,8 +327,6 @@ export const useGameStore = defineStore("game", () => {
     // Créer les nouveaux tableaux
     const newMeld = currentMeld.filter((c) => c !== code);
     const newHand = [...currentHand, code];
-    console.log("newHand :", newHand);
-    console.log("newMeld :", newMeld);
 
     try {
       // 🔥 Mise à jour Firestore
@@ -455,6 +452,7 @@ export const useGameStore = defineStore("game", () => {
   }
 
   async function playCard(code: string) {
+    const uid = myUid.value!;
     if (
       playing.value ||
       !room.value ||
@@ -475,29 +473,9 @@ export const useGameStore = defineStore("game", () => {
 
         if ((d.trick.cards?.length ?? 0) >= 2) throw new Error("Trick full");
 
-        console.log("Server Hand:", d.hands[myUid.value]);
-        console.log("Server Meld:", d.melds?.[myUid.value]);
         // Récupérer la main et le meld côté serveur
-        const srvHand = [...(d.hands[myUid.value] ?? [])];
-        const srvMeld = [...(d.melds?.[myUid.value] ?? [])];
-
-        let removedFrom = "";
-
-        // Essayer de retirer la carte de la main
-        let pos = srvHand.indexOf(code);
-        if (pos !== -1) {
-          srvHand.splice(pos, 1);
-          removedFrom = "hand";
-        } else {
-          // Sinon, essayer de la retirer du meld
-          pos = srvMeld.indexOf(code);
-          if (pos !== -1) {
-            srvMeld.splice(pos, 1);
-            removedFrom = "meld";
-          } else {
-            throw new Error("Card not in hand or meld server");
-          }
-        }
+        const srvHand = [...(d.hands[uid] ?? [])];
+        const srvMeld = [...(d.melds?.[uid] ?? [])];
 
         const cards = [...(d.trick.cards ?? []), code];
         const players = [...(d.trick.players ?? []), myUid.value];
@@ -507,7 +485,7 @@ export const useGameStore = defineStore("game", () => {
           [`hands.${myUid.value}`]: srvHand,
           [`melds.${myUid.value}`]: srvMeld,
           trick: { cards, players },
-          exchangeTable: { ...(d.exchangeTable ?? {}), [myUid.value]: code },
+          exchangeTable: { ...(d.exchangeTable ?? {}), [uid]: code },
         };
 
         if (cards.length === 1) {
@@ -544,7 +522,7 @@ export const useGameStore = defineStore("game", () => {
         const [raw] = card.split("_");
         return raw.slice(-1);
       }
-      const trumpSuit = getSuit(d.trumpCard);
+      const trumpSuit = getSuit(d.trumpCard) as Suit;
       const winner = resolveTrick(
         cards[0],
         cards[1],
@@ -628,6 +606,10 @@ export const useGameStore = defineStore("game", () => {
 
       const d = snap.data() as RoomDoc;
       const uid = myUid.value;
+      if (!uid) {
+        console.warn("UID non défini");
+        return;
+      }
 
       const hand = d.hands?.[uid];
       if (!hand) {
@@ -636,7 +618,9 @@ export const useGameStore = defineStore("game", () => {
       }
 
       const sevenPrefix = "7" + d.trumpSuit;
-      const sevenCode = hand.find((card) => card.startsWith(sevenPrefix));
+      const sevenCode = hand.find((card: string) =>
+        card.startsWith(sevenPrefix)
+      );
       if (!sevenCode) {
         console.warn("Le 7 d’atout n’est pas présent dans la main");
         return;
@@ -652,7 +636,7 @@ export const useGameStore = defineStore("game", () => {
       }
 
       // Mise à jour de la main (remplace le 7 par la carte d’atout)
-      const newHand = hand.filter((c) => c !== sevenCode);
+      const newHand = hand.filter((c: string) => c !== sevenCode);
       newHand.push(trumpCard);
 
       const update: Record<string, any> = {
@@ -670,6 +654,18 @@ export const useGameStore = defineStore("game", () => {
   async function doExchangeProcess() {
     try {
       const newTrumpCard = await confirmExchange();
+      if (!room.value) {
+        console.warn(
+          "La room est introuvable, impossible de mettre à jour le deck."
+        );
+        return;
+      }
+      if (!newTrumpCard) {
+        console.warn(
+          "Nouvelle carte d'atout manquante, impossible de mettre à jour le deck."
+        );
+        return;
+      }
       // Si confirmExchange s'est bien passée (pas d'erreur), on continue
       await updateDeckAfterExchange(room.value.id, newTrumpCard);
     } catch (e) {
