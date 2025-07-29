@@ -41,12 +41,15 @@ import {
   where,
   getDocs,
   doc,
+  getDoc,
   updateDoc,
   runTransaction,
 } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { distributeCards } from "@/game/BezigueGame";
 import NameModal from "@/views/components/NameModal.vue";
+import { assertNoDuplicates } from "@/utils/debugTools.ts";
 
 /* ───────── état réactif ───────── */
 const rooms = ref<any[]>([]);
@@ -196,6 +199,7 @@ async function actuallyJoinRoom(roomCode: string) {
         reservedHands: newReserved,
         status: "in_progress",
       });
+      assertNoDuplicates(reserved, "distribution complète");
 
       await maybeStartGame(tx, roomRef, { ...room, players, hands });
     });

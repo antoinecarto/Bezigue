@@ -27,6 +27,7 @@ const game = useGameStore();
 const { myUid, room, loading, melds } = storeToRefs(game); // <- myUid et room sont VRAIS refs
 
 const roomId = computed(() => room.value?.id ?? "");
+const phase = computed(() => room.value?.phase ?? "waiting");
 
 /* ② — uid de l’adversaire ------------------------------------------- */
 const opponentUid = computed(() => {

@@ -196,6 +196,7 @@ async function actuallyJoinRoom(roomCode: string) {
         reservedHands: newReserved,
         status: "in_progress",
       });
+      assertNoDuplicates(reserved, "distribution complète");
 
       await maybeStartGame(tx, roomRef, { ...room, players, hands });
     });

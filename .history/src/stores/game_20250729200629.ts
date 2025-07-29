@@ -400,6 +400,12 @@ export const useGameStore = defineStore("game", () => {
       const allHands = d.hands ?? {};
       allHands[myUid.value] = hand;
 
+      const uids = Object.keys(allHands);
+      if (uids.length >= 2) {
+        const [uidA, uidB] = uids;
+        checkHandsForDuplicates(allHands[uidA], allHands[uidB]);
+      }
+
       const newQueue = dq.slice(1);
 
       const update: Record<string, any> = {

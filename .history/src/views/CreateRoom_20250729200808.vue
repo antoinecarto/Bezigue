@@ -124,6 +124,11 @@ async function actuallyCreateRoom() {
     console.log("Deck final :", finalDeck);
     console.log("Dernière carte :", finalDeck[finalDeck.length - 1]);
 
+    // ✅ Vérification d'unicité pour debug
+
+    const allCards = [...hostHand, ...seat2Hand, ...finalDeck];
+    assertNoDuplicates(allCards, "distribution complète");
+
     /* 4. document « rooms » */
     const roomRef = await addDoc(collection(db, "rooms"), {
       name: roomName,

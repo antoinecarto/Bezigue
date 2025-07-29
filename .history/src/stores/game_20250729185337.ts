@@ -13,6 +13,7 @@ import { db } from "@/services/firebase";
 import type { RoomDoc, RoomState } from "@/types/firestore";
 import type { Suit } from "@/game/models/Card";
 import { generateShuffledDeck, distributeCards } from "@/game/BezigueGame";
+import { checkHandsForDuplicates } from "@/utils/debugTools";
 
 function splitCode(code: string) {
   const [raw, _] = code.split("_"); // raw = "7C", "10D", etc.
@@ -96,9 +97,13 @@ export async function endMene(roomId: string) {
   if (!roomSnap.exists()) throw new Error("Room introuvable");
   const roomData = roomSnap.data();
 
+  const currentMeneIndex = roomData.currentMeneIndex ?? 0;
   const scores = { ...roomData.scores };
   const trick = roomData.trick; // ✅ trick vient bien de rooms ici
 
+  const meneSnap = await getDoc(
+    doc(db, "rooms", roomId, "menes", `${currentMeneIndex}`)
+  );
   if (!roomData) throw new Error("Mène introuvable");
 
   const hands = roomData.hands as Record<string, string[]>;
@@ -399,6 +404,12 @@ export const useGameStore = defineStore("game", () => {
       // 🛡️ Vérification doublons
       const allHands = d.hands ?? {};
       allHands[myUid.value] = hand;
+
+      const uids = Object.keys(allHands);
+      if (uids.length >= 2) {
+        const [uidA, uidB] = uids;
+        checkHandsForDuplicates(allHands[uidA], allHands[uidB]);
+      }
 
       const newQueue = dq.slice(1);
 
