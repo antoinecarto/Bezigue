@@ -34,6 +34,7 @@
 </template>
 
 <script setup lang="ts">
+/* ───────── imports ───────── */
 import { ref, onMounted, onUnmounted } from "vue";
 import {
   collection,
@@ -41,13 +42,12 @@ import {
   where,
   getDocs,
   doc,
-  getDoc,
-  updateDoc,
   runTransaction,
+  updateDoc,
 } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { distributeCards } from "@/game/BezigueGame";
+import { generateShuffledDeck, distributeCards } from "@/game/BezigueGame";
 import NameModal from "@/views/components/NameModal.vue";
 
 /* ───────── état réactif ───────── */
@@ -58,13 +58,14 @@ const error = ref("");
 
 const uid = ref<string>("");
 const showNameModal = ref(false);
-const currentRoomId = ref<string | null>(null);
 
 const emit = defineEmits(["room-joined"]);
 
-/* ───────── gestion du nom joueur ───────── */
+/* ───────── pop‑up nom joueur ───────── */
+
 const nameCallback = ref<(() => void) | null>(null);
 
+// SI le nom du joueur n'est pas dans le localStorage, on demande le nom :
 function askPlayerName(callback: () => void) {
   if (!localStorage.getItem("playerName")) {
     showNameModal.value = true;
@@ -73,7 +74,6 @@ function askPlayerName(callback: () => void) {
     callback();
   }
 }
-
 async function confirmName(name: string) {
   const trimmed = name.trim();
   if (!trimmed) return;
@@ -92,7 +92,7 @@ async function confirmName(name: string) {
   }
 }
 
-/* ───────── récupération des salles "waiting" ───────── */
+/* ───────── fetch des rooms "waiting" ───────── */
 async function fetchRooms() {
   loadingRooms.value = true;
   try {
@@ -101,13 +101,13 @@ async function fetchRooms() {
     rooms.value = qs.docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (e) {
     console.error(e);
-    error.value = "Erreur récupération des salles.";
+    error.value = "Erreur récupération salles.";
   } finally {
     loadingRooms.value = false;
   }
 }
 
-/* ───────── Auth listener + polling ───────── */
+/* ───────── auth listener ───────── */
 let intervalId: number | null = null;
 
 onMounted(() => {
@@ -116,9 +116,8 @@ onMounted(() => {
       uid.value = user.uid;
       error.value = "";
       fetchRooms();
-      if (!intervalId) {
+      if (!intervalId)
         intervalId = setInterval(() => uid.value && fetchRooms(), 5000);
-      }
     } else {
       uid.value = "";
       error.value = "Vous devez être connecté pour voir les salles.";
@@ -130,36 +129,32 @@ onMounted(() => {
 
 onUnmounted(() => intervalId && clearInterval(intervalId));
 
-/* ───────── Utilitaires Firestore ───────── */
-async function fetchDeck(roomId: string): Promise<any> {
-  const roomRef = doc(db, "rooms", roomId);
-  const snap = await getDoc(roomRef);
+/* ───────── joinRoom + auto‑start ───────── */
+const currentRoomId = ref<string | null>(null);
 
-  if (!snap.exists()) throw new Error("Salle introuvable");
-  const roomData = snap.data();
-
-  if (!roomData.deck) throw new Error("Deck non trouvé dans la salle");
-  return roomData.deck;
-}
-
-/* ───────── Lancement automatique si 2 joueurs ───────── */
 async function maybeStartGame(tx: any, roomRef: any, roomData: any) {
   if (roomData.phase !== "waiting") return;
   if ((roomData.players?.length ?? 0) !== 2) return;
 
-  const deck = roomData.deck ?? (await fetchDeck(roomRef.id));
-  const distrib = distributeCards(deck);
-
+  // const deck = generateShuffledDeck();
+  // const distrib = distributeCards(deck);
+  const { deck, reservedHands } = roomData;
   const [host, guest] = roomData.players;
+
   const hands = {
     [host]: distrib.hands.player1,
     [guest]: distrib.hands.player2,
   };
 
+  const hands = {
+    [host]: reservedHands?.seat1,
+    [guest]: reservedHands?.seat2,
+  };
+
   tx.update(roomRef, {
     phase: "play",
     currentTurn: host,
-    deck,
+    deck: distrib.drawPile,
     trumpTaken: false,
     hands,
     melds: {},
@@ -168,8 +163,7 @@ async function maybeStartGame(tx: any, roomRef: any, roomData: any) {
   });
 }
 
-/* ───────── Join Room ───────── */
-function joinRoom(roomCode: string) {
+async function joinRoom(roomCode: string) {
   askPlayerName(() => actuallyJoinRoom(roomCode));
 }
 
@@ -179,17 +173,16 @@ async function actuallyJoinRoom(roomCode: string) {
     return;
   }
   loading.value = true;
-
   try {
     const roomRef = doc(db, "rooms", roomCode);
-
     await runTransaction(db, async (tx) => {
       const snap = await tx.get(roomRef);
       if (!snap.exists()) throw new Error("Salle introuvable.");
-
       const room = snap.data();
+
       if ((room.players?.length ?? 0) >= 2) throw new Error("Salle pleine.");
 
+      // siège libre
       const seat = room.players?.length ? "seat2" : "seat1";
       const reserved = room.reservedHands?.[seat];
       if (!reserved) throw new Error("Pas de main réservée.");

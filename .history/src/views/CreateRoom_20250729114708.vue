@@ -9,17 +9,17 @@
       {{ loading ? "Création…" : "Créer une salle" }}
     </button>
 
-    <!-- Affichage de l'ID créé -->
+    <!-- Affichage de l’ID créé -->
     <p v-if="roomId">
       ID de la salle&nbsp;: <code>{{ roomId }}</code>
     </p>
   </div>
 
-  <!-- Choix 1 000 / 2 000 -->
+  <!-- Choix 1 000 / 2 000 -->
   <label class="block mt-6 mb-2 font-semibold">Partie en&nbsp;:</label>
   <select v-model="targetScore" class="border p-2 rounded w-40">
-    <option :value="1000">1 000&nbsp;pts</option>
-    <option :value="2000">2 000&nbsp;pts</option>
+    <option :value="1000">1 000&nbsp;pts</option>
+    <option :value="2000">2 000&nbsp;pts</option>
   </select>
 
   <!-- ─── Modale Nom Joueur ────────────────── -->
@@ -41,8 +41,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import { generateShuffledDeck, distributeCards } from "@/game/BezigueGame";
-// ❌ SUPPRIME arrayToStr car on stocke directement des arrays
-// import { arrayToStr } from "@/game/serializers";
+import { arrayToStr } from "@/game/serializers";
 import NameModal from "@/views/components/NameModal.vue";
 import { useGameStore } from "@/stores/game.ts";
 
@@ -103,47 +102,20 @@ async function actuallyCreateRoom() {
       loading.value = false;
       return;
     }
-
     /* 3. distribution immédiate (main P1 + main réservée P2) */
     const fullDeck = generateShuffledDeck();
     const distrib = distributeCards(fullDeck);
-
-    // ✅ CORRECTION PRINCIPALE : Stockage direct des arrays
-    const hostHand = distrib.hands.player1; // string[] directement
-    const seat2Hand = distrib.hands.player2; // string[] directement
+    const hostHand = arrayToStr(distrib.hands.player1);
+    const seat2Hand = arrayToStr(distrib.hands.player2);
     const trumpCardStr = distrib.trumpCard;
 
     console.log("TrumpCard:", trumpCardStr);
-    console.log("Host hand:", hostHand);
-    console.log("Seat2 hand:", seat2Hand);
     console.log("drawPile avant suppression :", distrib.drawPile);
-
-    // ✅ Clone du deck pour éviter les mutations
-    let finalDeck = [...distrib.drawPile];
-    finalDeck = removeOneOccurrence(finalDeck, trumpCardStr);
+    let finalDeck = removeOneOccurrence(distrib.drawPile, trumpCardStr);
     finalDeck.push(trumpCardStr); // ✅ elle est bien la DERNIÈRE maintenant
-
     console.log("Deck final :", finalDeck);
     console.log("Dernière carte :", finalDeck[finalDeck.length - 1]);
-
-    // ✅ Vérification d'unicité pour debug
-    const allCards = [...hostHand, ...seat2Hand, ...finalDeck];
-
-    const duplicates = allCards.filter(
-      (card, index) => allCards.indexOf(card) !== index
-    );
-
-    if (duplicates.length > 0) {
-      console.error("⚠️ DOUBLONS DÉTECTÉS:", duplicates);
-      console.log("Host hand:", hostHand);
-      console.log("Seat2 hand:", seat2Hand);
-      console.log("Final deck:", finalDeck);
-      throw new Error(
-        `Doublons dans la distribution: ${duplicates.join(", ")}`
-      );
-    }
-
-    /* 4. document « rooms » */
+    /* 4. document « rooms » */
     const roomRef = await addDoc(collection(db, "rooms"), {
       name: roomName,
       createdAt: serverTimestamp(),
@@ -155,9 +127,8 @@ async function actuallyCreateRoom() {
       trumpSuit: trumpCardStr.match(/([a-zA-Z])_(?:1|2)$/)?.[1] ?? null,
       trumpTaken: false,
       deck: finalDeck,
-      // ✅ CORRECTION : Stockage direct des arrays selon RoomDoc
-      hands: { [uid]: hostHand }, // string[] directement
-      reservedHands: { seat2: seat2Hand }, // string[] directement
+      hands: { [uid]: hostHand },
+      reservedHands: { seat2: seat2Hand },
       trick: { cards: [], players: [] },
       melds: {},
       canMeld: null,
@@ -167,8 +138,7 @@ async function actuallyCreateRoom() {
       currentMeneIndex: 0,
       combos: {},
     });
-
-    /* 5. sous‑collection « menes/0 » */
+    /* 5. sous‑collection « menes/0 » */
     await setDoc(doc(db, "rooms", roomRef.id, "menes", "0"), {
       firstPlayerUid: uid,
       currentPliCards: [],
@@ -176,7 +146,6 @@ async function actuallyCreateRoom() {
       scores: { [uid]: 0 },
       targetScore: targetScore.value,
     });
-
     /* 6. navigation + emit */
     roomId.value = roomRef.id;
     emit("room-created", roomRef.id);
@@ -189,13 +158,10 @@ async function actuallyCreateRoom() {
   }
 }
 
-// ✅ Fonction améliorée pour éviter les mutations
+// Supprimer une seule occurrence exacte de trumpCard
 function removeOneOccurrence(deck: string[], cardToRemove: string): string[] {
-  const deckCopy = [...deck]; // Clone pour éviter les mutations
-  const index = deckCopy.indexOf(cardToRemove);
-  if (index !== -1) {
-    deckCopy.splice(index, 1);
-  }
-  return deckCopy;
+  const index = deck.indexOf(cardToRemove);
+  if (index !== -1) deck.splice(index, 1);
+  return deck;
 }
 </script>

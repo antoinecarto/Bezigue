@@ -909,6 +909,7 @@ import { db } from "@/services/firebase";
 import type { RoomDoc, RoomState } from "@/types/firestore";
 import type { Suit } from "@/game/models/Card";
 import { generateShuffledDeck, distributeCards } from "@/game/BezigueGame";
+import { arrayToStr } from "@/game/serializers";
 
 function splitCode(code: string) {
   const [raw, _] = code.split("_"); // raw = "7C", "10D", etc.
@@ -956,8 +957,8 @@ export async function startNewMene(roomId: string): Promise<number> {
     trumpTaken: false,
     deck: distrib.drawPile,
     hands: {
-      [firstPlayer]: distrib.hands.player1, // ✅ string[] directement
-      [secondPlayer]: distrib.hands.player2, // ✅ string[] directement
+      [firstPlayer]: arrayToStr(distrib.hands.player1), // ✅ string[] directement
+      [secondPlayer]: arrayToStr(distrib.hands.player2), // ✅ string[] directement
     },
     reservedHands: {},
     currentTurn: firstPlayer,

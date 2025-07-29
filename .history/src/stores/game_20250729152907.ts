@@ -909,6 +909,7 @@ import { db } from "@/services/firebase";
 import type { RoomDoc, RoomState } from "@/types/firestore";
 import type { Suit } from "@/game/models/Card";
 import { generateShuffledDeck, distributeCards } from "@/game/BezigueGame";
+import { arrayToStr } from "@/game/serializers";
 
 function splitCode(code: string) {
   const [raw, _] = code.split("_"); // raw = "7C", "10D", etc.

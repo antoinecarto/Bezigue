@@ -909,6 +909,7 @@ import { db } from "@/services/firebase";
 import type { RoomDoc, RoomState } from "@/types/firestore";
 import type { Suit } from "@/game/models/Card";
 import { generateShuffledDeck, distributeCards } from "@/game/BezigueGame";
+import { arrayToStr } from "@/game/serializers";
 
 function splitCode(code: string) {
   const [raw, _] = code.split("_"); // raw = "7C", "10D", etc.
@@ -994,25 +995,27 @@ export async function endMene(roomId: string) {
 
   const currentMeneIndex = roomData.currentMeneIndex ?? 0;
   const scores = { ...roomData.scores };
-  const trick = roomData.trick; // ✅ trick vient bien de rooms ici
 
-  const meneSnap = await getDoc(
-    doc(db, "rooms", roomId, "menes", `${currentMeneIndex}`)
-  );
+  const meneRef = doc(db, "rooms", roomId, "menes", `${currentMeneIndex}`);
+  const meneSnap = await getDoc(meneRef);
+  if (!meneSnap.exists()) throw new Error("Mene introuvable");
   const meneData = meneSnap.data();
-  if (!meneData) throw new Error("Mène introuvable");
 
-  const hands = meneData.hands as Record<string, string[]>;
-  const melds = meneData.melds as Record<string, any[]>;
+  const plies = meneData?.plies ?? [];
+  const hands = meneData?.hands ?? {};
+  const melds = meneData?.melds ?? {};
+  const trick = meneData?.trick ?? { cards: [] };
 
   const allHandsEmpty = Object.values(hands).every((h) => h.length === 0);
   const allMeldsEmpty = Object.values(melds).every((m) => m.length === 0);
-  const trickEmpty = trick?.cards?.length === 0;
+  const isLastTrick = trick.cards.length === 2;
 
-  if (allHandsEmpty && allMeldsEmpty && trickEmpty) {
-    const lastWinner = trick?.winner;
+  // Ajouter 10 pts pour le dernier pli si les conditions sont réunies
+  if (allHandsEmpty && allMeldsEmpty && isLastTrick) {
+    const lastCompletedPli = plies[plies.length - 1];
+    const lastWinner = lastCompletedPli?.winner;
+
     if (lastWinner && scores[lastWinner] !== undefined) {
-      console.log("10 de der pour", lastWinner);
       scores[lastWinner] += 10;
     }
   }

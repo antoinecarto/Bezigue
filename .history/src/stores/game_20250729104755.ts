@@ -909,6 +909,7 @@ import { db } from "@/services/firebase";
 import type { RoomDoc, RoomState } from "@/types/firestore";
 import type { Suit } from "@/game/models/Card";
 import { generateShuffledDeck, distributeCards } from "@/game/BezigueGame";
+import { arrayToStr } from "@/game/serializers";
 
 function splitCode(code: string) {
   const [raw, _] = code.split("_"); // raw = "7C", "10D", etc.
@@ -987,6 +988,7 @@ export async function startNewMene(roomId: string): Promise<number> {
   );
   return newMeneIndex;
 }
+
 export async function endMene(roomId: string) {
   const roomSnap = await getDoc(doc(db, "rooms", roomId));
   if (!roomSnap.exists()) throw new Error("Room introuvable");
@@ -994,25 +996,18 @@ export async function endMene(roomId: string) {
 
   const currentMeneIndex = roomData.currentMeneIndex ?? 0;
   const scores = { ...roomData.scores };
-  const trick = roomData.trick; // ✅ trick vient bien de rooms ici
 
   const meneSnap = await getDoc(
     doc(db, "rooms", roomId, "menes", `${currentMeneIndex}`)
   );
   const meneData = meneSnap.data();
-  if (!meneData) throw new Error("Mène introuvable");
+  const plies = meneData?.plies ?? [];
 
-  const hands = meneData.hands as Record<string, string[]>;
-  const melds = meneData.melds as Record<string, any[]>;
+  if (plies.length > 0) {
+    const lastPli = plies[plies.length - 1];
+    const lastWinner = lastPli?.winner;
 
-  const allHandsEmpty = Object.values(hands).every((h) => h.length === 0);
-  const allMeldsEmpty = Object.values(melds).every((m) => m.length === 0);
-  const trickEmpty = trick?.cards?.length === 0;
-
-  if (allHandsEmpty && allMeldsEmpty && trickEmpty) {
-    const lastWinner = trick?.winner;
     if (lastWinner && scores[lastWinner] !== undefined) {
-      console.log("10 de der pour", lastWinner);
       scores[lastWinner] += 10;
     }
   }
@@ -1502,9 +1497,7 @@ export const useGameStore = defineStore("game", () => {
     showExchange.value = canExchange;
   }
 
-  async function confirmExchange(): Promise<
-    { newTrumpCard: string; oldTrumpCard: string } | undefined
-  > {
+  async function confirmExchange(): Promise<string | undefined> {
     if (!room.value || !myUid.value) return;
     showExchange.value = false;
 
@@ -1516,6 +1509,8 @@ export const useGameStore = defineStore("game", () => {
 
       const d = snap.data() as RoomDoc;
       const uid = myUid.value!;
+
+      // ✅ Selon RoomDoc, hands est string[]
       const hand = d.hands?.[uid] ?? [];
 
       if (hand.length === 0) {
@@ -1549,36 +1544,28 @@ export const useGameStore = defineStore("game", () => {
       };
 
       tx.update(roomRef, update);
-
-      return {
-        newTrumpCard: sevenCode,
-        oldTrumpCard: trumpCard,
-      };
+      return { newTrumpCard: sevenCode, oldTrumpCard: trumpCard };
     });
   }
 
   async function doExchangeProcess(): Promise<void> {
     try {
-      const result = await confirmExchange();
-
-      if (!result || !room.value) {
+      const newTrumpCard = await confirmExchange();
+      if (!newTrumpCard || !room.value) {
         console.warn(
           "Aucune nouvelle carte d'atout, mise à jour du deck annulée."
         );
         return;
       }
-
-      const { newTrumpCard, oldTrumpCard } = result;
-
-      await updateDeckAfterExchange(room.value.id, newTrumpCard, oldTrumpCard);
+      await updateDeckAfterExchange(room.value.id, newTrumpCard);
     } catch (e) {
       console.error("L'échange a échoué, on ne met pas à jour le deck", e);
     }
   }
+
   async function updateDeckAfterExchange(
     roomId: string,
-    newTrumpCard: string,
-    oldTrumpCard: string
+    newTrumpCard: string
   ): Promise<void> {
     const roomRef = doc(db, "rooms", roomId);
 
@@ -1594,17 +1581,10 @@ export const useGameStore = defineStore("game", () => {
         return;
       }
 
-      // 🔍 Log de vérification (facultatif mais utile en debug)
-      console.log("Deck AVANT suppression :", deck);
-      console.log("Ancienne trumpCard à supprimer :", oldTrumpCard);
-
-      // ✅ Supprimer l'ancienne trumpCard (donnée au joueur)
-      deck = deck.filter((card) => card !== oldTrumpCard);
-
-      // ✅ Ajouter le 7 (nouvelle trumpCard) en fin de pile
+      // Supprimer l'ancienne trumpCard du deck s'il y est
+      deck = deck.filter((card) => card !== d.trumpCard);
+      // Ajouter la nouvelle trumpCard (le 7) en dernière position
       deck.push(newTrumpCard);
-
-      console.log("Deck APRÈS mise à jour :", deck);
 
       tx.update(roomRef, { deck });
     });

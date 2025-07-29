@@ -42,7 +42,6 @@ import {
   getDocs,
   doc,
   getDoc,
-  updateDoc,
   runTransaction,
 } from "firebase/firestore";
 import { db } from "@/services/firebase";

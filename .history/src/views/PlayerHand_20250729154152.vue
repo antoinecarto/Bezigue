@@ -34,7 +34,7 @@ import { storeToRefs } from "pinia";
 import PlayingCard from "@/views/components/PlayingCard.vue";
 
 const game = useGameStore();
-const { myUid, hand, drawQueue, currentTurn } = storeToRefs(game);
+const { myUid, hand, drawQueue, currentTurn, room } = storeToRefs(game);
 
 const showNotYourTurn = ref(false);
 const playing = ref(false);
