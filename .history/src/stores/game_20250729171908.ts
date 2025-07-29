@@ -13,7 +13,6 @@ import { db } from "@/services/firebase";
 import type { RoomDoc, RoomState } from "@/types/firestore";
 import type { Suit } from "@/game/models/Card";
 import { generateShuffledDeck, distributeCards } from "@/game/BezigueGame";
-import { checkHandsForDuplicates } from "@/utils/debugTools";
 
 function splitCode(code: string) {
   const [raw, _] = code.split("_"); // raw = "7C", "10D", etc.
@@ -401,16 +400,6 @@ export const useGameStore = defineStore("game", () => {
 
       const card = deck.shift()!;
       hand.push(card);
-
-      // 🛡️ Vérification doublons
-      const allHands = d.hands ?? {};
-      allHands[myUid.value] = hand;
-
-      const uids = Object.keys(allHands);
-      if (uids.length >= 2) {
-        const [uidA, uidB] = uids;
-        checkHandsForDuplicates(allHands[uidA], allHands[uidB]);
-      }
 
       const newQueue = dq.slice(1);
 

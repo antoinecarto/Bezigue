@@ -148,19 +148,20 @@ async function maybeStartGame(tx: any, roomRef: any, roomData: any) {
   if (roomData.phase !== "waiting") return;
   if ((roomData.players?.length ?? 0) !== 2) return;
 
+  const deck = roomData.deck ?? (await fetchDeck(roomRef.id));
+  const distrib = distributeCards(deck);
+
   const [host, guest] = roomData.players;
-
-  // 🃏 Les mains sont déjà réservées et attachées à chaque joueur
-  const hands = roomData.hands;
-
-  // 🗃️ Le deck est celui sauvegardé lors du CreateRoom
-  const deck = roomData.deck;
+  const hands = {
+    [host]: distrib.hands.player1,
+    [guest]: distrib.hands.player2,
+  };
 
   tx.update(roomRef, {
     phase: "play",
     currentTurn: host,
-    trumpTaken: false,
     deck,
+    trumpTaken: false,
     hands,
     melds: {},
     trick: { cards: [], players: [] },

@@ -43,7 +43,6 @@ import { db } from "@/services/firebase";
 import { generateShuffledDeck, distributeCards } from "@/game/BezigueGame";
 import NameModal from "@/views/components/NameModal.vue";
 import { useGameStore } from "@/stores/game.ts";
-import { assertNoDuplicates } from "@/utils/debugTools.ts";
 
 const game = useGameStore();
 
@@ -126,9 +125,21 @@ async function actuallyCreateRoom() {
     console.log("Dernière carte :", finalDeck[finalDeck.length - 1]);
 
     // ✅ Vérification d'unicité pour debug
-
     const allCards = [...hostHand, ...seat2Hand, ...finalDeck];
-    assertNoDuplicates(allCards, "distribution complète");
+
+    const duplicates = allCards.filter(
+      (card, index) => allCards.indexOf(card) !== index
+    );
+
+    if (duplicates.length > 0) {
+      console.error("⚠️ DOUBLONS DÉTECTÉS:", duplicates);
+      console.log("Host hand:", hostHand);
+      console.log("Seat2 hand:", seat2Hand);
+      console.log("Final deck:", finalDeck);
+      throw new Error(
+        `Doublons dans la distribution: ${duplicates.join(", ")}`
+      );
+    }
 
     /* 4. document « rooms » */
     const roomRef = await addDoc(collection(db, "rooms"), {
