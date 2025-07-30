@@ -45,10 +45,10 @@ const playing = ref(false);
 
 const showMustDrawFirst = ref(false);
 
-// const mustDrawFirst = computed(() => {
-//   if (!myUid.value) return false;
-//   return drawQueue.value.includes(myUid.value); // Il doit piocher s'il est dans la drawQueue
-// });
+const mustDrawFirst = computed(() => {
+  if (!myUid.value) return false;
+  return drawQueue.value.includes(myUid.value); // Il doit piocher s'il est dans la drawQueue
+});
 
 const isMyTurn = computed(() => currentTurn.value === myUid.value);
 const isNotMyTurn = computed(() => {
