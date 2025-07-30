@@ -97,7 +97,25 @@ export async function endMene(roomId: string) {
   const roomData = roomSnap.data();
 
   const scores = { ...roomData.scores };
+  const trick = roomData.trick; // ✅ trick vient bien de rooms ici
+
   if (!roomData) throw new Error("Mène introuvable");
+
+  const hands = roomData.hands as Record<string, string[]>;
+  const melds = roomData.melds as Record<string, any[]>;
+
+  const allHandsEmpty = Object.values(hands).every((h) => h.length === 0);
+  const allMeldsEmpty = Object.values(melds).every((m) => m.length === 0);
+  const trickEmpty = trick?.cards?.length === 0;
+
+  if (allHandsEmpty && allMeldsEmpty && trickEmpty) {
+    const lastWinner = trick?.winner;
+    console.log("lastwinner : ", lastWinner);
+    if (lastWinner) {
+      console.log("10 de der pour", lastWinner);
+      scores[lastWinner] += 10;
+    }
+  }
 
   const target = roomData.targetScore ?? 2000;
   const someoneReachedTarget = Object.values(scores).some(

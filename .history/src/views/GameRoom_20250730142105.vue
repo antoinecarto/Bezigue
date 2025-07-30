@@ -106,6 +106,9 @@ watch(
 );
 
 // Watcher pour détecter le dernier pli
+// Option 1 : Intégration avec votre système newScore existant
+// Dans GameRoom.vue
+
 const lastTrickBonusWinner = ref<string | null>(null);
 
 watch(
@@ -143,15 +146,10 @@ watch(
 
 // Fonction pour attribuer réellement les points
 async function awardLastTrickBonus(winnerId: string) {
-  if (!room.value) {
-    console.error("❌ Room non disponible pour attribution bonus");
-    return;
-  }
-
   try {
     // Méthode 1 : Via Firestore directement
     const roomRef = doc(db, "rooms", room.value.id);
-    const currentScore = room.value.scores?.[winnerId] || 0;
+    const currentScore = room.value?.scores?.[winnerId] || 0;
 
     await updateDoc(roomRef, {
       [`scores.${winnerId}`]: currentScore + 10,

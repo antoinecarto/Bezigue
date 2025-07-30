@@ -105,9 +105,6 @@ watch(
   }
 );
 
-// Watcher pour détecter le dernier pli
-const lastTrickBonusWinner = ref<string | null>(null);
-
 watch(
   () => ({
     winner: room.value?.trick?.winner,
@@ -115,53 +112,37 @@ watch(
     melds: room.value?.melds,
     trickCards: room.value?.trick?.cards?.length || 0,
   }),
-  (newState) => {
-    if (!newState.winner || !newState.hands || !newState.melds) return;
+  (newState, oldState) => {
+    console.log("🎯 Surveillance du dernier pli :", newState);
 
+    // Vérifier si on a un gagnant de pli
+    if (!newState.winner) return;
+
+    // Vérifier si c'est potentiellement le dernier pli
     const hands = newState.hands as Record<string, string[]>;
     const melds = newState.melds as Record<string, any[]>;
+
+    if (!hands || !melds) return;
 
     const allHandsEmpty = Object.values(hands).every((h) => h.length === 0);
     const allMeldsEmpty = Object.values(melds).every((m) => m.length === 0);
     const hasTrickCards = newState.trickCards > 0;
 
-    if (
-      allHandsEmpty &&
-      allMeldsEmpty &&
-      hasTrickCards &&
-      !lastTrickBonusWinner.value
-    ) {
-      console.log("🏆 Attribution des +10 pts à", newState.winner);
-      lastTrickBonusWinner.value = newState.winner;
+    // Si toutes les mains et melds sont vides ET qu'il y a encore des cartes dans le pli
+    // C'est le dernier pli !
+    if (allHandsEmpty && allMeldsEmpty && hasTrickCards) {
+      console.log("🏆 DERNIER PLI DÉTECTÉ ! Gagnant :", newState.winner);
 
-      // 🎯 ATTRIBUTION RÉELLE DES POINTS
-      awardLastTrickBonus(newState.winner);
+      // Déclencher le bonus seulement une fois
+      if (!oldState || oldState.winner !== newState.winner) {
+        console.log("💰 Attribution du bonus +10 à", newState.winner);
+        // Appeler une fonction pour attribuer le bonus
+        handleLastTrickBonus(newState.winner);
+      }
     }
   },
   { deep: true }
 );
-
-// Fonction pour attribuer réellement les points
-async function awardLastTrickBonus(winnerId: string) {
-  if (!room.value) {
-    console.error("❌ Room non disponible pour attribution bonus");
-    return;
-  }
-
-  try {
-    // Méthode 1 : Via Firestore directement
-    const roomRef = doc(db, "rooms", room.value.id);
-    const currentScore = room.value.scores?.[winnerId] || 0;
-
-    await updateDoc(roomRef, {
-      [`scores.${winnerId}`]: currentScore + 10,
-    });
-
-    console.log("✅ +10 pts sauvegardés pour", winnerId);
-  } catch (error) {
-    console.error("❌ Erreur sauvegarde bonus :", error);
-  }
-}
 
 watch(
   () => room.value?.currentMeneIndex,
@@ -176,6 +157,20 @@ watch(
   },
   { immediate: true } // ← si tu veux aussi afficher à la première mène
 );
+
+// Fonction pour gérer le bonus du dernier pli
+async function handleLastTrickBonus(winnerId: string) {
+  try {
+    const roomRef = doc(db, "rooms", roomId.value);
+    await updateDoc(roomRef, {
+      [`scores.${winnerId}`]: increment(10),
+    });
+
+    console.log("✅ Bonus du dernier pli attribué avec succès");
+  } catch (error) {
+    console.error("❌ Erreur lors de l'attribution du bonus :", error);
+  }
+}
 
 function onCloseFinalPopup() {
   // Retour à la page d'accueil.
