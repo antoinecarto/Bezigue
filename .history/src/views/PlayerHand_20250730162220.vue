@@ -24,10 +24,6 @@
     Patience, votre adversaire n'a pas encore pioché...
     <button @click="showNotYourTurn = false">OK</button>
   </div>
-  <div v-if="showMustDrawFirst" class="popup text-black dark:text-black">
-    Vous devez d’abord piocher avant de jouer.
-    <button @click="showMustDrawFirst = false">OK</button>
-  </div>
 </template>
 
 <script setup lang="ts">
@@ -42,13 +38,6 @@ const { myUid, hand, drawQueue, currentTurn } = storeToRefs(game);
 
 const showNotYourTurn = ref(false);
 const playing = ref(false);
-
-const showMustDrawFirst = ref(false);
-
-const mustDrawFirst = computed(() => {
-  if (!myUid.value) return false;
-  return drawQueue.value.includes(myUid.value); // Il doit piocher s'il est dans la drawQueue
-});
 
 const isMyTurn = computed(() => currentTurn.value === myUid.value);
 const isNotMyTurn = computed(() => {
@@ -112,11 +101,6 @@ function onCardDroppedBackToHand(evt: any) {
 async function onCardClick(code: string) {
   if (isNotMyTurn.value) {
     showNotYourTurn.value = true;
-    return;
-  }
-
-  if (mustDrawFirst.value) {
-    showMustDrawFirst.value = true;
     return;
   }
   if (playing.value) return;

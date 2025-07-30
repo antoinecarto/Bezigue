@@ -9,7 +9,7 @@
         v-for="msg in messages"
         :key="msg.id"
         :class="[
-          'rounded-xl px-3 py-1.5 max-w-[70%] break-words text-black dark:text-black',
+          'rounded-xl px-3 py-1.5 max-w-[70%] break-words',
           msg.uid === myUid
             ? 'self-end bg-primary/80 text-white'
             : 'self-start bg-muted',
@@ -56,7 +56,6 @@ import {
 } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import { useGameStore } from "@/stores/game";
-import { computed } from "vue";
 
 /*
  * Chat en temps réel pour une room Bézigue
@@ -70,7 +69,7 @@ const roomId = game.room?.id ?? "";
 const myUid = game.myUid;
 
 // joueur -> nom pour l'entête
-const playerNames = computed(() => game.room?.playerNames ?? {});
+const playerNames = game.room?.playerNames ?? {};
 
 interface MessageDoc {
   id: string;
@@ -99,9 +98,7 @@ onMounted(() => {
   onSnapshot(q, (snap) => {
     messages.value = snap.docs.map((d) => ({
       id: d.id,
-      uid: d.data().senderId,
-      text: d.data().text,
-      createdAt: d.data().createdAt,
+      ...(d.data() as Omit<MessageDoc, "id">),
     }));
   });
 });

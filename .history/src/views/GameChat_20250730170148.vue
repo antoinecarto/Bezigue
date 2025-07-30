@@ -71,6 +71,9 @@ const myUid = game.myUid;
 
 // joueur -> nom pour l'entête
 const playerNames = computed(() => game.room?.playerNames ?? {});
+watch(playerNames, (val) => {
+  console.log("playerNames :", val);
+});
 
 interface MessageDoc {
   id: string;
@@ -99,9 +102,7 @@ onMounted(() => {
   onSnapshot(q, (snap) => {
     messages.value = snap.docs.map((d) => ({
       id: d.id,
-      uid: d.data().senderId,
-      text: d.data().text,
-      createdAt: d.data().createdAt,
+      ...(d.data() as Omit<MessageDoc, "id">),
     }));
   });
 });

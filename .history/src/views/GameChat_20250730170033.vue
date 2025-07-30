@@ -19,7 +19,7 @@
           v-if="msg.uid !== myUid"
           class="text-xs font-semibold mb-0.5 text-gray-700"
         >
-          {{ playerNames[msg.uid] ?? "???" }}
+          {{ playerNames[msg.id] ?? "???" }}
         </p>
         <p>{{ msg.text }}</p>
       </div>
@@ -99,9 +99,7 @@ onMounted(() => {
   onSnapshot(q, (snap) => {
     messages.value = snap.docs.map((d) => ({
       id: d.id,
-      uid: d.data().senderId,
-      text: d.data().text,
-      createdAt: d.data().createdAt,
+      ...(d.data() as Omit<MessageDoc, "id">),
     }));
   });
 });

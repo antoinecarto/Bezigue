@@ -71,6 +71,17 @@ const myUid = game.myUid;
 
 // joueur -> nom pour l'entête
 const playerNames = computed(() => game.room?.playerNames ?? {});
+watch(
+  () => game.room,
+  (newVal) => {
+    console.log("game.room changed:", newVal);
+    console.log("playerNames updated:", newVal?.playerNames);
+  },
+  { immediate: true }
+);
+
+console.log("game.room:", game.room);
+console.log("playerNames initial:", game.room?.playerNames);
 
 interface MessageDoc {
   id: string;
@@ -99,9 +110,7 @@ onMounted(() => {
   onSnapshot(q, (snap) => {
     messages.value = snap.docs.map((d) => ({
       id: d.id,
-      uid: d.data().senderId,
-      text: d.data().text,
-      createdAt: d.data().createdAt,
+      ...(d.data() as Omit<MessageDoc, "id">),
     }));
   });
 });

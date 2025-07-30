@@ -99,9 +99,7 @@ onMounted(() => {
   onSnapshot(q, (snap) => {
     messages.value = snap.docs.map((d) => ({
       id: d.id,
-      uid: d.data().senderId,
-      text: d.data().text,
-      createdAt: d.data().createdAt,
+      ...(d.data() as Omit<MessageDoc, "id">),
     }));
   });
 });
@@ -109,7 +107,7 @@ onMounted(() => {
 async function sendMessage() {
   if (!draft.value.trim() || !roomId || !myUid) return;
   await addDoc(collection(db, "rooms", roomId, "messages"), {
-    senderId: myUid,
+    id: myUid,
     text: draft.value.trim(),
     createdAt: serverTimestamp(),
   });

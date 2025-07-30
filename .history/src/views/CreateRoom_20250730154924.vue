@@ -1,37 +1,30 @@
 <template>
-  <div class="p-4 max-w-xl mx-auto">
-    <!-- Titre -->
-    <h1 class="text-3xl font-bold mb-6 text-center">Bézigue</h1>
+  <div><h1>Bézigue</h1></div>
+  <div class="space-y-4">
+    <!-- Bouton création -->
+    <button
+      class="px-4 py-2 rounded bg-indigo-600 text-white disabled:opacity-40"
+      @click="createRoom"
+      :disabled="loading"
+    >
+      {{ loading ? "Création…" : "Créer une salle" }}
+    </button>
 
-    <div class="space-y-4">
-      <!-- Bouton création -->
-      <button
-        class="w-full sm:w-auto px-4 py-2 rounded bg-indigo-600 text-white disabled:opacity-40"
-        @click="createRoom"
-        :disabled="loading"
-      >
-        {{ loading ? "Création…" : "Créer une salle" }}
-      </button>
-
-      <!-- Affichage de l'ID créé -->
-      <p v-if="roomId" class="text-center">
-        ID de la salle&nbsp;:
-        <code class="bg-gray-100 px-2 py-1 rounded">{{ roomId }}</code>
-      </p>
-    </div>
-
-    <!-- Choix 1 000 / 2 000 -->
-    <div class="mt-6">
-      <label class="block mb-2 font-semibold">Partie en&nbsp;:</label>
-      <select v-model="targetScore" class="border p-2 rounded w-full sm:w-40">
-        <option :value="1000">1 000&nbsp;pts</option>
-        <option :value="2000">2 000&nbsp;pts</option>
-      </select>
-    </div>
-
-    <!-- ─── Modale Nom Joueur ────────────────── -->
-    <NameModal v-if="showNameModal" @confirm="confirmName" />
+    <!-- Affichage de l'ID créé -->
+    <p v-if="roomId">
+      ID de la salle&nbsp;: <code>{{ roomId }}</code>
+    </p>
   </div>
+
+  <!-- Choix 1 000 / 2 000 -->
+  <label class="block mt-6 mb-2 font-semibold">Partie en&nbsp;:</label>
+  <select v-model="targetScore" class="border p-2 rounded w-40">
+    <option :value="1000">1 000&nbsp;pts</option>
+    <option :value="2000">2 000&nbsp;pts</option>
+  </select>
+
+  <!-- ─── Modale Nom Joueur ────────────────── -->
+  <NameModal v-if="showNameModal" @confirm="confirmName" />
 </template>
 
 <script setup lang="ts">

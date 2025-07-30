@@ -1,5 +1,5 @@
 <template>
-  <div class="p-4 max-w-xl mx-auto">
+  <div class="p-4 max-w-xl mx-auto text-black dark:text-black">
     <!-- Titre -->
     <h1 class="text-3xl font-bold mb-6 text-center">Bézigue</h1>
 

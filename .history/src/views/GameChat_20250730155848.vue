@@ -9,7 +9,7 @@
         v-for="msg in messages"
         :key="msg.id"
         :class="[
-          'rounded-xl px-3 py-1.5 max-w-[70%] break-words text-black dark:text-black',
+          'rounded-xl px-3 py-1.5 max-w-[70%] break-words',
           msg.uid === myUid
             ? 'self-end bg-primary/80 text-white'
             : 'self-start bg-muted',
@@ -99,9 +99,7 @@ onMounted(() => {
   onSnapshot(q, (snap) => {
     messages.value = snap.docs.map((d) => ({
       id: d.id,
-      uid: d.data().senderId,
-      text: d.data().text,
-      createdAt: d.data().createdAt,
+      ...(d.data() as Omit<MessageDoc, "id">),
     }));
   });
 });

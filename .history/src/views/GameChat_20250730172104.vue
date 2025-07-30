@@ -99,7 +99,7 @@ onMounted(() => {
   onSnapshot(q, (snap) => {
     messages.value = snap.docs.map((d) => ({
       id: d.id,
-      uid: d.data().senderId,
+      uid: d.data().senderId, // ✅ correspond à ce que tu écris dans Firestore
       text: d.data().text,
       createdAt: d.data().createdAt,
     }));
