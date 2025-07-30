@@ -11,9 +11,8 @@ const props = defineProps<{
   isEqual: boolean | null;
 }>();
 const emit = defineEmits(["close"]);
-
-const deOuD = (winner: string): string =>
-  /^[aeiouyàâäéèëêïîôöùûüh]/i.test(winner.trim()) ? "d'" : "de ";
+const deOuD = (name: string): string =>
+  /^[aeiouyàâäéèëêïîôöùûüh]/i.test(name.trim()) ? "d'" : "de ";
 
 function close() {
   emit("close");
@@ -40,7 +39,7 @@ function close() {
 
       <template v-else>
         <p class="mb-2">
-          🎉 Victoire {{ deOuD }} <strong>{{ props.winner }}</strong> !
+          🎉 Victoire {{ deOud }} <strong>{{ props.winner }}</strong> !
         </p>
         <p>
           <strong>{{ props.winner }}</strong> : {{ props.winnerScore }} pts

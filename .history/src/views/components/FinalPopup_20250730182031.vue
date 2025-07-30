@@ -12,8 +12,8 @@ const props = defineProps<{
 }>();
 const emit = defineEmits(["close"]);
 
-const deOuD = (winner: string): string =>
-  /^[aeiouyàâäéèëêïîôöùûüh]/i.test(winner.trim()) ? "d'" : "de ";
+const deOuD = (name: string): string =>
+  /^[aeiouyàâäéèëêïîôöùûüh]/i.test(name.trim()) ? "d'" : "de ";
 
 function close() {
   emit("close");

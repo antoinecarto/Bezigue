@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { defineProps, defineEmits } from "vue";
+import { useGameStore } from "@/stores/game";
+import { storeToRefs } from "pinia"; // ← ①
 
 /* ① — les refs du store --------------------------------------------- */
+const game = useGameStore();
+const { deOud } = storeToRefs(game); // <- myUid et room sont VRAIS refs
 
 const props = defineProps<{
   winner: string | null;
@@ -11,9 +15,6 @@ const props = defineProps<{
   isEqual: boolean | null;
 }>();
 const emit = defineEmits(["close"]);
-
-const deOuD = (winner: string): string =>
-  /^[aeiouyàâäéèëêïîôöùûüh]/i.test(winner.trim()) ? "d'" : "de ";
 
 function close() {
   emit("close");
@@ -40,7 +41,7 @@ function close() {
 
       <template v-else>
         <p class="mb-2">
-          🎉 Victoire {{ deOuD }} <strong>{{ props.winner }}</strong> !
+          🎉 Victoire de <strong>{{ props.winner }}</strong> !
         </p>
         <p>
           <strong>{{ props.winner }}</strong> : {{ props.winnerScore }} pts

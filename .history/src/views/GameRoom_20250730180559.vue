@@ -80,8 +80,6 @@ const loserScore = computed<number | null>(() =>
   score1 < score2 ? score1 : score2
 );
 
-const isEqual = computed(() => score1 === score2);
-
 /* ⑥ — gestion du cycle de vie -------------------------------------- */
 let unsubscribeRoom: Unsubscribe | null = null;
 

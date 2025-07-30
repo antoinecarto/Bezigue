@@ -55,30 +55,24 @@ const mainOpponentLabel = computed(() =>
     : ""
 );
 
-const scores = game.room?.scores ?? {};
-const names = game.room?.playerNames ?? {};
+const scores = game.room?.scores;
+const names = game.room?.playerNames;
 
-const [uid1, uid2] = Object.keys(scores);
+const [uid1, uid2] = Object.keys(scores ?? {});
 const score1 = scores?.[uid1] ?? 0;
 const score2 = scores?.[uid2] ?? 0;
 
-const winnerName = computed<string | null>(() => {
-  if (!names[uid1] || !names[uid2]) return null;
-  return score1 >= score2 ? names[uid1] ?? null : names[uid2] ?? null;
-});
-
-const loserName = computed<string | null>(() => {
-  if (!names[uid1] || !names[uid2]) return null;
-  return score1 < score2 ? names[uid1] ?? null : names[uid2] ?? null;
-});
-
-const winnerScore = computed<number | null>(() =>
-  score1 >= score2 ? score1 : score2
+const winnerName = computed(() =>
+  score1 >= score2 ? names?.[uid1] : names?.[uid2]
 );
 
-const loserScore = computed<number | null>(() =>
-  score1 < score2 ? score1 : score2
+const loserName = computed(() =>
+  score1 < score2 ? names?.[uid1] : names?.[uid2]
 );
+
+const winnerScore = computed(() => (score1 >= score2 ? score1 : score2));
+
+const loserScore = computed(() => (score1 < score2 ? score1 : score2));
 
 const isEqual = computed(() => score1 === score2);
 
