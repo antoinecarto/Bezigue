@@ -42,9 +42,9 @@ import {
   getDoc,
   updateDoc,
   onSnapshot,
-  type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/services/firebase";
+import { type Unsubscribe } from "firebase/firestore";
 
 const props = defineProps<{
   roomId: string; // Maintenant obligatoire
@@ -156,11 +156,9 @@ async function startVoiceChat() {
 
     // Écouter les ICE candidates distants
     setupCandidatesListener();
-  } catch (e: unknown) {
-    const errorMessage =
-      e instanceof Error ? e.message : "Erreur lors de la connexion vocale.";
-    error.value = errorMessage;
-    emit("error", errorMessage);
+  } catch (e: any) {
+    error.value = e.message || "Erreur lors de la connexion vocale.";
+    emit("error", error.value);
     await cleanup();
   } finally {
     connecting.value = false;

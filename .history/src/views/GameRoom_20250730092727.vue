@@ -141,7 +141,7 @@ function onVoiceDisconnected() {
   console.log("Voice chat déconnecté");
 }
 
-function onVoiceError(message: string) {
+function onVoiceError(message) {
   console.error("Erreur voice chat:", message);
 }
 </script>
