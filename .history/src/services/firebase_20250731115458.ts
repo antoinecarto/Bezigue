@@ -20,7 +20,7 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 
 // Connexion anonyme
-const waitForAuth = new Promise((resolve, _unused) => {
+const waitForAuth = new Promise((resolve, reject) => {
   onAuthStateChanged(auth, (user) => {
     if (user) {
       console.log("Utilisateur connecté :", user.uid);

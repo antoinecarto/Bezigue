@@ -53,7 +53,7 @@ router.beforeEach((to, _unused, next) => {
     const isAuthenticated = auth.currentUser;
 
     if (requiresAuth && !isAuthenticated) {
-      next({ name: "LoginForm" });
+      next({ name: "Login" });
     } else {
       next();
     }

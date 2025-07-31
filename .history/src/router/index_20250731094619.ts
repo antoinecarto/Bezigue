@@ -2,8 +2,8 @@ import { createRouter, createWebHistory } from "vue-router";
 import Home from "@/views/Home.vue";
 import CreateRoom from "@/views/CreateRoom.vue";
 import JoinRoom from "@/views/JoinRoom.vue";
-import LoginForm from "@/views/LoginForm.vue";
 import GameRoom from "@/views/GameRoom.vue";
+import LoginForm from "@/views/LoginForm.vue";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 
 const routes = [
@@ -53,7 +53,7 @@ router.beforeEach((to, _unused, next) => {
     const isAuthenticated = auth.currentUser;
 
     if (requiresAuth && !isAuthenticated) {
-      next({ name: "LoginForm" });
+      next({ name: "Login" });
     } else {
       next();
     }

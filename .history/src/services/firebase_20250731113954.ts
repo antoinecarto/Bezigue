@@ -1,6 +1,6 @@
 // src/firebase.ts
 import { initializeApp } from "@firebase/app";
-import { getAuth, onAuthStateChanged } from "@firebase/auth";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "@firebase/auth";
 import { getFirestore } from "@firebase/firestore";
 
 // Configuration Firebase
@@ -20,7 +20,7 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 
 // Connexion anonyme
-const waitForAuth = new Promise((resolve, _unused) => {
+const waitForAuth = new Promise((resolve, reject) => {
   onAuthStateChanged(auth, (user) => {
     if (user) {
       console.log("Utilisateur connecté :", user.uid);
