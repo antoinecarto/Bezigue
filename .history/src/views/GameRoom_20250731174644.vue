@@ -240,7 +240,7 @@ function onVoiceError(message: string) {
   </Transition>
   <FinalPopup
     v-if="game.room?.phase === 'final' && winnerName"
-    :winner="winnerName ?? 'Joueur inconnu'"
+    :winner="winnerName"
     :winnerScore="winnerScore"
     :loser="isEqual ? names?.[uid2] : loserName"
     :loserScore="loserScore"

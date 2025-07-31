@@ -62,13 +62,9 @@ const [uid1, uid2] = Object.keys(scores);
 const score1 = scores?.[uid1] ?? 0;
 const score2 = scores?.[uid2] ?? 0;
 
-const winnerName = computed(() => {
-  if (!scores || Object.keys(scores).length < 2) return null;
-
-  const entries = Object.entries(scores) as [string, number][];
-  const sorted = entries.sort((a, b) => b[1] - a[1]);
-  const [topUid] = sorted[0];
-  return names[topUid] ?? null;
+const winnerName = computed<string | null>(() => {
+  if (!names[uid1] || !names[uid2]) return null;
+  return score1 >= score2 ? names[uid1] ?? null : names[uid2] ?? null;
 });
 
 const loserName = computed<string | null>(() => {
@@ -240,7 +236,7 @@ function onVoiceError(message: string) {
   </Transition>
   <FinalPopup
     v-if="game.room?.phase === 'final' && winnerName"
-    :winner="winnerName ?? 'Joueur inconnu'"
+    :winner="winnerName"
     :winnerScore="winnerScore"
     :loser="isEqual ? names?.[uid2] : loserName"
     :loserScore="loserScore"
