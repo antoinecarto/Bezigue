@@ -51,17 +51,7 @@ const mustDrawFirst = computed(() => {
   const hasAnyScore = Object.values(room.value.scores || {}).some(
     (score) => score > 0
   );
-  const hasTrickInProgress = (room.value.trick?.cards?.length || 0) > 0;
-
   const currentTrick = room.value.trick?.cards || [];
-
-  console.log("🎯 Debug mustDrawFirst:", {
-    hasAnyScore,
-    hasTrickInProgress,
-    drawQueue: drawQueue.value,
-    myUid: myUid.value,
-    scores: room.value.scores,
-  });
 
   // Cas 1: Aucun score marqué = premier trick de la partie
   if (!hasAnyScore) {

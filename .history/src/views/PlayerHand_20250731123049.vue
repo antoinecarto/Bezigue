@@ -44,39 +44,22 @@ const showNotYourTurn = ref(false);
 const playing = ref(false);
 const showMustDrawFirst = ref(false);
 
-// ✅ Solution corrigée : distinguer premier trick vs tricks suivants
+// ✅ Solution la plus simple : vérifier si c'est vraiment le début
 const mustDrawFirst = computed(() => {
   if (!myUid.value || !isMyTurn.value || !room.value) return false;
 
+  // Si aucun score n'a été marqué ET aucun trick en cours = début de partie
   const hasAnyScore = Object.values(room.value.scores || {}).some(
     (score) => score > 0
   );
   const hasTrickInProgress = (room.value.trick?.cards?.length || 0) > 0;
 
-  const currentTrick = room.value.trick?.cards || [];
-
-  console.log("🎯 Debug mustDrawFirst:", {
-    hasAnyScore,
-    hasTrickInProgress,
-    drawQueue: drawQueue.value,
-    myUid: myUid.value,
-    scores: room.value.scores,
-  });
-
-  // Cas 1: Aucun score marqué = premier trick de la partie
-  if (!hasAnyScore) {
-    // Dans le premier trick, personne ne pioche (ni J1 ni J2)
+  // Au tout début de la partie, pas de piochage requis
+  if (!hasAnyScore && !hasTrickInProgress) {
     return false;
   }
 
-  // Cas 2: Après le premier trick, vérifier si dans drawQueue
-  // (mais pas pendant un trick en cours)
-  if (currentTrick.length > 0) {
-    // Trick en cours, ne pas demander de piocher
-    return false;
-  }
-
-  // Cas 3: Trick fini, vérifier drawQueue
+  // Sinon, vérifier la drawQueue
   return drawQueue.value.includes(myUid.value);
 });
 

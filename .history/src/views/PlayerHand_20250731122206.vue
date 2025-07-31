@@ -38,45 +38,20 @@ import { storeToRefs } from "pinia";
 import PlayingCard from "@/views/components/PlayingCard.vue";
 
 const game = useGameStore();
-const { myUid, hand, drawQueue, currentTurn, room } = storeToRefs(game);
+const { myUid, hand, drawQueue, currentTurn, pliTurn } = storeToRefs(game);
 
 const showNotYourTurn = ref(false);
 const playing = ref(false);
 const showMustDrawFirst = ref(false);
 
-// ✅ Solution corrigée : distinguer premier trick vs tricks suivants
+// ✅ Solution simple avec compteur de plis
 const mustDrawFirst = computed(() => {
-  if (!myUid.value || !isMyTurn.value || !room.value) return false;
+  if (!myUid.value || !isMyTurn.value) return false;
 
-  const hasAnyScore = Object.values(room.value.scores || {}).some(
-    (score) => score > 0
-  );
-  const hasTrickInProgress = (room.value.trick?.cards?.length || 0) > 0;
+  // Au premier tour (pliTurn === 0), pas besoin de piocher
+  if (pliTurn.value === 0) return false;
 
-  const currentTrick = room.value.trick?.cards || [];
-
-  console.log("🎯 Debug mustDrawFirst:", {
-    hasAnyScore,
-    hasTrickInProgress,
-    drawQueue: drawQueue.value,
-    myUid: myUid.value,
-    scores: room.value.scores,
-  });
-
-  // Cas 1: Aucun score marqué = premier trick de la partie
-  if (!hasAnyScore) {
-    // Dans le premier trick, personne ne pioche (ni J1 ni J2)
-    return false;
-  }
-
-  // Cas 2: Après le premier trick, vérifier si dans drawQueue
-  // (mais pas pendant un trick en cours)
-  if (currentTrick.length > 0) {
-    // Trick en cours, ne pas demander de piocher
-    return false;
-  }
-
-  // Cas 3: Trick fini, vérifier drawQueue
+  // Après le premier tour, vérifier si le joueur doit piocher
   return drawQueue.value.includes(myUid.value);
 });
 

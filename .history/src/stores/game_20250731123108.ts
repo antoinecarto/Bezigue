@@ -156,6 +156,14 @@ export const useGameStore = defineStore("game", () => {
   /* ──────────── getters ──────────── */
   const getExchange = computed(() => exchangeTable.value);
   const getScore = (uid: string): number => scores.value[uid] ?? 0;
+  // Store game
+  const pliTurn = ref(0); // Commence à 0
+
+  // Incrémenté à chaque changement de joueur ou fin de tour
+  function nextTurn() {
+    pliTurn.value++;
+    // ... reste de la logique
+  }
 
   /* ──────────── watchers ──────────── */
   watchEffect(() => {
