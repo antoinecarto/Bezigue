@@ -317,6 +317,7 @@ function onVoiceError(message: string) {
       >
         Votre main
       </div>
+      <div>{{ game.room?.phase }}</div>
     </div>
 
     <!-- chat -->

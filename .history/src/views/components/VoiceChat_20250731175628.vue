@@ -207,55 +207,44 @@ async function handleCaller() {
     connectionStatus.value = "Création de l'offre...";
     console.log("Caller: Création de l'offre");
 
-    console.log("Caller: Création de l'offre pour room:", props.roomId);
     const offer = await peerConnection!.createOffer();
     await peerConnection!.setLocalDescription(offer);
 
     const roomRef = doc(db, "rooms", props.roomId.trim());
 
-    console.log("Caller: Sauvegarde de l'offre...");
-    // ✅ Ajouter les données vocales à la room existante sans écraser
-    await setDoc(
-      roomRef,
-      {
-        voiceChat: {
-          offer: {
-            type: offer.type,
-            sdp: offer.sdp,
-          },
-          createdAt: new Date(),
-          status: "waiting",
-          caller: true,
-        },
+    // ✅ Utiliser setDoc au lieu d'updateDoc pour créer le document
+    await setDoc(roomRef, {
+      offer: {
+        type: offer.type,
+        sdp: offer.sdp,
       },
-      { merge: true }
-    ); // IMPORTANT: merge pour ne pas écraser les données existantes
+      createdAt: new Date(),
+      status: "waiting",
+      caller: true,
+    });
 
-    console.log("Caller: Offre créée et sauvée, room:", props.roomId);
+    console.log("Caller: Offre créée et sauvée");
     connectionStatus.value = "En attente de réponse...";
 
-    // Écouter la réponse avec timeout plus long
+    // Écouter la réponse avec timeout
     const timeoutId = setTimeout(() => {
       if (!isConnected.value) {
-        error.value = "Timeout: Aucune réponse reçue après 60 secondes";
+        error.value = "Timeout: Aucune réponse reçue après 30 secondes";
         cleanup();
       }
-    }, 60000);
+    }, 30000);
 
     roomListener = onSnapshot(roomRef, async (snapshot) => {
       const data = snapshot.data();
       console.log("Caller: Données room mises à jour:", data);
 
-      if (
-        data?.voiceChat?.answer &&
-        !peerConnection?.currentRemoteDescription
-      ) {
+      if (data?.answer && !peerConnection?.currentRemoteDescription) {
         try {
           clearTimeout(timeoutId);
           connectionStatus.value = "Réponse reçue, finalisation...";
           console.log("Caller: Réponse reçue");
 
-          const answerDesc = new RTCSessionDescription(data.voiceChat.answer);
+          const answerDesc = new RTCSessionDescription(data.answer);
           await peerConnection!.setRemoteDescription(answerDesc);
           console.log("Caller: Remote description définie");
         } catch (e) {
@@ -273,24 +262,22 @@ async function handleCaller() {
 async function handleJoiner() {
   try {
     connectionStatus.value = "Récupération de l'offre...";
-    console.log("Joiner: Récupération de l'offre pour room:", props.roomId);
+    console.log("Joiner: Récupération de l'offre");
 
     const roomRef = doc(db, "rooms", props.roomId.trim());
 
-    // Attendre que l'offre soit disponible avec plus de tentatives
+    // Attendre que l'offre soit disponible
     let retries = 0;
-    const maxRetries = 20;
+    const maxRetries = 10;
 
     while (retries < maxRetries) {
       const roomSnapshot = await getDoc(roomRef);
       const roomData = roomSnapshot.data();
 
-      console.log(`Joiner: Tentative ${retries + 1}/${maxRetries}`, roomData);
-
-      if (roomSnapshot.exists() && roomData?.voiceChat?.offer) {
+      if (roomSnapshot.exists() && roomData?.offer) {
         console.log("Joiner: Offre trouvée");
 
-        const offerDesc = new RTCSessionDescription(roomData.voiceChat.offer);
+        const offerDesc = new RTCSessionDescription(roomData.offer);
         await peerConnection!.setRemoteDescription(offerDesc);
         console.log("Joiner: Remote description définie");
 
@@ -300,12 +287,12 @@ async function handleJoiner() {
         console.log("Joiner: Réponse créée");
 
         await updateDoc(roomRef, {
-          "voiceChat.answer": {
+          answer: {
             type: answer.type,
             sdp: answer.sdp,
           },
-          "voiceChat.status": "connected",
-          "voiceChat.answeredAt": new Date(),
+          status: "connected",
+          answeredAt: new Date(),
         });
 
         console.log("Joiner: Réponse sauvée");
@@ -314,10 +301,8 @@ async function handleJoiner() {
       }
 
       retries++;
-      console.log(
-        `Joiner: Tentative ${retries}/${maxRetries} - Attente de l'offre...`
-      );
-      await new Promise((resolve) => setTimeout(resolve, 2000)); // Attendre 2 secondes au lieu de 1
+      console.log(`Joiner: Tentative ${retries}/${maxRetries}`);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
     throw new Error("La salle vocale n'existe pas ou aucune offre trouvée");

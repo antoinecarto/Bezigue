@@ -1,8 +1,8 @@
 <!--
   GameRoom.vue – orchestrateur minimal (architecture Pinia + vues dédiées)
   =========================================================================
-  • Ne contient plus de logique Firestore / DnD / rules.
-  • Se contente dInitialiser le store `game` (joinRoom) et d'afficher
+  • Ne contient plus de logique Firestore / DnD / rules.
+  • Se contente dInitialiser le store `game` (joinRoom) et d’afficher
     les sous‑vues : MeldZone, PlayerHand, TrickZone (à ajouter si besoin).
 -->
 <script setup lang="ts">
@@ -22,6 +22,7 @@ import VoiceChat from "@/views/components/VoiceChat.vue";
 import Exchange7Dialog from "@/views/components/Exchange7Dialog.vue";
 import FinalPopup from "@/views/components/FinalPopup.vue";
 
+const isHost = ref(true); // ou false selon le joueur
 const route = useRoute();
 const game = useGameStore();
 /* ① — les refs du store --------------------------------------------- */
@@ -29,32 +30,19 @@ const { myUid, room, loading, melds } = storeToRefs(game); // <- myUid et room s
 
 const roomId = computed(() => room.value?.id ?? "");
 
-// ✅ Déterminer dynamiquement qui est l'hôte (créateur de la room de jeu)
-const isHost = computed(() => {
-  if (!room.value || !myUid.value) return false;
-
-  // Option 2: Le premier joueur dans la liste est considéré comme l'hôte
-  if (room.value.players && room.value.players.length > 0) {
-    return room.value.players[0] === myUid.value;
-  }
-
-  // Option 3: Fallback - personne n'est hôte si on ne peut pas déterminer
-  return false;
-});
-
-/* ② — uid de l'adversaire ------------------------------------------- */
+/* ② — uid de l’adversaire ------------------------------------------- */
 const opponentUid = computed(() => {
   if (!room.value || !myUid.value) return "";
   return room.value.players.find((u) => u !== myUid.value) ?? "";
 });
 
-/* ③ — nom de l'adversaire (optionnel) ------------------------------- */
+/* ③ — nom de l’adversaire (optionnel) ------------------------------- */
 const opponentName = computed(() => {
   if (!room.value || !opponentUid.value) return "Adversaire";
   return room.value.playerNames[opponentUid.value] ?? "Adversaire";
 });
 
-/* ④ — tour de l'adversaire ? ---------------------------------------- */
+/* ④ — tour de l’adversaire ? ---------------------------------------- */
 const isOpponentTurn = computed(() => {
   if (!room.value || !room.value.currentTurn) return false;
   return room.value.currentTurn === opponentUid.value;
@@ -131,7 +119,7 @@ watch(
 
     if (!winner) return;
     if (winner === myUid.value) {
-      console.log("✅ C'est moi le gagnant du pli !");
+      console.log("✅ C’est moi le gagnant du pli !");
       game.checkExchangePossibility();
     }
   }
@@ -228,8 +216,8 @@ function updateMeldRemove(uid: string, card: string) {
   // Appelle ton store pour retirer la carte dans Firestore
   game.removeFromMeld(uid, card).catch(console.error);
 }
-
 // VoiceChat
+
 function onVoiceConnected() {
   console.log("Voice chat connecté");
 }
@@ -317,23 +305,14 @@ function onVoiceError(message: string) {
       >
         Votre main
       </div>
+      <div>{{ game.room?.phase }}</div>
     </div>
 
     <!-- chat -->
     <GameChat class="mt-4" />
   </div>
-
-  <!-- ✅ Voice Chat avec DEBUG temporaire -->
-  <div class="mt-4 p-4 border border-gray-300 rounded">
+  <div>
     <h2>Room #{{ roomId }}</h2>
-
-    <!-- DEBUG temporaire - à supprimer une fois que ça marche -->
-    <div class="text-sm text-gray-600 mb-2">
-      DEBUG: isHost={{ isHost }}, myUid={{ myUid }}, premier joueur={{
-        room?.players?.[0]
-      }}
-    </div>
-
     <VoiceChat
       :roomId="roomId"
       :isCaller="isHost"
