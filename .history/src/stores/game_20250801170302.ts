@@ -186,17 +186,15 @@ export const useGameStore = defineStore("game", () => {
     if (!trick || trick.cards?.length !== 2) return;
     if (playing.value) return;
 
-    // ✅ Permettre aux 2 joueurs de déclencher (au lieu de seulement le dernier)
-    const isPlayerInTrick = trick.players?.includes(myUid.value);
-    if (!isPlayerInTrick) return;
-
-    console.log("🚀 Tentative résolution pli par", myUid.value);
+    const lastToPlay = trick.players?.[1];
+    if (lastToPlay !== myUid.value) return;
 
     playing.value = true;
     resolveTrickOnServer().finally(() => {
       playing.value = false;
     });
   });
+
   /* ─────────── helpers ─────────── */
   function _subscribeRoom(roomId: string) {
     return onSnapshot(doc(db, "rooms", roomId), (snap) => {

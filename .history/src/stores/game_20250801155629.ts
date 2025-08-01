@@ -186,17 +186,15 @@ export const useGameStore = defineStore("game", () => {
     if (!trick || trick.cards?.length !== 2) return;
     if (playing.value) return;
 
-    // ✅ Permettre aux 2 joueurs de déclencher (au lieu de seulement le dernier)
-    const isPlayerInTrick = trick.players?.includes(myUid.value);
-    if (!isPlayerInTrick) return;
-
-    console.log("🚀 Tentative résolution pli par", myUid.value);
+    const lastToPlay = trick.players?.[1];
+    if (lastToPlay !== myUid.value) return;
 
     playing.value = true;
     resolveTrickOnServer().finally(() => {
       playing.value = false;
     });
   });
+
   /* ─────────── helpers ─────────── */
   function _subscribeRoom(roomId: string) {
     return onSnapshot(doc(db, "rooms", roomId), (snap) => {
@@ -487,7 +485,7 @@ export const useGameStore = defineStore("game", () => {
     }
   }
 
-  // ✅ RETOUR À resolveTrickOnServer SANS bonus
+  // ✅ SOLUTION 1: Intégrer le bonus dans resolveTrickOnServer
   async function resolveTrickOnServer(): Promise<void> {
     if (!room.value) return;
 
@@ -524,18 +522,34 @@ export const useGameStore = defineStore("game", () => {
       }
 
       const loser = players.find((p) => p !== winner)!;
+      const lastTrickBonusWinner = ref<string | null>(null);
 
-      // 🎯 SEULEMENT LES POINTS DU PLI (comme avant)
-      const points = cards.reduce(
+      // 🎯 CALCUL DES POINTS DU PLI
+      const trickPoints = cards.reduce(
         (acc, c) => (["10", "A"].includes(splitCode(c).rank) ? acc + 10 : acc),
         0
       );
-      console.log(
-        "💰 Points du pli calculés:",
-        points,
-        "pour les cartes:",
-        cards
-      );
+
+      // 🎯 VÉRIFICATION SI C'EST LE DERNIER PLI
+      const allHandsEmpty = d.players.every((uid) => {
+        const handData = d.hands?.[uid];
+        return Array.isArray(handData) ? handData.length === 0 : true;
+      });
+
+      const allMeldsEmpty = d.players.every((uid) => {
+        const meldData = d.melds?.[uid];
+        return Array.isArray(meldData) ? meldData.length === 0 : true;
+      });
+
+      const isLastTrick = allHandsEmpty && allMeldsEmpty;
+
+      // 🎯 CALCUL TOTAL DES POINTS (pli + bonus dernier pli si applicable)
+      let totalPoints = trickPoints;
+      if (isLastTrick && !lastTrickBonusWinner.value) {
+        totalPoints += 10; // Bonus dernier pli
+        lastTrickBonusWinner.value = winner; // Marquer comme attribué
+        console.log("🏆 Bonus dernier pli (+10) intégré pour", winner);
+      }
 
       const update: Record<string, any> = {
         trick: { cards: [], players: [], winner: winner },
@@ -544,14 +558,13 @@ export const useGameStore = defineStore("game", () => {
         drawQueue: [winner, loser],
       };
 
-      if (points) {
-        update[`scores.${winner}`] = (d.scores?.[winner] ?? 0) + points;
-        console.log(`💰 +${points} pts pour ${winner} (pli normal)`);
+      // 🎯 ATTRIBUTION DES POINTS TOTAUX
+      if (totalPoints > 0) {
+        update[`scores.${winner}`] = (d.scores?.[winner] ?? 0) + totalPoints;
         console.log(
-          "💰 Mise à jour score:",
-          winner,
-          "nouveau total:",
-          (d.scores?.[winner] ?? 0) + points
+          `💰 +${totalPoints} pts pour ${winner} (pli: ${trickPoints}, bonus: ${
+            totalPoints - trickPoints
+          })`
         );
       }
 
@@ -563,13 +576,6 @@ export const useGameStore = defineStore("game", () => {
       }
 
       tx.update(roomRef, update);
-      console.log("✅ Transaction terminée avec update:", update);
-
-      // ✅ Vérification hands selon RoomDoc
-      const allHandsEmpty = d.players.every((uid) => {
-        const handData = d.hands?.[uid];
-        return Array.isArray(handData) ? handData.length === 0 : true;
-      });
 
       return allHandsEmpty;
     }).then(async (allHandsEmpty) => {

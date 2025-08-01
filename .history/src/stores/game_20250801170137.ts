@@ -186,17 +186,15 @@ export const useGameStore = defineStore("game", () => {
     if (!trick || trick.cards?.length !== 2) return;
     if (playing.value) return;
 
-    // ✅ Permettre aux 2 joueurs de déclencher (au lieu de seulement le dernier)
-    const isPlayerInTrick = trick.players?.includes(myUid.value);
-    if (!isPlayerInTrick) return;
-
-    console.log("🚀 Tentative résolution pli par", myUid.value);
+    const lastToPlay = trick.players?.[1];
+    if (lastToPlay !== myUid.value) return;
 
     playing.value = true;
     resolveTrickOnServer().finally(() => {
       playing.value = false;
     });
   });
+
   /* ─────────── helpers ─────────── */
   function _subscribeRoom(roomId: string) {
     return onSnapshot(doc(db, "rooms", roomId), (snap) => {
@@ -547,12 +545,6 @@ export const useGameStore = defineStore("game", () => {
       if (points) {
         update[`scores.${winner}`] = (d.scores?.[winner] ?? 0) + points;
         console.log(`💰 +${points} pts pour ${winner} (pli normal)`);
-        console.log(
-          "💰 Mise à jour score:",
-          winner,
-          "nouveau total:",
-          (d.scores?.[winner] ?? 0) + points
-        );
       }
 
       if (d.deck.length === 0) {
@@ -563,7 +555,6 @@ export const useGameStore = defineStore("game", () => {
       }
 
       tx.update(roomRef, update);
-      console.log("✅ Transaction terminée avec update:", update);
 
       // ✅ Vérification hands selon RoomDoc
       const allHandsEmpty = d.players.every((uid) => {

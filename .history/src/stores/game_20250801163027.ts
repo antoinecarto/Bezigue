@@ -1,6 +1,6 @@
 // src/stores/game.ts
 import { defineStore } from "pinia";
-import { ref, computed, watchEffect } from "vue";
+import { ref, computed, watchEffect, watch } from "vue";
 import {
   doc,
   onSnapshot,
@@ -186,17 +186,15 @@ export const useGameStore = defineStore("game", () => {
     if (!trick || trick.cards?.length !== 2) return;
     if (playing.value) return;
 
-    // ✅ Permettre aux 2 joueurs de déclencher (au lieu de seulement le dernier)
-    const isPlayerInTrick = trick.players?.includes(myUid.value);
-    if (!isPlayerInTrick) return;
-
-    console.log("🚀 Tentative résolution pli par", myUid.value);
+    const lastToPlay = trick.players?.[1];
+    if (lastToPlay !== myUid.value) return;
 
     playing.value = true;
     resolveTrickOnServer().finally(() => {
       playing.value = false;
     });
   });
+
   /* ─────────── helpers ─────────── */
   function _subscribeRoom(roomId: string) {
     return onSnapshot(doc(db, "rooms", roomId), (snap) => {
@@ -487,6 +485,8 @@ export const useGameStore = defineStore("game", () => {
     }
   }
 
+  const lastTrickBonusWinner = ref<string | null>(null);
+
   // ✅ RETOUR À resolveTrickOnServer SANS bonus
   async function resolveTrickOnServer(): Promise<void> {
     if (!room.value) return;
@@ -530,12 +530,6 @@ export const useGameStore = defineStore("game", () => {
         (acc, c) => (["10", "A"].includes(splitCode(c).rank) ? acc + 10 : acc),
         0
       );
-      console.log(
-        "💰 Points du pli calculés:",
-        points,
-        "pour les cartes:",
-        cards
-      );
 
       const update: Record<string, any> = {
         trick: { cards: [], players: [], winner: winner },
@@ -547,12 +541,6 @@ export const useGameStore = defineStore("game", () => {
       if (points) {
         update[`scores.${winner}`] = (d.scores?.[winner] ?? 0) + points;
         console.log(`💰 +${points} pts pour ${winner} (pli normal)`);
-        console.log(
-          "💰 Mise à jour score:",
-          winner,
-          "nouveau total:",
-          (d.scores?.[winner] ?? 0) + points
-        );
       }
 
       if (d.deck.length === 0) {
@@ -563,7 +551,6 @@ export const useGameStore = defineStore("game", () => {
       }
 
       tx.update(roomRef, update);
-      console.log("✅ Transaction terminée avec update:", update);
 
       // ✅ Vérification hands selon RoomDoc
       const allHandsEmpty = d.players.every((uid) => {
@@ -577,6 +564,120 @@ export const useGameStore = defineStore("game", () => {
         await endMene(room.value!.id);
       }
     });
+  }
+
+  // 🔍 VERSION DEBUG - Logs ultra-détaillés
+  watch(
+    () => ({
+      winner: room.value?.trick?.winner,
+      hands: room.value?.hands,
+      melds: room.value?.melds,
+      trickCards: room.value?.trick?.cards?.length || 0,
+      phase: room.value?.phase,
+      deck: room.value?.deck?.length || 0,
+      scores: room.value?.scores,
+    }),
+    (newState, oldState) => {
+      console.log("============= WATCH TRIGGERED =============");
+      console.log("🎯 Winner:", newState.winner);
+      console.log("🎯 Trick cards count:", newState.trickCards);
+      console.log("🎯 Phase:", newState.phase);
+      console.log("🎯 Deck size:", newState.deck);
+      console.log("🎯 Scores AVANT:", newState.scores);
+
+      if (newState.hands) {
+        console.log("🎯 Hands état:");
+        Object.entries(newState.hands).forEach(([playerId, cards]) => {
+          console.log(`   ${playerId}: ${cards.length} cartes`, cards);
+        });
+      }
+
+      if (newState.melds) {
+        console.log("🎯 Melds état:");
+        Object.entries(newState.melds).forEach(([playerId, melds]) => {
+          console.log(`   ${playerId}: ${melds.length} melds`, melds);
+        });
+      }
+
+      if (!newState.winner || !newState.hands || !newState.melds) {
+        console.log("❌ Conditions manquantes, sortie");
+        return;
+      }
+
+      const hands = newState.hands as Record<string, string[]>;
+      const melds = newState.melds as Record<string, any[]>;
+
+      const allHandsEmpty = Object.values(hands).every((h) => h.length === 0);
+      const allMeldsEmpty = Object.values(melds).every((m) => m.length === 0);
+      const noTrickCards = newState.trickCards === 0;
+      const deckEmpty = newState.deck === 0;
+
+      console.log("🔍 Conditions vérification:");
+      console.log("   allHandsEmpty:", allHandsEmpty);
+      console.log("   allMeldsEmpty:", allMeldsEmpty);
+      console.log("   noTrickCards:", noTrickCards);
+      console.log("   deckEmpty:", deckEmpty);
+      console.log("   lastTrickBonusWinner.value:", lastTrickBonusWinner.value);
+
+      const isLastTrick =
+        allHandsEmpty && allMeldsEmpty && noTrickCards && deckEmpty;
+      console.log("🎯 isLastTrick:", isLastTrick);
+
+      if (isLastTrick && !lastTrickBonusWinner.value) {
+        console.log("🏆 ATTRIBUTION BONUS DERNIER PLI À", newState.winner);
+
+        const winnerId = newState.winner;
+        lastTrickBonusWinner.value = winnerId;
+
+        // Attribution avec logs détaillés
+        awardLastTrickBonusDebug(winnerId, newState.scores);
+      } else if (isLastTrick && lastTrickBonusWinner.value) {
+        console.log(
+          "⚠️ Dernier pli détecté mais bonus déjà attribué à:",
+          lastTrickBonusWinner.value
+        );
+      }
+
+      console.log("============= END WATCH =============");
+    },
+    { deep: true }
+  );
+
+  // Version debug de la fonction d'attribution
+  async function awardLastTrickBonusDebug(
+    winnerId: string,
+    currentScores: any
+  ) {
+    console.log("💰 DÉBUT awardLastTrickBonusDebug pour", winnerId);
+    console.log("💰 Scores actuels:", currentScores);
+
+    if (!room.value) {
+      console.error("❌ Room non disponible");
+      return;
+    }
+
+    try {
+      const roomRef = doc(db, "rooms", room.value.id);
+      const currentScore = currentScores?.[winnerId] || 0;
+      const newScore = currentScore + 10;
+
+      console.log("💰 Score actuel:", currentScore);
+      console.log("💰 Nouveau score:", newScore);
+
+      await updateDoc(roomRef, {
+        [`scores.${winnerId}`]: newScore,
+      });
+
+      console.log("✅ +10 pts bonus sauvegardés avec succès pour", winnerId);
+    } catch (error) {
+      console.error("❌ Erreur sauvegarde:", error);
+    }
+  }
+
+  // 🎯 FONCTION POUR RESET LE BONUS (à appeler au début d'une nouvelle mène)
+  function resetLastTrickBonus() {
+    console.log("🔄 Reset lastTrickBonusWinner");
+    lastTrickBonusWinner.value = null;
   }
 
   function checkExchangePossibility(): void {

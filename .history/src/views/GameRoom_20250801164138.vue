@@ -11,8 +11,6 @@ import { storeToRefs } from "pinia"; // ← ①
 import { useRoute } from "vue-router";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import type { Unsubscribe } from "firebase/firestore";
-import { doc, updateDoc } from "firebase/firestore";
-import { db } from "@/services/firebase";
 import { useGameStore } from "@/stores/game";
 import PlayerHand from "@/views/PlayerHand.vue";
 import MeldZone from "@/views/MeldZone.vue";
@@ -21,7 +19,7 @@ import GameChat from "./GameChat.vue";
 import VoiceChat from "@/views/components/VoiceChat.vue";
 import Exchange7Dialog from "@/views/components/Exchange7Dialog.vue";
 import FinalPopup from "@/views/components/FinalPopup.vue";
-
+import { doc, updateDoc } from "firebase/firestore";
 const route = useRoute();
 const game = useGameStore();
 /* ① — les refs du store --------------------------------------------- */
@@ -151,23 +149,9 @@ onMounted(() => {
 
 const showMene = ref(false);
 const meneMessage = ref("");
-
-watch(
-  () => room.value?.trick?.winner,
-  (winner) => {
-    console.log("🎯 watch trick.winner déclenché :", winner);
-
-    if (!winner) return;
-    if (winner === myUid.value) {
-      game.checkExchangePossibility();
-    }
-  }
-);
-
-// 🔧 TYPES et variables manquantes
 const lastTrickBonusWinner = ref<string | null>(null);
 
-// 🔧 WATCH corrigé avec types
+// 🔍 VERSION DEBUG - Logs ultra-détaillés
 watch(
   () => ({
     winner: room.value?.trick?.winner,
@@ -178,8 +162,7 @@ watch(
     deck: room.value?.deck?.length || 0,
     scores: room.value?.scores,
   }),
-  (newState) => {
-    // Suppression oldState non utilisé
+  (newState, oldState) => {
     console.log("============= WATCH TRIGGERED =============");
     console.log("🎯 Winner:", newState.winner);
     console.log("🎯 Trick cards count:", newState.trickCards);
@@ -190,18 +173,14 @@ watch(
     if (newState.hands) {
       console.log("🎯 Hands état:");
       Object.entries(newState.hands).forEach(([playerId, cards]) => {
-        // 🔧 Type assertion pour cards
-        const handCards = cards as string[];
-        console.log(`   ${playerId}: ${handCards.length} cartes`, handCards);
+        console.log(`   ${playerId}: ${cards.length} cartes`, cards);
       });
     }
 
     if (newState.melds) {
       console.log("🎯 Melds état:");
       Object.entries(newState.melds).forEach(([playerId, melds]) => {
-        // 🔧 Type assertion pour melds
-        const playerMelds = melds as any[];
-        console.log(`   ${playerId}: ${playerMelds.length} melds`, playerMelds);
+        console.log(`   ${playerId}: ${melds.length} melds`, melds);
       });
     }
 
@@ -213,12 +192,8 @@ watch(
     const hands = newState.hands as Record<string, string[]>;
     const melds = newState.melds as Record<string, any[]>;
 
-    const allHandsEmpty = Object.values(hands).every(
-      (h: string[]) => h.length === 0
-    );
-    const allMeldsEmpty = Object.values(melds).every(
-      (m: any[]) => m.length === 0
-    );
+    const allHandsEmpty = Object.values(hands).every((h) => h.length === 0);
+    const allMeldsEmpty = Object.values(melds).every((m) => m.length === 0);
     const noTrickCards = newState.trickCards === 0;
     const deckEmpty = newState.deck === 0;
 
@@ -253,7 +228,7 @@ watch(
   { deep: true }
 );
 
-// 🔧 Fonction d'attribution corrigée
+// Version debug de la fonction d'attribution
 async function awardLastTrickBonusDebug(winnerId: string, currentScores: any) {
   console.log("💰 DÉBUT awardLastTrickBonusDebug pour", winnerId);
   console.log("💰 Scores actuels:", currentScores);
@@ -281,14 +256,51 @@ async function awardLastTrickBonusDebug(winnerId: string, currentScores: any) {
   }
 }
 
-// 🔧 Fonction de reset (utilisée au début d'une nouvelle mène)
+// 🎯 FONCTION POUR RESET LE BONUS (à appeler au début d'une nouvelle mène)
 function resetLastTrickBonus() {
   console.log("🔄 Reset lastTrickBonusWinner");
   lastTrickBonusWinner.value = null;
 }
 
-// 🔧 Si vous avez besoin de showExchange, définissez-le ou importez-le
-// const showExchange = ref(false) // ou importez depuis votre composable
+function checkExchangePossibility(): void {
+  const d = room.value;
+  const uid = myUid.value;
+  if (!d || !uid) return;
+
+  if (d.currentTurn !== uid) {
+    showExchange.value = false;
+    return;
+  }
+
+  // ✅ Selon RoomDoc, hands est string[]
+  const handCards = d.hands?.[uid] ?? [];
+
+  if (handCards.length === 0) {
+    showExchange.value = false;
+    return;
+  }
+
+  const sevenCode = "7" + d.trumpSuit;
+  const trumpRank = d.trumpCard.split("_")[0].slice(0, -1);
+  const allowedRanks = ["A", "10", "K", "Q", "J"];
+  const isExchangeable = allowedRanks.includes(trumpRank);
+  const hasSeven = handCards.some((card) => card.startsWith(sevenCode));
+  const canExchange = hasSeven && isExchangeable;
+
+  showExchange.value = canExchange;
+}
+
+watch(
+  () => room.value?.trick?.winner,
+  (winner) => {
+    console.log("🎯 watch trick.winner déclenché :", winner);
+
+    if (!winner) return;
+    if (winner === myUid.value) {
+      game.checkExchangePossibility();
+    }
+  }
+);
 
 watch(
   () => room.value?.currentMeneIndex,

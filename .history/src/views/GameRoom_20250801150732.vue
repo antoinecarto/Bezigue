@@ -68,6 +68,7 @@ const mainOpponentLabel = computed(() =>
 );
 
 // Version plus simple et plus lisible
+// Version plus simple et plus lisible
 const gameResults = computed(() => {
   const scores = game.room?.scores ?? {};
   const names = game.room?.playerNames ?? {};
@@ -164,131 +165,73 @@ watch(
   }
 );
 
-// 🔧 TYPES et variables manquantes
+// Watcher pour détecter le dernier pli
 const lastTrickBonusWinner = ref<string | null>(null);
 
-// 🔧 WATCH corrigé avec types
 watch(
   () => ({
     winner: room.value?.trick?.winner,
     hands: room.value?.hands,
     melds: room.value?.melds,
     trickCards: room.value?.trick?.cards?.length || 0,
-    phase: room.value?.phase,
-    deck: room.value?.deck?.length || 0,
-    scores: room.value?.scores,
   }),
   (newState) => {
-    // Suppression oldState non utilisé
-    console.log("============= WATCH TRIGGERED =============");
-    console.log("🎯 Winner:", newState.winner);
-    console.log("🎯 Trick cards count:", newState.trickCards);
-    console.log("🎯 Phase:", newState.phase);
-    console.log("🎯 Deck size:", newState.deck);
-    console.log("🎯 Scores AVANT:", newState.scores);
+    console.log("🎯 Watch déclenché", newState);
+    console.log("🎯 newState.winner : ", newState.winner);
+    console.log("🎯 newState.hands : ", newState.hands);
+    console.log("🎯 newState.melds", newState.melds);
 
-    if (newState.hands) {
-      console.log("🎯 Hands état:");
-      Object.entries(newState.hands).forEach(([playerId, cards]) => {
-        // 🔧 Type assertion pour cards
-        const handCards = cards as string[];
-        console.log(`   ${playerId}: ${handCards.length} cartes`, handCards);
-      });
-    }
-
-    if (newState.melds) {
-      console.log("🎯 Melds état:");
-      Object.entries(newState.melds).forEach(([playerId, melds]) => {
-        // 🔧 Type assertion pour melds
-        const playerMelds = melds as any[];
-        console.log(`   ${playerId}: ${playerMelds.length} melds`, playerMelds);
-      });
-    }
-
-    if (!newState.winner || !newState.hands || !newState.melds) {
-      console.log("❌ Conditions manquantes, sortie");
-      return;
-    }
+    if (!newState.winner || !newState.hands || !newState.melds) return;
 
     const hands = newState.hands as Record<string, string[]>;
     const melds = newState.melds as Record<string, any[]>;
 
-    const allHandsEmpty = Object.values(hands).every(
-      (h: string[]) => h.length === 0
-    );
-    const allMeldsEmpty = Object.values(melds).every(
-      (m: any[]) => m.length === 0
-    );
-    const noTrickCards = newState.trickCards === 0;
-    const deckEmpty = newState.deck === 0;
+    const allHandsEmpty = Object.values(hands).every((h) => h.length === 0);
+    const allMeldsEmpty = Object.values(melds).every((m) => m.length === 0);
+    const hasTrickCards = newState.trickCards === 0;
 
-    console.log("🔍 Conditions vérification:");
-    console.log("   allHandsEmpty:", allHandsEmpty);
-    console.log("   allMeldsEmpty:", allMeldsEmpty);
-    console.log("   noTrickCards:", noTrickCards);
-    console.log("   deckEmpty:", deckEmpty);
-    console.log("   lastTrickBonusWinner.value:", lastTrickBonusWinner.value);
+    if (
+      allHandsEmpty &&
+      allMeldsEmpty &&
+      hasTrickCards &&
+      !lastTrickBonusWinner.value
+    ) {
+      console.log("🏆 Attribution des +10 pts à", newState.winner);
+      lastTrickBonusWinner.value = newState.winner;
 
-    const isLastTrick =
-      allHandsEmpty && allMeldsEmpty && noTrickCards && deckEmpty;
-    console.log("🎯 isLastTrick:", isLastTrick);
+      // 🎯 CAPTURE DU WINNER AVANT LE TIMEOUT
+      const winnerId = newState.winner; // Copie locale pour éviter undefined
 
-    if (isLastTrick && !lastTrickBonusWinner.value) {
-      console.log("🏆 ATTRIBUTION BONUS DERNIER PLI À", newState.winner);
-
-      const winnerId = newState.winner;
-      lastTrickBonusWinner.value = winnerId;
-
-      // Attribution avec logs détaillés
-      awardLastTrickBonusDebug(winnerId, newState.scores);
-    } else if (isLastTrick && lastTrickBonusWinner.value) {
-      console.log(
-        "⚠️ Dernier pli détecté mais bonus déjà attribué à:",
-        lastTrickBonusWinner.value
-      );
+      // 🎯 DÉLAI AVANT ATTRIBUTION BONUS (2 secondes)
+      setTimeout(() => {
+        awardLastTrickBonus(winnerId);
+      }, 2000);
     }
-
-    console.log("============= END WATCH =============");
   },
   { deep: true }
 );
 
-// 🔧 Fonction d'attribution corrigée
-async function awardLastTrickBonusDebug(winnerId: string, currentScores: any) {
-  console.log("💰 DÉBUT awardLastTrickBonusDebug pour", winnerId);
-  console.log("💰 Scores actuels:", currentScores);
-
+// Fonction pour attribuer réellement les points
+async function awardLastTrickBonus(winnerId: string) {
   if (!room.value) {
-    console.error("❌ Room non disponible");
+    console.error("❌ Room non disponible pour attribution bonus");
     return;
   }
 
   try {
+    // Méthode 1 : Via Firestore directement
     const roomRef = doc(db, "rooms", room.value.id);
-    const currentScore = currentScores?.[winnerId] || 0;
-    const newScore = currentScore + 10;
-
-    console.log("💰 Score actuel:", currentScore);
-    console.log("💰 Nouveau score:", newScore);
+    const currentScore = room.value.scores?.[winnerId] || 0;
 
     await updateDoc(roomRef, {
-      [`scores.${winnerId}`]: newScore,
+      [`scores.${winnerId}`]: currentScore + 10,
     });
 
-    console.log("✅ +10 pts bonus sauvegardés avec succès pour", winnerId);
+    console.log("✅ +10 pts sauvegardés pour", winnerId);
   } catch (error) {
-    console.error("❌ Erreur sauvegarde:", error);
+    console.error("❌ Erreur sauvegarde bonus :", error);
   }
 }
-
-// 🔧 Fonction de reset (utilisée au début d'une nouvelle mène)
-function resetLastTrickBonus() {
-  console.log("🔄 Reset lastTrickBonusWinner");
-  lastTrickBonusWinner.value = null;
-}
-
-// 🔧 Si vous avez besoin de showExchange, définissez-le ou importez-le
-// const showExchange = ref(false) // ou importez depuis votre composable
 
 watch(
   () => room.value?.currentMeneIndex,

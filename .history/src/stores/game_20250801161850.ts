@@ -1,6 +1,6 @@
 // src/stores/game.ts
 import { defineStore } from "pinia";
-import { ref, computed, watchEffect } from "vue";
+import { ref, computed, watchEffect, watch } from "vue";
 import {
   doc,
   onSnapshot,
@@ -186,17 +186,15 @@ export const useGameStore = defineStore("game", () => {
     if (!trick || trick.cards?.length !== 2) return;
     if (playing.value) return;
 
-    // ✅ Permettre aux 2 joueurs de déclencher (au lieu de seulement le dernier)
-    const isPlayerInTrick = trick.players?.includes(myUid.value);
-    if (!isPlayerInTrick) return;
-
-    console.log("🚀 Tentative résolution pli par", myUid.value);
+    const lastToPlay = trick.players?.[1];
+    if (lastToPlay !== myUid.value) return;
 
     playing.value = true;
     resolveTrickOnServer().finally(() => {
       playing.value = false;
     });
   });
+
   /* ─────────── helpers ─────────── */
   function _subscribeRoom(roomId: string) {
     return onSnapshot(doc(db, "rooms", roomId), (snap) => {
@@ -487,6 +485,8 @@ export const useGameStore = defineStore("game", () => {
     }
   }
 
+  const lastTrickBonusWinner = ref<string | null>(null);
+
   // ✅ RETOUR À resolveTrickOnServer SANS bonus
   async function resolveTrickOnServer(): Promise<void> {
     if (!room.value) return;
@@ -530,12 +530,6 @@ export const useGameStore = defineStore("game", () => {
         (acc, c) => (["10", "A"].includes(splitCode(c).rank) ? acc + 10 : acc),
         0
       );
-      console.log(
-        "💰 Points du pli calculés:",
-        points,
-        "pour les cartes:",
-        cards
-      );
 
       const update: Record<string, any> = {
         trick: { cards: [], players: [], winner: winner },
@@ -547,12 +541,6 @@ export const useGameStore = defineStore("game", () => {
       if (points) {
         update[`scores.${winner}`] = (d.scores?.[winner] ?? 0) + points;
         console.log(`💰 +${points} pts pour ${winner} (pli normal)`);
-        console.log(
-          "💰 Mise à jour score:",
-          winner,
-          "nouveau total:",
-          (d.scores?.[winner] ?? 0) + points
-        );
       }
 
       if (d.deck.length === 0) {
@@ -563,7 +551,6 @@ export const useGameStore = defineStore("game", () => {
       }
 
       tx.update(roomRef, update);
-      console.log("✅ Transaction terminée avec update:", update);
 
       // ✅ Vérification hands selon RoomDoc
       const allHandsEmpty = d.players.every((uid) => {
@@ -577,6 +564,82 @@ export const useGameStore = defineStore("game", () => {
         await endMene(room.value!.id);
       }
     });
+  }
+
+  // ✅ WATCHER AMÉLIORÉ pour le bonus dernier pli
+  watch(
+    () => ({
+      winner: room.value?.trick?.winner,
+      hands: room.value?.hands,
+      melds: room.value?.melds,
+      trickCards: room.value?.trick?.cards?.length || 0,
+      phase: room.value?.phase,
+      deck: room.value?.deck?.length || 0,
+    }),
+    (newState, oldState) => {
+      console.log("🎯 Watch déclenché", {
+        winner: newState.winner,
+        handsEmpty: newState.hands
+          ? Object.values(newState.hands).every((h) => h.length === 0)
+          : false,
+        meldsEmpty: newState.melds
+          ? Object.values(newState.melds).every((m) => m.length === 0)
+          : false,
+        trickCards: newState.trickCards,
+        phase: newState.phase,
+        deck: newState.deck,
+        alreadyAwarded: lastTrickBonusWinner.value,
+      });
+
+      if (!newState.winner || !newState.hands || !newState.melds) return;
+
+      const hands = newState.hands as Record<string, string[]>;
+      const melds = newState.melds as Record<string, any[]>;
+
+      const allHandsEmpty = Object.values(hands).every((h) => h.length === 0);
+      const allMeldsEmpty = Object.values(melds).every((m) => m.length === 0);
+      const noTrickCards = newState.trickCards === 0;
+      const deckEmpty = newState.deck === 0;
+
+      // 🎯 CONDITIONS STRICTES pour dernier pli
+      const isLastTrick =
+        allHandsEmpty && allMeldsEmpty && noTrickCards && deckEmpty;
+
+      if (isLastTrick && !lastTrickBonusWinner.value) {
+        console.log(
+          "🏆 DERNIER PLI DÉTECTÉ - Attribution +10 pts à",
+          newState.winner
+        );
+
+        const winnerId = newState.winner;
+        lastTrickBonusWinner.value = winnerId;
+
+        // 🎯 Attribution immédiate (pas de setTimeout pour éviter les conflits)
+        awardLastTrickBonus(winnerId);
+      }
+    },
+    { deep: true }
+  );
+
+  // ✅ Fonction d'attribution du bonus
+  async function awardLastTrickBonus(winnerId: string) {
+    if (!room.value) {
+      console.error("❌ Room non disponible pour attribution bonus");
+      return;
+    }
+
+    try {
+      const roomRef = doc(db, "rooms", room.value.id);
+      const currentScore = room.value.scores?.[winnerId] || 0;
+
+      await updateDoc(roomRef, {
+        [`scores.${winnerId}`]: currentScore + 10,
+      });
+
+      console.log("✅ +10 pts bonus dernier pli sauvegardés pour", winnerId);
+    } catch (error) {
+      console.error("❌ Erreur sauvegarde bonus :", error);
+    }
   }
 
   function checkExchangePossibility(): void {
