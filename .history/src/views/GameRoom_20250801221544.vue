@@ -21,7 +21,7 @@ import GameChat from "./GameChat.vue";
 import VoiceChat from "@/views/components/VoiceChat.vue";
 import Exchange7Dialog from "@/views/components/Exchange7Dialog.vue";
 import FinalPopup from "@/views/components/FinalPopup.vue";
-////////////////////////////ENVOI/////////////////////////////::
+
 const route = useRoute();
 const game = useGameStore();
 /* ① — les refs du store --------------------------------------------- */
