@@ -278,12 +278,11 @@ function onVoiceError(message: string) {
       {{ meneMessage }}
     </div>
   </Transition>
-
   <FinalPopup
     v-if="game.room?.phase === 'final'"
     :winner="winnerName ?? 'Joueur inconnu'"
     :winnerScore="winnerScore"
-    :loser="loserName ?? 'Adversaire'"
+    :loser="isEqual ? names?.[uid2] : loserName"
     :loserScore="loserScore"
     :isEqual="isEqual"
     @close="onCloseFinalPopup"

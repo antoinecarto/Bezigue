@@ -188,11 +188,6 @@ async function startVoiceChat() {
       }
     };
 
-    // Dans handleJoiner, après avoir sauvé la réponse
-    console.log("Joiner: État peerConnection:", peerConnection.signalingState);
-    console.log("Joiner: État connexion:", peerConnection.connectionState);
-    console.log("Joiner: État ICE:", peerConnection.iceConnectionState);
-
     // ✅ Écouter les ICE candidates AVANT de créer l'offre/réponse
     await setupCandidatesListener();
 

@@ -67,65 +67,36 @@ const mainOpponentLabel = computed(() =>
     : ""
 );
 
-// Version plus simple et plus lisible
-// Version plus simple et plus lisible
-const gameResults = computed(() => {
-  const scores = game.room?.scores ?? {};
-  const names = game.room?.playerNames ?? {};
+const scores = game.room?.scores ?? {};
+const names = game.room?.playerNames ?? {};
 
-  const playerUids = Object.keys(scores);
-  if (playerUids.length < 2) {
-    return {
-      winnerName: null,
-      loserName: null,
-      winnerScore: null,
-      loserScore: null,
-      isEqual: false,
-    };
-  }
+const [uid1, uid2] = Object.keys(scores);
+const score1 = scores?.[uid1] ?? 0;
+const score2 = scores?.[uid2] ?? 0;
 
-  const [uid1, uid2] = playerUids;
-  const score1 = scores[uid1] ?? 0;
-  const score2 = scores[uid2] ?? 0;
-  const name1 = names[uid1];
-  const name2 = names[uid2];
+const winnerName = computed(() => {
+  if (!scores || Object.keys(scores).length < 2) return null;
 
-  if (!name1 || !name2) {
-    return {
-      winnerName: null,
-      loserName: null,
-      winnerScore: null,
-      loserScore: null,
-      isEqual: false,
-    };
-  }
-
-  if (score1 === score2) {
-    return {
-      winnerName: name1, // ou name2, peu importe pour un match nul
-      loserName: name2,
-      winnerScore: score1,
-      loserScore: score2,
-      isEqual: true,
-    };
-  }
-
-  const isPlayer1Winner = score1 > score2;
-  return {
-    winnerName: isPlayer1Winner ? name1 : name2,
-    loserName: isPlayer1Winner ? name2 : name1,
-    winnerScore: isPlayer1Winner ? score1 : score2,
-    loserScore: isPlayer1Winner ? score2 : score1,
-    isEqual: false,
-  };
+  const entries = Object.entries(scores) as [string, number][];
+  const sorted = entries.sort((a, b) => b[1] - a[1]);
+  const [topUid] = sorted[0];
+  return names[topUid] ?? null;
 });
 
-// Puis vous pouvez utiliser :
-const winnerName = computed(() => gameResults.value.winnerName);
-const loserName = computed(() => gameResults.value.loserName);
-const winnerScore = computed(() => gameResults.value.winnerScore);
-const loserScore = computed(() => gameResults.value.loserScore);
-const isEqual = computed(() => gameResults.value.isEqual);
+const loserName = computed<string | null>(() => {
+  if (!names[uid1] || !names[uid2]) return null;
+  return score1 < score2 ? names[uid1] ?? null : names[uid2] ?? null;
+});
+
+const winnerScore = computed<number | null>(() =>
+  score1 >= score2 ? score1 : score2
+);
+
+const loserScore = computed<number | null>(() =>
+  score1 < score2 ? score1 : score2
+);
+
+const isEqual = computed(() => score1 === score2);
 
 /* ⑥ — gestion du cycle de vie -------------------------------------- */
 let unsubscribeRoom: Unsubscribe | null = null;
@@ -278,12 +249,11 @@ function onVoiceError(message: string) {
       {{ meneMessage }}
     </div>
   </Transition>
-
   <FinalPopup
     v-if="game.room?.phase === 'final'"
     :winner="winnerName ?? 'Joueur inconnu'"
     :winnerScore="winnerScore"
-    :loser="loserName ?? 'Adversaire'"
+    :loser="isEqual ? names?.[uid2] : loserName"
     :loserScore="loserScore"
     :isEqual="isEqual"
     @close="onCloseFinalPopup"

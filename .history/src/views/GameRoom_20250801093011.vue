@@ -281,11 +281,11 @@ function onVoiceError(message: string) {
 
   <FinalPopup
     v-if="game.room?.phase === 'final'"
-    :winner="winnerName ?? 'Joueur inconnu'"
-    :winnerScore="winnerScore"
-    :loser="loserName ?? 'Adversaire'"
-    :loserScore="loserScore"
-    :isEqual="isEqual"
+    :winner="gameResults.winnerName ?? 'Joueur inconnu'"
+    :winnerScore="gameResults.winnerScore"
+    :loser="gameResults.loserName ?? 'Adversaire'"
+    :loserScore="gameResults.loserScore"
+    :isEqual="gameResults.isEqual"
     @close="onCloseFinalPopup"
   />
   <!-- écran de chargement -->
