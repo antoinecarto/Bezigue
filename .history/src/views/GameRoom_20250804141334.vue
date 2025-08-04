@@ -23,7 +23,7 @@ import FinalPopup from "@/views/components/FinalPopup.vue";
 const route = useRoute();
 const game = useGameStore();
 /* ① — les refs du store --------------------------------------------- */
-const { myUid, room, loading, melds } = storeToRefs(game); // <- myUid et room sont VRAIS refs
+const { myUid, room, loading, melds, hand } = storeToRefs(game); // <- myUid et room sont VRAIS refs
 
 const roomId = computed(() => room.value?.id ?? "");
 

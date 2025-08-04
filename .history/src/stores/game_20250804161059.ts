@@ -502,40 +502,45 @@ export const useGameStore = defineStore("game", () => {
       // J1 peut jouer n'importe quelle carte
       return { playable: true };
     }
+    console.log("leadSuit : ", leadSuit);
+
     // J2 doit suivre les règles strictes
     const cardInfo = splitCode(card);
     const handSuits = playerHand.map((c) => splitCode(c).suit);
-    const trumpLabel = suitLabel(letterToSymbol(trumpSuit));
+
     // Si aucune couleur menée, erreur
     if (!leadSuit) {
       return { playable: false, reason: "Couleur menée non définie" };
     }
-    const leadLabel = suitLabel(letterToSymbol(leadSuit));
 
     // 1️⃣ OBLIGATION DE SUIVRE LA COULEUR
     const hasLeadSuit = handSuits.includes(leadSuit);
-
     if (hasLeadSuit) {
       if (cardInfo.suit === leadSuit) {
         return { playable: true };
       } else {
         return {
           playable: false,
-          reason: `Vous devez jouer  ${leadLabel} (vous en avez dans votre main)`,
+          reason: `Vous devez jouer  ${suitLabel(
+            leadSuit
+          )} (vous en avez dans votre main)`,
         };
       }
     }
 
     // 2️⃣ OBLIGATION DE JOUER ATOUT SI PAS DE COULEUR MENÉE
     const hasTrump = handSuits.includes(trumpSuit);
-
     if (hasTrump) {
       if (cardInfo.suit === trumpSuit) {
         return { playable: true };
       } else {
+        console.log("trumpSuit : ", trumpSuit);
+        console.log("leadSuit", leadSuit);
         return {
           playable: false,
-          reason: `Vous n'avez pas de  ${leadLabel}, vous devez jouer atout ${trumpLabel}`,
+          reason: `Vous n'avez pas de  ${suitLabel(
+            leadSuit
+          )}, vous devez jouer atout (${trumpSuit})`,
         };
       }
     }
@@ -544,8 +549,8 @@ export const useGameStore = defineStore("game", () => {
     return { playable: true }; // Se défausse (perdra le pli)
   }
 
-  function suitLabel(suit: Suit): string {
-    switch (suit) {
+  function suitLabel(handSuits: Suit): string {
+    switch (handSuits) {
       case "♥":
         return "Cœur";
       case "♦":
@@ -555,22 +560,7 @@ export const useGameStore = defineStore("game", () => {
       case "♠":
         return "Pique";
       default:
-        return suit;
-    }
-  }
-
-  function letterToSymbol(letter: string): Suit {
-    switch (letter) {
-      case "S":
-        return "♠";
-      case "H":
-        return "♥";
-      case "D":
-        return "♦";
-      case "C":
-        return "♣";
-      default:
-        return letter as Suit;
+        return handSuits;
     }
   }
 
@@ -610,15 +600,12 @@ export const useGameStore = defineStore("game", () => {
     const hasLeadSuit = handSuits.includes(leadSuit);
     const hasTrump = handSuits.includes(trumpSuit);
 
-    const leadLabel = suitLabel(letterToSymbol(leadSuit));
-    const trumpLabel = suitLabel(letterToSymbol(trumpSuit));
-
     if (hasLeadSuit) {
-      return `Vous devez suivre la couleur ${leadLabel}.`;
+      return `Vous devez suivre la couleur ${leadSuit}.`;
     } else if (hasTrump) {
-      return `Vous n'avez pas de ${leadLabel}, vous devez jouer atout (${trumpLabel}).`;
+      return `Vous n'avez pas de ${leadSuit}, vous devez jouer atout (${trumpSuit}).`;
     } else {
-      return `Vous n'avez ni ${leadLabel} ni atout, vous pouvez vous défausser.`;
+      return `Vous n'avez ni ${leadSuit} ni atout, vous pouvez vous défausser.`;
     }
   }
 

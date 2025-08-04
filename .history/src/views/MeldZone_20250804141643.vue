@@ -230,9 +230,4 @@ const playableCards = computed((): string[] => {
 .popup button:hover {
   background: #0056b3;
 }
-
-.not-playable {
-  opacity: 0.5;
-  cursor: not-allowed !important;
-}
 </style>

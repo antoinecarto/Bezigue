@@ -23,7 +23,7 @@ import FinalPopup from "@/views/components/FinalPopup.vue";
 const route = useRoute();
 const game = useGameStore();
 /* ① — les refs du store --------------------------------------------- */
-const { myUid, room, loading, melds } = storeToRefs(game); // <- myUid et room sont VRAIS refs
+const { myUid, room, loading, melds, hand } = storeToRefs(game); // <- myUid et room sont VRAIS refs
 
 const roomId = computed(() => room.value?.id ?? "");
 
@@ -203,6 +203,46 @@ function onVoiceDisconnected() {
 function onVoiceError(message: string) {
   console.error("Erreur voice chat:", message);
 }
+
+// ========================================
+// INTÉGRATION DANS LE COMPOSANT VUE
+// ========================================
+
+// 🎯 Dans votre composant GameRoom.vue
+// 🔧 3. CORRIGER playableCards pour inclure les melds
+const playableCards = computed((): string[] => {
+  if (!hand.value || !room.value) return [];
+
+  // ✅ CORRECTION: Inclure les cartes du meld aussi
+  const allMyCards = [
+    ...hand.value,
+    ...(room.value.melds?.[myUid.value!] ?? []),
+  ];
+
+  // En phase normale, toutes les cartes sont jouables
+  if (room.value.phase !== "battle") {
+    return allMyCards;
+  }
+
+  // ✅ AJOUT: Vérifier que c'est mon tour
+  if (room.value.currentTurn !== myUid.value) {
+    return [];
+  }
+
+  // En phase battle, appliquer les règles strictes
+  const currentTrick = room.value.trick?.cards || [];
+  const leadSuit =
+    currentTrick.length > 0 ? game.splitCode(currentTrick[0]).suit : null;
+  const trumpSuit = game.splitCode(room.value.trumpCard).suit;
+  const amFirstPlayer = currentTrick.length === 0;
+
+  return game.getPlayableCardsInBattle(
+    allMyCards, // ✅ Utiliser toutes les cartes (main + meld)
+    leadSuit,
+    trumpSuit,
+    amFirstPlayer
+  );
+});
 </script>
 
 <template>

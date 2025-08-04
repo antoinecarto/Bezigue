@@ -14,7 +14,7 @@ const props = defineProps({
 const showNotYourTurn = ref(false);
 const playing = ref(false);
 const game = useGameStore();
-const { myUid, currentTurn, room, drawQueue, hand } = storeToRefs(game);
+const { myUid, currentTurn, room, drawQueue } = storeToRefs(game);
 const showMustDrawFirst = ref(false);
 const isMyTurn = computed(() => currentTurn.value === myUid.value);
 const isNotMyTurn = computed(() => {
@@ -229,10 +229,5 @@ const playableCards = computed((): string[] => {
 
 .popup button:hover {
   background: #0056b3;
-}
-
-.not-playable {
-  opacity: 0.5;
-  cursor: not-allowed !important;
 }
 </style>

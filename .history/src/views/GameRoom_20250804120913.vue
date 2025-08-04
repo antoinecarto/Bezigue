@@ -203,6 +203,34 @@ function onVoiceDisconnected() {
 function onVoiceError(message: string) {
   console.error("Erreur voice chat:", message);
 }
+
+// ========================================
+// INTÉGRATION DANS LE COMPOSANT VUE
+// ========================================
+
+// 🎯 Dans votre composant GameRoom.vue
+const playableCards = computed(() => {
+  if (!hand.value || !room.value) return [];
+
+  // En phase normale, toutes les cartes sont jouables
+  if (room.value.phase !== "battle") {
+    return hand.value;
+  }
+
+  // En phase battle, appliquer les règles strictes
+  const currentTrick = room.value.trick?.cards || [];
+  const leadSuit =
+    currentTrick.length > 0 ? splitCode(currentTrick[0]).suit : null;
+  const trumpSuit = splitCode(room.value.trumpCard).suit;
+  const amFirstPlayer = currentTrick.length === 0;
+
+  return getPlayableCardsInBattle(
+    hand.value,
+    leadSuit,
+    trumpSuit,
+    amFirstPlayer
+  );
+});
 </script>
 
 <template>
@@ -212,14 +240,6 @@ function onVoiceError(message: string) {
       {{ meneMessage }}
     </div>
   </Transition>
-
-  <!-- ✅ AJOUTER CETTE DIV POUR L'AIDE BATTLE -->
-  <div
-    v-if="game.battleHint"
-    class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg"
-  >
-    <p class="text-sm text-blue-800 font-medium">{{ game.battleHint }}</p>
-  </div>
 
   <FinalPopup
     v-if="game.room?.phase === 'final'"

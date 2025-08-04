@@ -502,76 +502,44 @@ export const useGameStore = defineStore("game", () => {
       // J1 peut jouer n'importe quelle carte
       return { playable: true };
     }
+
     // J2 doit suivre les règles strictes
     const cardInfo = splitCode(card);
     const handSuits = playerHand.map((c) => splitCode(c).suit);
-    const trumpLabel = suitLabel(letterToSymbol(trumpSuit));
+
     // Si aucune couleur menée, erreur
     if (!leadSuit) {
       return { playable: false, reason: "Couleur menée non définie" };
     }
-    const leadLabel = suitLabel(letterToSymbol(leadSuit));
 
     // 1️⃣ OBLIGATION DE SUIVRE LA COULEUR
     const hasLeadSuit = handSuits.includes(leadSuit);
-
     if (hasLeadSuit) {
       if (cardInfo.suit === leadSuit) {
         return { playable: true };
       } else {
         return {
           playable: false,
-          reason: `Vous devez jouer  ${leadLabel} (vous en avez dans votre main)`,
+          reason: `Vous devez jouer ${leadSuit} (vous en avez dans votre main)`,
         };
       }
     }
 
     // 2️⃣ OBLIGATION DE JOUER ATOUT SI PAS DE COULEUR MENÉE
     const hasTrump = handSuits.includes(trumpSuit);
-
     if (hasTrump) {
       if (cardInfo.suit === trumpSuit) {
         return { playable: true };
       } else {
         return {
           playable: false,
-          reason: `Vous n'avez pas de  ${leadLabel}, vous devez jouer atout ${trumpLabel}`,
+          reason: `Vous n'avez pas de ${leadSuit}, vous devez jouer atout (${trumpSuit})`,
         };
       }
     }
 
     // 3️⃣ DÉFAUSSE LIBRE SI NI COULEUR NI ATOUT
     return { playable: true }; // Se défausse (perdra le pli)
-  }
-
-  function suitLabel(suit: Suit): string {
-    switch (suit) {
-      case "♥":
-        return "Cœur";
-      case "♦":
-        return "Carreau";
-      case "♣":
-        return "Trèfle";
-      case "♠":
-        return "Pique";
-      default:
-        return suit;
-    }
-  }
-
-  function letterToSymbol(letter: string): Suit {
-    switch (letter) {
-      case "S":
-        return "♠";
-      case "H":
-        return "♥";
-      case "D":
-        return "♦";
-      case "C":
-        return "♣";
-      default:
-        return letter as Suit;
-    }
   }
 
   // 🎯 Fonction pour filtrer les cartes jouables
@@ -610,15 +578,12 @@ export const useGameStore = defineStore("game", () => {
     const hasLeadSuit = handSuits.includes(leadSuit);
     const hasTrump = handSuits.includes(trumpSuit);
 
-    const leadLabel = suitLabel(letterToSymbol(leadSuit));
-    const trumpLabel = suitLabel(letterToSymbol(trumpSuit));
-
     if (hasLeadSuit) {
-      return `Vous devez suivre la couleur ${leadLabel}.`;
+      return `Vous devez suivre la couleur ${leadSuit}.`;
     } else if (hasTrump) {
-      return `Vous n'avez pas de ${leadLabel}, vous devez jouer atout (${trumpLabel}).`;
+      return `Vous n'avez pas de ${leadSuit}, vous devez jouer atout (${trumpSuit}).`;
     } else {
-      return `Vous n'avez ni ${leadLabel} ni atout, vous pouvez vous défausser.`;
+      return `Vous n'avez ni ${leadSuit} ni atout, vous pouvez vous défausser.`;
     }
   }
 
@@ -650,17 +615,7 @@ export const useGameStore = defineStore("game", () => {
   });
 
   // 🎯 Fonction pour jouer une carte avec validation
-  // ========================================
-  // CORRECTIONS À APPORTER À VOTRE STORE
-  // ========================================
-
-  // 🔧 1. CORRIGER playCardWithValidation pour vérifier isMyTurn
   async function playCardWithValidation(cardCode: string) {
-    if (room.value == null) return;
-    const allMyCards = [
-      ...hand.value,
-      ...(room.value.melds?.[myUid.value!] ?? []),
-    ];
     if (!room.value || !hand.value) return;
 
     // ✅ AJOUT: Vérifier que c'est le tour du joueur
@@ -679,7 +634,7 @@ export const useGameStore = defineStore("game", () => {
 
       const validation = isCardPlayableInBattle(
         cardCode,
-        allMyCards,
+        hand.value,
         leadSuit,
         trumpSuit,
         amFirstPlayer
@@ -1091,7 +1046,6 @@ export const useGameStore = defineStore("game", () => {
     // setters
     setTargetScore,
     // actions
-    splitCode,
     playCardWithValidation,
     resolveTrickBattle,
     removeFromMeldAndReturnToHand,

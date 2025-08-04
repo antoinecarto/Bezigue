@@ -14,7 +14,7 @@ const props = defineProps({
 const showNotYourTurn = ref(false);
 const playing = ref(false);
 const game = useGameStore();
-const { myUid, currentTurn, room, drawQueue, hand } = storeToRefs(game);
+const { myUid, currentTurn, room, drawQueue } = storeToRefs(game);
 const showMustDrawFirst = ref(false);
 const isMyTurn = computed(() => currentTurn.value === myUid.value);
 const isNotMyTurn = computed(() => {
@@ -114,46 +114,6 @@ function onCardClick(code: string) {
     console.error("Erreur lors du jeu de la carte", err);
   });
 }
-
-// ========================================
-// INTÉGRATION DANS LE COMPOSANT VUE
-// ========================================
-
-// 🎯 Dans votre composant GameRoom.vue
-// 🔧 3. CORRIGER playableCards pour inclure les melds
-const playableCards = computed((): string[] => {
-  if (!hand.value || !room.value) return [];
-
-  // ✅ CORRECTION: Inclure les cartes du meld aussi
-  const allMyCards = [
-    ...hand.value,
-    ...(room.value.melds?.[myUid.value!] ?? []),
-  ];
-
-  // En phase normale, toutes les cartes sont jouables
-  if (room.value.phase !== "battle") {
-    return allMyCards;
-  }
-
-  // ✅ AJOUT: Vérifier que c'est mon tour
-  if (room.value.currentTurn !== myUid.value) {
-    return [];
-  }
-
-  // En phase battle, appliquer les règles strictes
-  const currentTrick = room.value.trick?.cards || [];
-  const leadSuit =
-    currentTrick.length > 0 ? game.splitCode(currentTrick[0]).suit : null;
-  const trumpSuit = game.splitCode(room.value.trumpCard).suit;
-  const amFirstPlayer = currentTrick.length === 0;
-
-  return game.getPlayableCardsInBattle(
-    allMyCards, // ✅ Utiliser toutes les cartes (main + meld)
-    leadSuit,
-    trumpSuit,
-    amFirstPlayer
-  );
-});
 </script>
 
 <template>
@@ -176,13 +136,7 @@ const playableCards = computed((): string[] => {
         :key="element"
         :width="70"
         :height="100"
-        :class="[
-          {
-            disabled: !isMyTurn || !playableCards.includes(element),
-            'not-playable': !playableCards.includes(element),
-          },
-          'cursor-pointer',
-        ]"
+        :class="[{ disabled: !isMyTurn }, 'cursor-pointer']"
         @click="onCardClick(element)"
       />
     </template>
@@ -229,10 +183,5 @@ const playableCards = computed((): string[] => {
 
 .popup button:hover {
   background: #0056b3;
-}
-
-.not-playable {
-  opacity: 0.5;
-  cursor: not-allowed !important;
 }
 </style>
