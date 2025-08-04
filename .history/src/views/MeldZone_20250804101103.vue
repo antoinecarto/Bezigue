@@ -17,9 +17,6 @@ const game = useGameStore();
 const { myUid, currentTurn, room, drawQueue } = storeToRefs(game);
 const showMustDrawFirst = ref(false);
 const isMyTurn = computed(() => currentTurn.value === myUid.value);
-const isNotMyTurn = computed(() => {
-  return drawQueue.value.length === 1 && drawQueue.value[0] !== myUid.value;
-});
 const mustDrawFirst = computed(() => {
   if (!myUid.value || !isMyTurn.value || !room.value) return false;
 
@@ -98,7 +95,7 @@ function onCardDropped(evt: any) {
 }
 
 function onCardClick(code: string) {
-  if (isNotMyTurn.value) {
+  if (!isMyTurn.value) {
     showNotYourTurn.value = true;
     return;
   }
@@ -142,7 +139,7 @@ function onCardClick(code: string) {
     </template>
   </draggable>
   <div v-if="showNotYourTurn" class="popup text-black dark:text-black">
-    Patience, votre adversaire n'a pas encore pioché...
+    Ce n'est pas votre tour !
     <button @click="showNotYourTurn = false">OK</button>
   </div>
   <div v-if="showMustDrawFirst" class="popup text-black dark:text-black">

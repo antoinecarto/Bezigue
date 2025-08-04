@@ -17,9 +17,6 @@ const game = useGameStore();
 const { myUid, currentTurn, room, drawQueue } = storeToRefs(game);
 const showMustDrawFirst = ref(false);
 const isMyTurn = computed(() => currentTurn.value === myUid.value);
-const isNotMyTurn = computed(() => {
-  return drawQueue.value.length === 1 && drawQueue.value[0] !== myUid.value;
-});
 const mustDrawFirst = computed(() => {
   if (!myUid.value || !isMyTurn.value || !room.value) return false;
 
@@ -98,7 +95,7 @@ function onCardDropped(evt: any) {
 }
 
 function onCardClick(code: string) {
-  if (isNotMyTurn.value) {
+  if (!isMyTurn.value) {
     showNotYourTurn.value = true;
     return;
   }
@@ -142,46 +139,7 @@ function onCardClick(code: string) {
     </template>
   </draggable>
   <div v-if="showNotYourTurn" class="popup text-black dark:text-black">
-    Patience, votre adversaire n'a pas encore pioché...
+    Ce n'est pas votre tour !
     <button @click="showNotYourTurn = false">OK</button>
   </div>
-  <div v-if="showMustDrawFirst" class="popup text-black dark:text-black">
-    Vous devez d'abord piocher avant de jouer.
-    <button @click="showMustDrawFirst = false">OK</button>
-  </div>
 </template>
-
-<style scoped>
-.disabled {
-  pointer-events: none;
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.popup {
-  position: fixed;
-  top: 40%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: white;
-  border: 2px solid black;
-  padding: 1em 2em;
-  z-index: 100;
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
-  border-radius: 8px;
-}
-
-.popup button {
-  margin-left: 10px;
-  padding: 5px 10px;
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.popup button:hover {
-  background: #0056b3;
-}
-</style>
