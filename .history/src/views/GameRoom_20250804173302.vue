@@ -353,4 +353,9 @@ function onVoiceError(message: string) {
     opacity: 0;
   }
 }
+
+:not(.readonly) .not-playable {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+}
 </style>

@@ -92,14 +92,10 @@ export async function startNewMene(roomId: string): Promise<number> {
   return newMeneIndex;
 }
 export async function endMene(roomId: string) {
-  // ⚠️ PETIT DÉLAI pour laisser les points se mettre à jour
-  await new Promise((resolve) => setTimeout(resolve, 100));
-
   const roomSnap = await getDoc(doc(db, "rooms", roomId));
   if (!roomSnap.exists()) throw new Error("Room introuvable");
   const roomData = roomSnap.data();
 
-  // ✅ RÉCUPÉRER LES SCORES ACTUELS (avec le bonus déjà appliqué)
   const scores = { ...roomData.scores };
   if (!roomData) throw new Error("Mène introuvable");
 
@@ -107,8 +103,6 @@ export async function endMene(roomId: string) {
   const someoneReachedTarget = Object.values(scores).some(
     (score) => (score as number) >= target
   );
-
-  console.log("🏁 endMene - Scores actuels:", scores);
 
   if (someoneReachedTarget) {
     const [winnerUid] = Object.entries(scores).reduce(
@@ -118,14 +112,15 @@ export async function endMene(roomId: string) {
           : maxEntry
     );
 
-    console.log("🏆 Fin de partie, gagnant:", winnerUid);
     await updateDoc(doc(db, "rooms", roomId), {
       phase: "final",
       winnerUid,
-      // ✅ NE PAS réécrire les scores !
+      scores,
     });
   } else {
-    console.log("🔄 Nouvelle mène");
+    await updateDoc(doc(db, "rooms", roomId), {
+      scores,
+    });
     await startNewMene(roomId);
   }
 }
@@ -755,7 +750,7 @@ export const useGameStore = defineStore("game", () => {
   }
 
   // ========================================
-  // SOLUTION: Utiliser updateDoc au lieu de transaction
+  // SOLUTION CORRIGÉE: Détecter le dernier pli au bon moment
   // ========================================
 
   async function resolveTrickOnServer(): Promise<void> {
@@ -763,128 +758,116 @@ export const useGameStore = defineStore("game", () => {
 
     const roomRef = doc(db, "rooms", room.value.id);
 
-    // 🎯 RÉCUPÉRER LES DONNÉES ACTUELLES
-    const snap = await getDoc(roomRef);
-    if (!snap.exists()) throw new Error("Room missing");
-    const d = snap.data() as RoomDoc;
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(roomRef);
+      if (!snap.exists()) throw new Error("Room missing");
+      const d = snap.data() as RoomDoc;
 
-    const cards = d.trick.cards ?? [];
-    const players = d.trick.players ?? [];
-    if (cards.length !== 2) throw new Error("Trick not full");
+      const cards = d.trick.cards ?? [];
+      const players = d.trick.players ?? [];
+      if (cards.length !== 2) throw new Error("Trick not full");
 
-    await delay(2000);
+      await delay(2000);
 
-    function getSuit(card: string): string {
-      const [raw] = card.split("_");
-      return raw.slice(-1);
-    }
-
-    const trumpSuit = getSuit(d.trumpCard) as Suit;
-
-    const winner =
-      d.phase === "battle"
-        ? resolveTrickBattle(
-            cards[0],
-            cards[1],
-            players[0],
-            players[1],
-            trumpSuit
-          )
-        : resolveTrick(cards[0], cards[1], players[0], players[1], trumpSuit);
-
-    if (!winner) {
-      throw new Error("resolveTrick failed to find winner");
-    }
-
-    const loser = players.find((p) => p !== winner)!;
-
-    // 🎯 Points du pli (As et 10)
-    const trickPoints = cards.reduce(
-      (acc, c) => (["10", "A"].includes(splitCode(c).rank) ? acc + 10 : acc),
-      0
-    );
-
-    // 🎯 DÉTECTER LE DERNIER PLI
-    const remainingCardsInHands = d.players.reduce((total, uid) => {
-      const handData = d.hands?.[uid];
-      const handSize = Array.isArray(handData) ? handData.length : 0;
-      return total + handSize;
-    }, 0);
-
-    const remainingCardsInMelds = d.players.reduce((total, uid) => {
-      const meldData = d.melds?.[uid];
-      const meldSize = Array.isArray(meldData) ? meldData.length : 0;
-      return total + meldSize;
-    }, 0);
-
-    const deckEmpty = d.deck.length === 0;
-    const isLastTrick =
-      remainingCardsInHands === 0 && remainingCardsInMelds === 0 && deckEmpty;
-
-    console.log(`🔍 Détection dernier pli:`, {
-      remainingCardsInHands,
-      remainingCardsInMelds,
-      deckEmpty,
-      isLastTrick,
-    });
-
-    // 🎯 CALCULER LE TOTAL DES POINTS
-    let totalPoints = trickPoints;
-    if (isLastTrick) {
-      totalPoints += 10; // Bonus dernier pli
-      console.log("🏆 Dernier pli détecté ! +10 bonus pour", winner);
-    }
-
-    console.log(
-      `💰 Points calculés: ${trickPoints} (pli) ${
-        isLastTrick ? "+ 10 (bonus)" : ""
-      } = ${totalPoints} pour ${winner}`
-    );
-
-    // 🎯 PRÉPARER LES MISES À JOUR
-    const update: Record<string, any> = {
-      trick: { cards: [], players: [], winner: winner },
-      exchangeTable: {},
-      currentTurn: winner,
-    };
-
-    // Gérer drawQueue selon la phase
-    if (d.phase === "battle") {
-      update.drawQueue = [];
-    } else {
-      update.drawQueue = [winner, loser];
-    }
-
-    // Changer la phase si le deck est vide
-    if (d.deck.length === 0 && d.phase !== "battle") {
-      update.phase = "battle";
-    }
-
-    // 🎯 METTRE À JOUR LE SCORE SI IL Y A DES POINTS
-    if (totalPoints > 0) {
-      const currentScore = d.scores?.[winner] ?? 0;
-      update[`scores.${winner}`] = currentScore + totalPoints;
-      console.log(
-        `💰 +${totalPoints} pts pour ${winner} (${currentScore} → ${
-          currentScore + totalPoints
-        })`
-      );
-    }
-
-    // 🎯 APPLIQUER LES MISES À JOUR AVEC updateDoc
-    try {
-      await updateDoc(roomRef, update);
-      console.log("✅ Mise à jour réussie avec update:", update);
-
-      // Vérifier si c'était le dernier pli
-      if (isLastTrick) {
-        console.log("🏁 C'était le dernier pli, appel de endMene");
-        await endMene(room.value.id);
+      function getSuit(card: string): string {
+        const [raw] = card.split("_");
+        return raw.slice(-1);
       }
-    } catch (error) {
-      console.error("❌ Erreur lors de la mise à jour:", error);
-      throw error;
-    }
+
+      const trumpSuit = getSuit(d.trumpCard) as Suit;
+
+      const winner =
+        d.phase === "battle"
+          ? resolveTrickBattle(
+              cards[0],
+              cards[1],
+              players[0],
+              players[1],
+              trumpSuit
+            )
+          : resolveTrick(cards[0], cards[1], players[0], players[1], trumpSuit);
+
+      if (!winner) {
+        throw new Error("resolveTrick failed to find winner");
+      }
+
+      const loser = players.find((p) => p !== winner)!;
+
+      // 🎯 Points du pli (As et 10)
+      const trickPoints = cards.reduce(
+        (acc, c) => (["10", "A"].includes(splitCode(c).rank) ? acc + 10 : acc),
+        0
+      );
+
+      // 🎯 DÉTECTER LE DERNIER PLI CORRECTEMENT
+      // Les joueurs ont déjà joué leurs cartes, donc vérifier si les mains sont maintenant vides
+      const allHandsEmpty = d.players.every((uid) => {
+        const handData = d.hands?.[uid];
+        const handSize = Array.isArray(handData) ? handData.length : 0;
+        return handSize === 0; // Les mains sont vides maintenant
+      });
+
+      const allMeldsEmpty = d.players.every((uid) => {
+        const meldData = d.melds?.[uid];
+        return Array.isArray(meldData) ? meldData.length === 0 : true;
+      });
+
+      const deckEmpty = d.deck.length === 0;
+
+      // C'est le dernier pli si les mains sont vides ET qu'on ne peut plus piocher
+      const isLastTrick = allHandsEmpty && allMeldsEmpty && deckEmpty;
+
+      // 🎯 CALCULER LE TOTAL DES POINTS
+      let totalPoints = trickPoints;
+      if (isLastTrick) {
+        totalPoints += 10; // Bonus dernier pli
+        console.log("🏆 Dernier pli détecté ! +10 bonus pour", winner);
+      }
+
+      console.log(
+        `💰 Points calculés: ${trickPoints} (pli) ${
+          isLastTrick ? "+ 10 (bonus)" : ""
+        } = ${totalPoints} pour ${winner}`
+      );
+
+      const update: Record<string, any> = {
+        trick: { cards: [], players: [], winner: winner },
+        exchangeTable: {},
+        currentTurn: winner,
+      };
+
+      // ✅ Gérer drawQueue selon la phase
+      if (d.phase === "battle") {
+        update.drawQueue = [];
+      } else {
+        update.drawQueue = [winner, loser];
+      }
+
+      // 🎯 ATTRIBUTION DES POINTS
+      if (totalPoints > 0) {
+        update[`scores.${winner}`] = (d.scores?.[winner] ?? 0) + totalPoints;
+        console.log(
+          `💰 +${totalPoints} pts pour ${winner} (${trickPoints} pli ${
+            isLastTrick ? "+ 10 bonus" : ""
+          })`
+        );
+      }
+
+      // ✅ Changer la phase si le deck est vide
+      if (d.deck.length === 0 && d.phase !== "battle") {
+        update.phase = "battle";
+      }
+
+      tx.update(roomRef, update);
+      console.log("✅ Transaction terminée avec update:", update);
+
+      return allHandsEmpty;
+    }).then(async (allHandsEmpty) => {
+      if (allHandsEmpty) {
+        console.log("🏁 Toutes les mains sont vides, appel de endMene");
+        await endMene(room.value!.id);
+      }
+    });
   }
 
   function checkExchangePossibility(): void {

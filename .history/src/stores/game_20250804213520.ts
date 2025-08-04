@@ -108,8 +108,6 @@ export async function endMene(roomId: string) {
     (score) => (score as number) >= target
   );
 
-  console.log("🏁 endMene - Scores actuels:", scores);
-
   if (someoneReachedTarget) {
     const [winnerUid] = Object.entries(scores).reduce(
       (maxEntry, currentEntry) =>
@@ -118,14 +116,13 @@ export async function endMene(roomId: string) {
           : maxEntry
     );
 
-    console.log("🏆 Fin de partie, gagnant:", winnerUid);
     await updateDoc(doc(db, "rooms", roomId), {
       phase: "final",
       winnerUid,
-      // ✅ NE PAS réécrire les scores !
+      // ✅ NE PAS réécrire les scores, ils sont déjà corrects !
     });
   } else {
-    console.log("🔄 Nouvelle mène");
+    // ✅ NE PAS réécrire les scores, ils sont déjà corrects !
     await startNewMene(roomId);
   }
 }
