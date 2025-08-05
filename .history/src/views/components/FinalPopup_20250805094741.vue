@@ -54,9 +54,7 @@ function close() {
         </p>
       </template>
 
-      <button @click="close" class="btn-primary mt-6 dark:text-white">
-        Fermer
-      </button>
+      <button @click="close" class="btn-primary mt-6">Fermer</button>
     </div>
   </div>
 </template>

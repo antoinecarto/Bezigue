@@ -119,10 +119,10 @@ async function actuallyCreateRoom() {
     const seat2Hand = distrib.hands.player2;
     const trumpCardStr = distrib.trumpCard;
 
-    // Clone du deck pour éviter les mutations
+    // ✅ Clone du deck pour éviter les mutations
     let finalDeck = [...distrib.drawPile];
     finalDeck = removeOneOccurrence(finalDeck, trumpCardStr);
-    finalDeck.push(trumpCardStr);
+    finalDeck.push(trumpCardStr); // ✅ elle est bien la DERNIÈRE maintenant
 
     /* 4. document « rooms » */
     const roomRef = await addDoc(collection(db, "rooms"), {
@@ -136,9 +136,9 @@ async function actuallyCreateRoom() {
       trumpSuit: trumpCardStr.match(/([a-zA-Z])_(?:1|2)$/)?.[1] ?? null,
       trumpTaken: false,
       deck: finalDeck,
-      // Stockage direct des arrays selon RoomDoc
-      hands: { [uid]: hostHand },
-      reservedHands: { seat2: seat2Hand },
+      // ✅ CORRECTION : Stockage direct des arrays selon RoomDoc
+      hands: { [uid]: hostHand }, // string[] directement
+      reservedHands: { seat2: seat2Hand }, // string[] directement
       trick: { cards: [], players: [] },
       melds: {},
       canMeld: null,
@@ -170,9 +170,9 @@ async function actuallyCreateRoom() {
   }
 }
 
-// Fonction améliorée pour éviter les mutations
+// ✅ Fonction améliorée pour éviter les mutations
 function removeOneOccurrence(deck: string[], cardToRemove: string): string[] {
-  const deckCopy = [...deck];
+  const deckCopy = [...deck]; // Clone pour éviter les mutations
   const index = deckCopy.indexOf(cardToRemove);
   if (index !== -1) {
     deckCopy.splice(index, 1);

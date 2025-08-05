@@ -208,12 +208,14 @@ async function startVoiceChat() {
 async function handleCaller() {
   try {
     connectionStatus.value = "Création de l'offre...";
+    console.log("Caller: Création de l'offre pour room:", props.roomId);
 
     const offer = await peerConnection!.createOffer();
     await peerConnection!.setLocalDescription(offer);
 
     const roomRef = doc(db, "rooms", props.roomId.trim());
 
+    console.log("Caller: Sauvegarde de l'offre...");
     await setDoc(
       roomRef,
       {
@@ -230,6 +232,7 @@ async function handleCaller() {
       { merge: true }
     );
 
+    console.log("Caller: Offre créée et sauvée");
     connectionStatus.value = "En attente de réponse...";
 
     // Timeout plus court pour caller
@@ -242,6 +245,10 @@ async function handleCaller() {
 
     roomListener = onSnapshot(roomRef, async (snapshot) => {
       const data = snapshot.data();
+      console.log(
+        "Caller: Données room mises à jour:",
+        data?.voiceChat?.status
+      );
 
       if (
         data?.voiceChat?.answer &&
@@ -250,9 +257,11 @@ async function handleCaller() {
         try {
           clearTimeout(timeoutId);
           connectionStatus.value = "Réponse reçue, finalisation...";
+          console.log("Caller: Réponse reçue, traitement...");
 
           const answerDesc = new RTCSessionDescription(data.voiceChat.answer);
           await peerConnection!.setRemoteDescription(answerDesc);
+          console.log("Caller: Remote description définie");
 
           connectionStatus.value = "Connexion en cours...";
         } catch (e) {
@@ -270,9 +279,11 @@ async function handleCaller() {
 async function handleJoiner() {
   try {
     connectionStatus.value = "Recherche de la salle vocale...";
+    console.log("Joiner: Récupération de l'offre pour room:", props.roomId);
+
     const roomRef = doc(db, "rooms", props.roomId.trim());
 
-    // Attendre l'offre avec retry logic améliorée
+    // ✅ Attendre l'offre avec retry logic améliorée
     let retries = 0;
     const maxRetries = 15; // Réduit pour éviter une attente trop longue
 
@@ -280,16 +291,25 @@ async function handleJoiner() {
       const roomSnapshot = await getDoc(roomRef);
       const roomData = roomSnapshot.data();
 
+      console.log(
+        `Joiner: Tentative ${retries + 1}/${maxRetries}`,
+        roomData?.voiceChat?.status
+      );
+
       if (roomSnapshot.exists() && roomData?.voiceChat?.offer) {
-        // Traitement de l'offre
+        console.log("Joiner: Offre trouvée, traitement...");
+
+        // ✅ Traitement de l'offre
         const offerDesc = new RTCSessionDescription(roomData.voiceChat.offer);
         await peerConnection!.setRemoteDescription(offerDesc);
+        console.log("Joiner: Remote description définie");
 
         connectionStatus.value = "Création de la réponse...";
         const answer = await peerConnection!.createAnswer();
         await peerConnection!.setLocalDescription(answer);
+        console.log("Joiner: Réponse créée");
 
-        // Sauvegarder la réponse
+        // ✅ Sauvegarder la réponse
         await updateDoc(roomRef, {
           "voiceChat.answer": {
             type: answer.type,
@@ -299,9 +319,10 @@ async function handleJoiner() {
           "voiceChat.answeredAt": new Date(),
         });
 
+        console.log("Joiner: Réponse sauvée");
         connectionStatus.value = "Finalisation de la connexion...";
 
-        // Timeout pour joiner aussi
+        // ✅ Timeout pour joiner aussi
         setTimeout(() => {
           if (!isConnected.value) {
             console.warn("Joiner: Timeout après envoi de la réponse");
@@ -348,7 +369,14 @@ async function setupCandidatesListener() {
           (!props.isCaller && sender === "caller")
         ) {
           try {
-            // Vérifier que la connexion est dans le bon état
+            console.log(
+              `${
+                props.isCaller ? "Caller" : "Joiner"
+              }: Traitement ICE candidate:`,
+              candidateData.candidate
+            );
+
+            // ✅ Vérifier que la connexion est dans le bon état
             if (peerConnection.signalingState === "closed") {
               console.warn("PeerConnection fermée, ignore candidate");
               return;
@@ -361,6 +389,7 @@ async function setupCandidatesListener() {
             });
 
             await peerConnection.addIceCandidate(candidate);
+            console.log("ICE candidate ajouté avec succès");
           } catch (e) {
             console.warn("Erreur ajout ICE candidate:", e);
           }
@@ -371,6 +400,7 @@ async function setupCandidatesListener() {
 }
 
 function handleConnectionLoss() {
+  console.log("Connexion perdue");
   connectionStatus.value = "Connexion perdue";
   isConnected.value = false;
   emit("disconnected");
@@ -382,6 +412,7 @@ async function disconnectVoiceChat() {
 }
 
 async function cleanup() {
+  console.log("Nettoyage des ressources");
   isConnected.value = false;
   connectionStatus.value = "";
 

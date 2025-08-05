@@ -27,13 +27,13 @@ function close() {
 <template>
   <div
     v-if="props.winner"
-    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 dark:text-black"
+    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
   >
     <div class="bg-white rounded p-6 text-center shadow-lg max-w-sm">
       <h2 class="text-xl font-bold mb-4">Fin de la partie !</h2>
 
       <template v-if="props.isEqual">
-        <p class="mb-2">🤝 Match nul entre :</p>
+        <p class="mb-2 dark:text-black">🤝 Match nul entre :</p>
         <p>
           <strong>{{ props.winner }}</strong> : {{ props.winnerScore }} pts
         </p>
@@ -43,7 +43,7 @@ function close() {
       </template>
 
       <template v-else>
-        <p class="mb-2">
+        <p class="mb-2 dark:text-black">
           🎉 Victoire <strong>{{ winnerLabel }}</strong> !
         </p>
         <p>
@@ -54,9 +54,7 @@ function close() {
         </p>
       </template>
 
-      <button @click="close" class="btn-primary mt-6 dark:text-white">
-        Fermer
-      </button>
+      <button @click="close" class="btn-primary mt-6">Fermer</button>
     </div>
   </div>
 </template>

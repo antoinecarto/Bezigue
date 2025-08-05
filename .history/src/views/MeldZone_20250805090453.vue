@@ -200,7 +200,7 @@ const playableCards = computed((): string[] => {
 }
 
 :not(.readonly) .not-playable {
-  opacity: 0.7;
+  opacity: 0.5;
   cursor: not-allowed !important;
 }
 </style>

@@ -57,7 +57,7 @@ const showNotYourTurn = ref(false);
 const playing = ref(false);
 const showMustDrawFirst = ref(false);
 
-// vérification précise des conditions de pioche
+// ✅ Solution améliorée : vérification précise des conditions de pioche
 const mustDrawFirst = computed(() => {
   if (!myUid.value || !isMyTurn.value || !room.value) return false;
 
@@ -68,24 +68,49 @@ const mustDrawFirst = computed(() => {
   const currentTrick = room.value.trick?.cards || [];
   const currentDrawQueue = drawQueue.value || [];
 
-  // Aucun score marqué = premier trick de la partie
+  console.log("🎯 Debug mustDrawFirst:", {
+    myUid: myUid.value,
+    isMyTurn: isMyTurn.value,
+    hasAnyScore,
+    currentTrickLength: currentTrick.length,
+    drawQueue: currentDrawQueue,
+    drawQueueLength: currentDrawQueue.length,
+  });
+
+  // Cas 1: Aucun score marqué = premier trick de la partie
   if (!hasAnyScore) {
+    // Dans le premier trick, personne ne pioche (ni J1 ni J2)
+    console.log("⛔ Premier trick de la partie, pas de pioche");
     return false;
   }
 
-  // Trick en cours, ne pas demander de piocher
+  // Cas 2: Trick en cours, ne pas demander de piocher
   if (currentTrick.length > 0) {
+    console.log("⛔ Trick en cours, pas de pioche maintenant");
     return false;
   }
 
-  // Vérification des conditions de pioche après un trick
+  // Cas 3: Vérification des conditions de pioche après un trick
   const myUidInQueue = currentDrawQueue.includes(myUid.value);
   const queueHasTwoCards = currentDrawQueue.length === 2;
 
+  console.log("🎯 Conditions de pioche:", {
+    myUidInQueue,
+    queueHasTwoCards,
+    condition: myUidInQueue || queueHasTwoCards,
+  });
+
+  // ✅ NOUVELLE LOGIQUE :
   // - Si mon UID est dans la drawQueue, je dois piocher
   // - OU si la drawQueue a 2 cartes (les deux joueurs doivent piocher)
   //   et c'est mon tour, alors je dois piocher en premier
   const shouldDraw = myUidInQueue || queueHasTwoCards;
+
+  if (shouldDraw) {
+    console.log("✅ Conditions remplies, popup de pioche nécessaire");
+  } else {
+    console.log("⛔ Conditions non remplies, pas de popup");
+  }
 
   return shouldDraw;
 });
@@ -95,10 +120,10 @@ const isNotMyTurn = computed(() => {
   return drawQueue.value.length === 1 && drawQueue.value[0] !== myUid.value;
 });
 
-// ref local synchronisé avec le store
+// ✅ CORRECTION PRINCIPALE : ref local synchronisé avec le store
 const localHand = ref<string[]>([]);
 
-// Synchronisation unidirectionnelle : store -> composant
+// ✅ Synchronisation unidirectionnelle : store -> composant
 watch(
   () => hand.value,
   (newHand) => {
@@ -111,7 +136,7 @@ watch(
   { immediate: true, deep: true }
 );
 
-// Synchronisation : composant -> store (seulement quand nécessaire)
+// ✅ Synchronisation : composant -> store (seulement quand nécessaire)
 async function syncHandToStore() {
   if (!myUid.value || !Array.isArray(localHand.value)) return;
 
@@ -127,7 +152,7 @@ async function syncHandToStore() {
 }
 
 async function onDragEnd() {
-  // Synchroniser après un drag & drop
+  // ✅ Synchroniser après un drag & drop
   await syncHandToStore();
 }
 
@@ -142,7 +167,7 @@ function onCardDroppedBackToHand(evt: any) {
     return;
   }
 
-  // Gestion plus propre des cartes ajoutées
+  // ✅ Gestion plus propre des cartes ajoutées
   const cardCode = Array.isArray(addedCard) ? addedCard[0] : addedCard;
 
   // Utiliser la fonction du store qui gère déjà Firestore
@@ -155,7 +180,7 @@ async function onCardClick(code: string) {
     return;
   }
 
-  // Vérification simple du piochage obligatoire
+  // ✅ Vérification simple du piochage obligatoire
   if (mustDrawFirst.value) {
     showMustDrawFirst.value = true;
     return;
@@ -173,10 +198,16 @@ async function onCardClick(code: string) {
     playing.value = false;
   }
 }
+// ========================================
+// INTÉGRATION DANS LE COMPOSANT VUE
+// ========================================
 
+// 🎯 Dans votre composant GameRoom.vue
+// 🔧 3. CORRIGER playableCards pour inclure les melds
 const playableCards = computed((): string[] => {
   if (!hand.value || !room.value) return [];
 
+  // ✅ CORRECTION: Inclure les cartes du meld aussi
   const allMyCards = [
     ...hand.value,
     ...(room.value.melds?.[myUid.value!] ?? []),
@@ -187,7 +218,7 @@ const playableCards = computed((): string[] => {
     return allMyCards;
   }
 
-  // Vérifier que c'est mon tour
+  // ✅ AJOUT: Vérifier que c'est mon tour
   if (room.value.currentTurn !== myUid.value) {
     return [];
   }
@@ -200,7 +231,7 @@ const playableCards = computed((): string[] => {
   const amFirstPlayer = currentTrick.length === 0;
 
   return game.getPlayableCardsInBattle(
-    allMyCards,
+    allMyCards, // ✅ Utiliser toutes les cartes (main + meld)
     leadSuit,
     trumpSuit,
     amFirstPlayer
@@ -212,7 +243,7 @@ const playableCards = computed((): string[] => {
 .player-hand {
   display: flex;
   gap: 8px;
-  min-height: 100px;
+  min-height: 100px; /* Pour éviter les sauts visuels */
 }
 
 .disabled {

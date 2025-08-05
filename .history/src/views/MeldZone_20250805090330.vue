@@ -45,10 +45,17 @@ const mustDrawFirst = computed(() => {
   const myUidInQueue = currentDrawQueue.includes(myUid.value);
   const queueHasTwoCards = currentDrawQueue.length === 2;
 
+  // ✅ NOUVELLE LOGIQUE :
   // - Si mon UID est dans la drawQueue, je dois piocher
   // - OU si la drawQueue a 2 cartes (les deux joueurs doivent piocher)
   //   et c'est mon tour, alors je dois piocher en premier
   const shouldDraw = myUidInQueue || queueHasTwoCards;
+
+  if (shouldDraw) {
+    console.log("✅ Conditions remplies, popup de pioche nécessaire");
+  } else {
+    console.log("⛔ Conditions non remplies, pas de popup");
+  }
 
   return shouldDraw;
 });
@@ -68,6 +75,7 @@ function onCardDropped(evt: any) {
   if (props.readonly) return;
 
   const addedCard = evt.item?.__draggable_context?.element;
+  console.log("Carte drag-n-drop reçue:", addedCard);
 
   game.addToMeld(props.uid!, addedCard);
 }
@@ -78,7 +86,7 @@ function onCardClick(code: string) {
     return;
   }
 
-  // Vérification simple du piochage obligatoire
+  // ✅ Vérification simple du piochage obligatoire
   if (mustDrawFirst.value) {
     showMustDrawFirst.value = true;
     return;
@@ -90,9 +98,16 @@ function onCardClick(code: string) {
   });
 }
 
+// ========================================
+// INTÉGRATION DANS LE COMPOSANT VUE
+// ========================================
+
+// 🎯 Dans votre composant GameRoom.vue
+// 🔧 3. CORRIGER playableCards pour inclure les melds
 const playableCards = computed((): string[] => {
   if (!hand.value || !room.value) return [];
 
+  // ✅ CORRECTION: Inclure les cartes du meld aussi
   const allMyCards = [
     ...hand.value,
     ...(room.value.melds?.[myUid.value!] ?? []),
@@ -103,7 +118,7 @@ const playableCards = computed((): string[] => {
     return allMyCards;
   }
 
-  // Vérifier que c'est mon tour
+  // ✅ AJOUT: Vérifier que c'est mon tour
   if (room.value.currentTurn !== myUid.value) {
     return [];
   }
@@ -116,7 +131,7 @@ const playableCards = computed((): string[] => {
   const amFirstPlayer = currentTrick.length === 0;
 
   return game.getPlayableCardsInBattle(
-    allMyCards,
+    allMyCards, // ✅ Utiliser toutes les cartes (main + meld)
     leadSuit,
     trumpSuit,
     amFirstPlayer
@@ -200,7 +215,7 @@ const playableCards = computed((): string[] => {
 }
 
 :not(.readonly) .not-playable {
-  opacity: 0.7;
+  opacity: 0.5;
   cursor: not-allowed !important;
 }
 </style>

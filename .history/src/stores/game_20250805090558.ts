@@ -92,14 +92,14 @@ export async function startNewMene(roomId: string): Promise<number> {
   return newMeneIndex;
 }
 export async function endMene(roomId: string) {
-  // PETIT DÉLAI pour laisser les points se mettre à jour
+  // ⚠️ PETIT DÉLAI pour laisser les points se mettre à jour
   await new Promise((resolve) => setTimeout(resolve, 100));
 
   const roomSnap = await getDoc(doc(db, "rooms", roomId));
   if (!roomSnap.exists()) throw new Error("Room introuvable");
   const roomData = roomSnap.data();
 
-  // RÉCUPÉRER LES SCORES ACTUELS (avec le bonus déjà appliqué)
+  // ✅ RÉCUPÉRER LES SCORES ACTUELS (avec le bonus déjà appliqué)
   const scores = { ...roomData.scores };
   if (!roomData) throw new Error("Mène introuvable");
 
@@ -107,6 +107,8 @@ export async function endMene(roomId: string) {
   const someoneReachedTarget = Object.values(scores).some(
     (score) => (score as number) >= target
   );
+
+  console.log("🏁 endMene - Scores actuels:", scores);
 
   if (someoneReachedTarget) {
     const [winnerUid] = Object.entries(scores).reduce(
@@ -116,12 +118,14 @@ export async function endMene(roomId: string) {
           : maxEntry
     );
 
+    console.log("🏆 Fin de partie, gagnant:", winnerUid);
     await updateDoc(doc(db, "rooms", roomId), {
       phase: "final",
       winnerUid,
       // ✅ NE PAS réécrire les scores !
     });
   } else {
+    console.log("🔄 Nouvelle mène");
     await startNewMene(roomId);
   }
 }
@@ -190,6 +194,8 @@ export const useGameStore = defineStore("game", () => {
     // ✅ Permettre aux 2 joueurs de déclencher (au lieu de seulement le dernier)
     const isPlayerInTrick = trick.players?.includes(myUid.value);
     if (!isPlayerInTrick) return;
+
+    console.log("🚀 Tentative résolution pli par", myUid.value);
 
     playing.value = true;
     resolveTrickOnServer().finally(() => {
@@ -315,6 +321,10 @@ export const useGameStore = defineStore("game", () => {
       // Mise à jour locale
       if (room.value.melds) room.value.melds[uid] = newMeld;
       if (room.value.hands) room.value.hands[uid] = newHand;
+
+      console.log(
+        `✔️ Carte ${code} retirée du meld et ajoutée à la main de ${uid}.`
+      );
     } catch (e) {
       console.error("❌ Erreur lors de la mise à jour Firestore :", e);
     }
@@ -706,23 +716,41 @@ export const useGameStore = defineStore("game", () => {
     const a = splitCode(first);
     const b = splitCode(second);
 
+    console.log("🎯 Résolution pli battle:", {
+      first: `${a.rank}${a.suit}`,
+      second: `${b.rank}${b.suit}`,
+      trump,
+      firstPlayer: firstUid,
+      secondPlayer: secondUid,
+    });
+
     // Même couleur: le plus fort gagne
     if (a.suit === b.suit) {
       const winner =
         RANK_ORDER[a.rank] >= RANK_ORDER[b.rank] ? firstUid : secondUid;
+      console.log(`✅ Même couleur (${a.suit}), gagnant: ${winner}`);
       return winner;
     }
 
     // Atout vs non-atout: atout gagne
     if (a.suit === trump && b.suit !== trump) {
+      console.log(
+        `✅ ${firstUid} joue atout (${a.suit}) vs ${b.suit}, ${firstUid} gagne`
+      );
       return firstUid;
     }
 
     if (b.suit === trump && a.suit !== trump) {
+      console.log(
+        `✅ ${secondUid} joue atout (${b.suit}) vs ${a.suit}, ${secondUid} gagne`
+      );
       return secondUid;
     }
 
     // Couleurs différentes, pas d'atout: premier joueur gagne
+    console.log(
+      `✅ Couleurs différentes sans atout, ${firstUid} (premier) gagne`
+    );
     return firstUid;
   }
 
@@ -793,11 +821,25 @@ export const useGameStore = defineStore("game", () => {
     const isLastTrick =
       remainingCardsInHands === 0 && remainingCardsInMelds === 0 && deckEmpty;
 
+    console.log(`🔍 Détection dernier pli:`, {
+      remainingCardsInHands,
+      remainingCardsInMelds,
+      deckEmpty,
+      isLastTrick,
+    });
+
     // 🎯 CALCULER LE TOTAL DES POINTS
     let totalPoints = trickPoints;
     if (isLastTrick) {
       totalPoints += 10; // Bonus dernier pli
+      console.log("🏆 Dernier pli détecté ! +10 bonus pour", winner);
     }
+
+    console.log(
+      `💰 Points calculés: ${trickPoints} (pli) ${
+        isLastTrick ? "+ 10 (bonus)" : ""
+      } = ${totalPoints} pour ${winner}`
+    );
 
     // 🎯 PRÉPARER LES MISES À JOUR
     const update: Record<string, any> = {
@@ -822,14 +864,21 @@ export const useGameStore = defineStore("game", () => {
     if (totalPoints > 0) {
       const currentScore = d.scores?.[winner] ?? 0;
       update[`scores.${winner}`] = currentScore + totalPoints;
+      console.log(
+        `💰 +${totalPoints} pts pour ${winner} (${currentScore} → ${
+          currentScore + totalPoints
+        })`
+      );
     }
 
     // 🎯 APPLIQUER LES MISES À JOUR AVEC updateDoc
     try {
       await updateDoc(roomRef, update);
+      console.log("✅ Mise à jour réussie avec update:", update);
 
       // Vérifier si c'était le dernier pli
       if (isLastTrick) {
+        console.log("🏁 C'était le dernier pli, appel de endMene");
         await endMene(room.value.id);
       }
     } catch (error) {

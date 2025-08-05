@@ -70,7 +70,7 @@ async function addScore() {
         </div>
       </div>
       <!-- Sélecteur simple de score -->
-      <div class="mt-4 text-white dark:text-black">
+      <div class="mt-4 text-white">
         <label class="block mb-1">Ajouter des points :</label>
         <select
           v-model="selectedScore"

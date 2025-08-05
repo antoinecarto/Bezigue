@@ -793,11 +793,25 @@ export const useGameStore = defineStore("game", () => {
     const isLastTrick =
       remainingCardsInHands === 0 && remainingCardsInMelds === 0 && deckEmpty;
 
+    console.log(`🔍 Détection dernier pli:`, {
+      remainingCardsInHands,
+      remainingCardsInMelds,
+      deckEmpty,
+      isLastTrick,
+    });
+
     // 🎯 CALCULER LE TOTAL DES POINTS
     let totalPoints = trickPoints;
     if (isLastTrick) {
       totalPoints += 10; // Bonus dernier pli
+      console.log("🏆 Dernier pli détecté ! +10 bonus pour", winner);
     }
+
+    console.log(
+      `💰 Points calculés: ${trickPoints} (pli) ${
+        isLastTrick ? "+ 10 (bonus)" : ""
+      } = ${totalPoints} pour ${winner}`
+    );
 
     // 🎯 PRÉPARER LES MISES À JOUR
     const update: Record<string, any> = {
@@ -822,14 +836,21 @@ export const useGameStore = defineStore("game", () => {
     if (totalPoints > 0) {
       const currentScore = d.scores?.[winner] ?? 0;
       update[`scores.${winner}`] = currentScore + totalPoints;
+      console.log(
+        `💰 +${totalPoints} pts pour ${winner} (${currentScore} → ${
+          currentScore + totalPoints
+        })`
+      );
     }
 
     // 🎯 APPLIQUER LES MISES À JOUR AVEC updateDoc
     try {
       await updateDoc(roomRef, update);
+      console.log("✅ Mise à jour réussie avec update:", update);
 
       // Vérifier si c'était le dernier pli
       if (isLastTrick) {
+        console.log("🏁 C'était le dernier pli, appel de endMene");
         await endMene(room.value.id);
       }
     } catch (error) {

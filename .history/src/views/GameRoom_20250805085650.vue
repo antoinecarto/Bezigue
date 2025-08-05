@@ -151,6 +151,8 @@ const meneMessage = ref("");
 watch(
   () => room.value?.trick?.winner,
   (winner) => {
+    console.log("🎯 watch trick.winner déclenché :", winner);
+
     if (!winner) return;
     if (winner === myUid.value) {
       game.checkExchangePossibility();
