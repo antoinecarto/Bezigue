@@ -61,15 +61,32 @@ const showMustDrawFirst = ref(false);
 const mustDrawFirst = computed(() => {
   if (!myUid.value || !isMyTurn.value || !room.value) return false;
 
+  const hasAnyScore = Object.values(room.value.scores || {}).some(
+    (score) => score > 0
+  );
+
   const currentTrick = room.value.trick?.cards || [];
   const currentDrawQueue = drawQueue.value || [];
 
-  // Trick en cours = pas de pioche
-  if (currentTrick.length > 0) return false;
-  if (localHand.value.length >= 9) return false;
+  // Aucun score marqué = premier trick de la partie
+  if (!hasAnyScore) {
+    return false;
+  }
 
-  // ✅ Je dois piocher si je suis dans la drawQueue
-  return currentDrawQueue.includes(myUid.value);
+  // Trick en cours, ne pas demander de piocher
+  if (currentTrick.length > 0) {
+    return false;
+  }
+
+  // Vérification des conditions de pioche après un trick
+  const myUidInQueue = currentDrawQueue.includes(myUid.value);
+
+  // - Si mon UID est dans la drawQueue, je dois piocher
+  // - OU si la drawQueue a 2 cartes (les deux joueurs doivent piocher)
+  //   et c'est mon tour, alors je dois piocher en premier
+  const shouldDraw = myUidInQueue;
+
+  return shouldDraw;
 });
 const isMyTurn = computed(() => currentTurn.value === myUid.value);
 

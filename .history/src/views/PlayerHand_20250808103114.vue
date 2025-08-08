@@ -66,7 +66,6 @@ const mustDrawFirst = computed(() => {
 
   // Trick en cours = pas de pioche
   if (currentTrick.length > 0) return false;
-  if (localHand.value.length >= 9) return false;
 
   // ✅ Je dois piocher si je suis dans la drawQueue
   return currentDrawQueue.includes(myUid.value);

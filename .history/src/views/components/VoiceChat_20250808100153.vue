@@ -227,7 +227,7 @@ async function handleCaller() {
         sdp: offer.sdp,
       },
       createdAt: new Date(),
-      phase: "waiting",
+      status: "waiting",
       caller: true,
     });
 
